@@ -1,0 +1,332 @@
+{
+  "passed": 9,
+  "of": 32,
+  "gates": [
+    {
+      "gate": 1,
+      "name": "display font is not Inter/Roboto/Open Sans/Poppins/Lato/system",
+      "pass": true,
+      "evidence": [],
+      "count": 0
+    },
+    {
+      "gate": 2,
+      "name": "no purple-blue / cyan-magenta gradient",
+      "pass": true,
+      "evidence": [],
+      "count": 0
+    },
+    {
+      "gate": 5,
+      "name": "no gradient text (background-clip: text)",
+      "pass": true,
+      "evidence": [],
+      "count": 0
+    },
+    {
+      "gate": 6,
+      "name": "no thick side-stripe borders (border-left/right ≥ 3px, inset side box-shadow)",
+      "pass": false,
+      "evidence": [
+        "app/styles/calendar.css: border-left: 3px solid var(--tt)",
+        "app/styles/voice.css: border-left: 4px solid var(--gold)",
+        "app/styles/calendar.css: box-shadow: inset 4px 0 0 var(--tt)",
+        "app/styles/calendar.css: box-shadow: inset 4px 0 0 var(--ig)",
+        "app/styles/calendar.css: box-shadow: inset 4px 0 0 var(--yt)",
+        "app/styles/calendar.css: box-shadow: inset 3px 0 0 var(--tt)",
+        "app/styles/calendar.css: box-shadow: inset 3px 0 0 var(--ig)",
+        "app/styles/calendar.css: box-shadow: inset 3px 0 0 var(--yt)"
+      ],
+      "count": 8
+    },
+    {
+      "gate": 8,
+      "name": "no pure #fff / #000 as a colour",
+      "pass": false,
+      "evidence": [
+        "app/styles/global.css: #fff",
+        "app/styles/tokens.css: #ffffff"
+      ],
+      "count": 2
+    },
+    {
+      "gate": 11,
+      "name": "no transition: all (or property-less transition)",
+      "pass": true,
+      "evidence": [],
+      "count": 0
+    },
+    {
+      "gate": 13,
+      "name": "no bouncy overshoot easing",
+      "pass": true,
+      "evidence": [],
+      "count": 0
+    },
+    {
+      "gate": 14,
+      "name": "one hover signal per element (not transform + shadow together)",
+      "pass": false,
+      "evidence": [
+        "app/styles/global.css: .card.link:hover",
+        "app/styles/global.css: .btn:hover"
+      ],
+      "count": 2
+    },
+    {
+      "gate": 15,
+      "name": "no animated width/height/top/left/margin/padding",
+      "pass": false,
+      "evidence": [
+        "app/styles/global.css: transition: width 0.4s ease"
+      ],
+      "count": 1
+    },
+    {
+      "gate": 16,
+      "name": "focus ring appears instantly (not transitioned)",
+      "pass": false,
+      "evidence": [
+        "app/styles/global.css: transition: transform 0.15s, box-shadow 0.15s",
+        "app/styles/global.css: transition: transform 0.12s, box-shadow 0.12s, background 0.12s",
+        "app/styles/global.css: transition: border-color 0.15s, box-shadow 0.15s"
+      ],
+      "count": 3
+    },
+    {
+      "gate": 21,
+      "name": "Hallmark stamp at the top of the stylesheet",
+      "pass": false,
+      "evidence": [
+        "no /* Hallmark · … */ stamp in app/styles"
+      ],
+      "count": 1
+    },
+    {
+      "gate": 26,
+      "name": "spacing on the named 4-pt scale",
+      "pass": false,
+      "evidence": [
+        "app/styles/brain.css: gap: 28px",
+        "app/styles/brain.css: gap: 8px",
+        "app/styles/brain.css: margin: 0 0 12px",
+        "app/styles/brain.css: padding: 10px 12px",
+        "app/styles/brain.css: padding: 10px 12px",
+        "app/styles/brain.css: gap: 14px",
+        "app/styles/calendar.css: gap: 12px",
+        "app/styles/calendar.css: padding: 0 18px"
+      ],
+      "count": 241
+    },
+    {
+      "gate": 28,
+      "name": "interactive states present (focus-visible, active, disabled)",
+      "pass": false,
+      "evidence": [
+        "icon button :disabled"
+      ],
+      "count": 1
+    },
+    {
+      "gate": 29,
+      "name": "every motion has a prefers-reduced-motion fallback",
+      "pass": false,
+      "evidence": [
+        "no @media (prefers-reduced-motion: reduce)"
+      ],
+      "count": 1
+    },
+    {
+      "gate": 32,
+      "name": "one icon voice (no Unicode glyphs standing in for icons)",
+      "pass": false,
+      "evidence": [
+        "app/components/Shell.tsx: icon: \"⌂\"",
+        "app/components/Shell.tsx: icon: \"＋\"",
+        "app/components/Shell.tsx: icon: \"▶\"",
+        "app/components/Shell.tsx: icon: \"▦\"",
+        "app/components/Shell.tsx: icon: \"✦\"",
+        "app/components/Shell.tsx: icon: \"◎\"",
+        "app/components/Shell.tsx: icon: \"◈\"",
+        "app/components/Shell.tsx: icon: \"▲\""
+      ],
+      "count": 17
+    },
+    {
+      "gate": 35,
+      "name": "decorative svg/canvas has aria-hidden or a name",
+      "pass": true,
+      "evidence": [],
+      "count": 0
+    },
+    {
+      "gate": 36,
+      "name": "no horizontal scroll at 390 or 1440",
+      "pass": true,
+      "evidence": [],
+      "count": 0
+    },
+    {
+      "gate": 39,
+      "name": "at most three type families (display, body, one outlier)",
+      "pass": false,
+      "evidence": [
+        "families: --font-display, --font-body, --font-mono, --font-script",
+        "app/styles/calendar.css: .cal-time {\n  font-family: var(--font-mono)",
+        "app/styles/global.css: .stepper output {\n  min-width: 44px;\n  text-align: center;\n  font-weig",
+        "app/styles/research.css: .rs-lead {\n  font-weight: 700;\n  font-family: var(--font-mono)"
+      ],
+      "count": 4
+    },
+    {
+      "gate": 42,
+      "name": "input focus uses outline, not a border/box-shadow change",
+      "pass": false,
+      "evidence": [
+        "app/styles/global.css: .input:focus,\n.textarea:focus,\n.select:focus"
+      ],
+      "count": 1
+    },
+    {
+      "gate": 46,
+      "name": "body text ≥ 4.5:1 on its surface",
+      "pass": false,
+      "evidence": [
+        "warning pill text on its fill #b8720f on #f5e7d1 = 3.16:1"
+      ],
+      "count": 1
+    },
+    {
+      "gate": 47,
+      "name": "focus ring ≥ 3:1 against the page",
+      "pass": false,
+      "evidence": [
+        "focus ring #d7b56d on cream = 1.74:1"
+      ],
+      "count": 1
+    },
+    {
+      "gate": 49,
+      "name": "accent fill has a named text token (accent-ink)",
+      "pass": true,
+      "evidence": [],
+      "count": 0
+    },
+    {
+      "gate": 53,
+      "name": "no centred-everything blocks (empty states, help boxes)",
+      "pass": false,
+      "evidence": [
+        "app/styles/global.css: .empty"
+      ],
+      "count": 1
+    },
+    {
+      "gate": 58,
+      "name": "no colour/font improvisation outside tokens.css",
+      "pass": false,
+      "evidence": [
+        "app/styles/global.css",
+        "app/styles/global.css",
+        "app/styles/global.css",
+        "app/styles/global.css",
+        "app/styles/global.css",
+        "app/styles/global.css",
+        "app/styles/global.css",
+        "app/styles/global.css"
+      ],
+      "count": 28
+    },
+    {
+      "gate": 59,
+      "name": "no clickable label wraps to two lines",
+      "pass": false,
+      "evidence": [
+        "review-edit@phone: button \"Use the other hook: “Guests al\""
+      ],
+      "count": 1
+    },
+    {
+      "gate": 61,
+      "name": "image-bearing 1fr grid tracks use minmax(0, 1fr)",
+      "pass": false,
+      "evidence": [
+        "app/styles/calendar.css: grid-template-columns: 1fr",
+        "app/styles/calendar.css: grid-template-columns: 1fr",
+        "app/styles/global.css: grid-template-columns: repeat(5, 1fr)",
+        "app/styles/global.css: grid-template-columns: 1fr",
+        "app/styles/global.css: grid-template-columns: 1fr",
+        "app/styles/review.css: grid-template-columns: 1fr 1fr",
+        "app/styles/review.css: grid-template-columns: 1fr",
+        "app/styles/stats.css: grid-template-columns: 1fr auto"
+      ],
+      "count": 8
+    },
+    {
+      "gate": 62,
+      "name": "html and body overflow-x: clip",
+      "pass": false,
+      "evidence": [
+        "overflow-x: clip missing on html/body"
+      ],
+      "count": 1
+    },
+    {
+      "gate": 63,
+      "name": "display heads break long words (overflow-wrap: anywhere)",
+      "pass": false,
+      "evidence": [
+        "h1 lacks overflow-wrap: anywhere"
+      ],
+      "count": 1
+    },
+    {
+      "gate": "A1",
+      "name": "tap targets ≥ 44 px (all screens, both viewports)",
+      "pass": false,
+      "evidence": [
+        "tour@phone: a.soft \"All dumps\" 82×25",
+        "tour@phone: a.soft \"Deals\" 44×25",
+        "home@phone: a.soft \"All dumps\" 82×25",
+        "home@phone: a.soft \"Deals\" 44×25",
+        "review@phone: button.plat.on \"Post to TikTok\" 71×36",
+        "review@phone: button.plat.on \"Post to Instagram\" 96×36",
+        "review@phone: button.plat.on \"Post to YouTube\" 86×36",
+        "review@phone: button.plat.on \"Post to TikTok\" 71×36"
+      ],
+      "count": 116
+    },
+    {
+      "gate": "A2",
+      "name": "every icon/unnamed button has a name",
+      "pass": true,
+      "evidence": [],
+      "count": 0
+    },
+    {
+      "gate": "A3",
+      "name": "the screen's next step is visible without scrolling",
+      "pass": false,
+      "evidence": [
+        "settings@phone",
+        "mediakit-editor@phone",
+        "mediakit-public@phone",
+        "help-guide@phone",
+        "mediakit-editor@desktop",
+        "mediakit-public@desktop",
+        "help-guide@desktop"
+      ],
+      "count": 7
+    },
+    {
+      "gate": "A4",
+      "name": "the logo has alt text",
+      "pass": false,
+      "evidence": [
+        "app/components/Shell.tsx: <img src=\"/assets/brand/sheila-logo.png\" alt=\"\"",
+        "app/pages/MediaKit.tsx: <img className=\"kit-photo logo\" src=\"/assets/brand/sheila-logo.png\" al"
+      ],
+      "count": 2
+    }
+  ]
+}

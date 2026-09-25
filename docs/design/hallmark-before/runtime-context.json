@@ -1,0 +1,17 @@
+{
+  "run_id": "hallmark_20260925T224923Z_18899",
+  "script_version": "1.3.0-authenticated-headers",
+  "repo_name": "scd-base",
+  "repo_root": "<base checkout of 17522fc>",
+  "branch": "detached",
+  "mode": "full",
+  "stack": "vite",
+  "package_manager": "npm",
+  "playwright_detected": true,
+  "brand_preserve": true,
+  "brand_contract": "docs/design/DESIGN.md (copy)",
+  "base_url": "http://127.0.0.1:8796",
+  "browser_requested": true,
+  "headed": false,
+  "hallmark_sha256": "5fd8800b92c5df211725642306d0447a3687dd0fbab35b9ce3c9d3346cef4809"
+}

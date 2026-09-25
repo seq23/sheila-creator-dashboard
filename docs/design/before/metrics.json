@@ -6,7 +6,6 @@
     "unnamedButtons": 0,
     "wrappedLabels": 1,
     "primaryBelowFold": [
-      "review-edit@phone",
       "settings@phone",
       "mediakit-editor@phone",
       "mediakit-public@phone",
@@ -155,7 +154,7 @@
       "primary": {
         "text": "Save",
         "marked": false,
-        "aboveFold": false
+        "aboveFold": true
       },
       "pageHeight": 2999
     },
@@ -246,7 +245,7 @@
       "primary": {
         "text": "Connect accounts",
         "marked": false,
-        "aboveFold": true
+        "aboveFold": null
       },
       "pageHeight": 2159
     },
@@ -535,7 +534,7 @@
       "primary": {
         "text": "Connect accounts",
         "marked": false,
-        "aboveFold": true
+        "aboveFold": null
       },
       "pageHeight": 1665
     },
