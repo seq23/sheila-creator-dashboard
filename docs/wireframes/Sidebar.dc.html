@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sidebar</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=Space+Grotesk:wght@500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit;text-decoration:none}
+</style>
+</helmet>
+<nav aria-label="Main" style="width: 220px; height: 820px; box-sizing: border-box; padding: 24px 14px; background: #1E1D1A; color: #F3F1EC; display: flex; flex-direction: column; gap: 4px; font-family: 'IBM Plex Sans', sans-serif;">
+<div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 18px; padding: 0 10px 20px 10px;">Sheila Studio</div>
+<sc-for list="{{items}}" as="item" hint-placeholder-count="9">
+<a href="{{item.href}}" style="{{item.style}}">
+<span style="flex-grow: 1;">{{item.label}}</span>
+<sc-if value="{{item.hasBadge}}" hint-placeholder-val="{{false}}">
+<span style="font-size: 12px; font-weight: 600; background: #F3F1EC; color: #1E1D1A; border-radius: 10px; padding: 1px 8px;">{{item.badge}}</span>
+</sc-if>
+</a>
+</sc-for>
+<div style="flex-grow: 1;"></div>
+<div style="font-size: 12px; color: #B8B3A8; padding: 0 10px; display: flex; align-items: center; gap: 8px;">
+<span style="width: 8px; height: 8px; border-radius: 4px; background: #5FB27A; display: inline-block;"></span>
+<span>All systems OK</span>
+</div>
+</nav>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"active":{"editor":"enum","options":["Home","Dump","Review","Calendar","Deals","Client Brain","Research","Stats","Voice","Settings","Help"],"default":"Home"},"$preview":{"width":220,"height":820}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const active = this.props.active ?? 'Home';
+    const defs = [
+      ['Home','Main.dc.html',''],['Dump','Dump.dc.html',''],['Review','Review.dc.html','18'],
+      ['Calendar','Calendar.dc.html',''],['Deals','Deals.dc.html','3'],['Client Brain','ClientBrain.dc.html',''],
+      ['Research','Research.dc.html',''],['Stats','Main.dc.html',''],['Voice','Voice.dc.html','Off'],['Settings','Settings.dc.html',''],['Help','Help.dc.html','']
+    ];
+    const items = defs.map(([label, href, badge]) => {
+      const on = label === active;
+      return {
+        label, href, badge, hasBadge: badge !== '',
+        style: 'display:flex;align-items:center;gap:8px;min-height:44px;padding:0 10px;border-radius:8px;font-size:15px;' +
+          (on ? 'background:#F3F1EC;color:#1E1D1A;font-weight:600;' : 'color:#E4E0D7;')
+      };
+    });
+    return { items };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Calendar</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=Space+Grotesk:wght@500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#2B55A0}a:hover{color:#1C3D78}
+</style>
+</helmet>
+<div style="width: 1280px; height: 820px; display: flex; background: #F3F1EC; color: #1E1D1A; font-family: 'IBM Plex Sans', sans-serif;">
+<dc-import name="Sidebar" active="Calendar" hint-size="220px,820px"></dc-import>
+<main style="flex-grow: 1; box-sizing: border-box; padding: 32px 40px; display: flex; flex-direction: column; gap: 16px;">
+<div style="display: flex; align-items: center; gap: 12px;">
+<h1 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 32px; font-weight: 700;">Calendar</h1>
+<span style="flex-grow: 1;"></span>
+<button type="button" aria-label="Previous week" style="width: 44px; height: 44px; border-radius: 8px; border: 1px solid #B8B3A8; background: #FFFFFF; font-size: 16px;">‹</button>
+<div style="font-size: 16px; font-weight: 600;">Sep 28 – Oct 4</div>
+<button type="button" aria-label="Next week" style="width: 44px; height: 44px; border-radius: 8px; border: 1px solid #B8B3A8; background: #FFFFFF; font-size: 16px;">›</button>
+<div style="display: flex; border: 1px solid #B8B3A8; border-radius: 8px; overflow: hidden; font-size: 14px;">
+<span style="padding: 12px 16px; background: #1E1D1A; color: #FFFFFF; font-weight: 600;">Week</span>
+<span style="padding: 12px 16px; background: #FFFFFF;">Month</span>
+</div>
+</div>
+<div style="display: flex; gap: 20px; font-size: 13px; color: #1E1D1A;">
+<span style="display: flex; align-items: center; gap: 6px;"><span style="width: 12px; height: 12px; border-radius: 3px; background: #1E1D1A;"></span>TikTok 10 / 10</span>
+<span style="display: flex; align-items: center; gap: 6px;"><span style="width: 12px; height: 12px; border-radius: 3px; background: #2B55A0;"></span>Instagram 7 / 10</span>
+<span style="display: flex; align-items: center; gap: 6px;"><span style="width: 12px; height: 12px; border-radius: 3px; background: #C2571A;"></span>YouTube 5 / 10</span>
+<span style="color: #5E5A52;">· cap 10 per channel · times in her audience's time zone [set in Settings]</span>
+</div>
+<div style="display: flex; gap: 16px; flex-grow: 1;">
+<div style="flex-grow: 1; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px;">
+<sc-for list="{{days}}" as="d" hint-placeholder-count="7">
+<div style="background: #FFFFFF; border: 1px solid #D6D2C8; border-radius: 10px; padding: 10px 8px; display: flex; flex-direction: column; gap: 6px;">
+<div style="font-size: 13px; font-weight: 600; padding-bottom: 4px; border-bottom: 1px solid #ECE9E2;">{{d.name}}</div>
+<sc-for list="{{d.slots}}" as="s" hint-placeholder-count="3">
+<div style="{{s.style}}">
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 500;">{{s.time}} · {{s.p}}</span>
+<span style="font-size: 12px; line-height: 1.25;">{{s.hook}}</span>
+</div>
+</sc-for>
+</div>
+</sc-for>
+</div>
+<aside style="width: 200px; background: #FFFFFF; border: 1px solid #D6D2C8; border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+<div style="font-size: 14px; font-weight: 600;">Approved, not scheduled</div>
+<div style="font-size: 12px; color: #5E5A52;">Drag onto a day, or let it auto-fill.</div>
+<div style="padding: 8px; border: 1px dashed #9C978C; border-radius: 6px; font-size: 12px;">Grocery haul in 30s</div>
+<div style="padding: 8px; border: 1px dashed #9C978C; border-radius: 6px; font-size: 12px;">Late-night thoughts</div>
+<div style="padding: 8px; border: 1px dashed #9C978C; border-radius: 6px; font-size: 12px;">What I’d tell my 20-yr-old self</div>
+<span style="flex-grow: 1;"></span>
+<button type="button" style="min-height: 44px; border-radius: 8px; border: none; background: #2B55A0; color: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 600;">Auto-fill open slots</button>
+</aside>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":820}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const col = { TT: '#1E1D1A', IG: '#2B55A0', YT: '#C2571A' };
+    const st = (p) => 'display:flex;flex-direction:column;gap:2px;padding:6px 6px 6px 8px;border-radius:6px;background:#F7F5F1;box-shadow:inset 3px 0 0 ' + col[p] + ';';
+    const S = (time, p, hook) => ({ time, p, hook, style: st(p) });
+    return { days: [
+      { name: 'Mon 28', slots: [S('3p','TT','Morning habit'), S('7p','IG','Morning habit')] },
+      { name: 'Tue 29', slots: [S('1p','IG','Kitchen POV'), S('4p','TT','Worst date story'), S('4p','YT','Kitchen POV'), S('7p','IG','Worst date story'), S('8p','TT','Kitchen POV')] },
+      { name: 'Wed 30', slots: [S('12p','IG','Almost didn’t post'), S('4p','YT','Almost didn’t post'), S('5p','TT','Almost didn’t post'), S('8p','TT','Reply: yes really'), S('8p','IG','Reply: yes really')] },
+      { name: 'Thu 1', slots: [S('9a','IG','3 things I stopped buying'), S('3p','TT','3 things I stopped buying'), S('5p','YT','Worst date story'), S('8p','TT','Room reset')] },
+      { name: 'Fri 2', slots: [S('4p','TT','Answering DMs'), S('4p','YT','Answering DMs')] },
+      { name: 'Sat 3', slots: [S('5p','YT','Morning habit'), S('7p','TT','Room recap')] },
+      { name: 'Sun 4', slots: [S('9a','TT','Week in 30s'), S('9p','IG','Week in 30s')] }
+    ] };
+  }
+}
+</script>
+</body>
+</html>

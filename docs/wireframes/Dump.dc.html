@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Dump</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=Space+Grotesk:wght@500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#2B55A0}a:hover{color:#1C3D78}
+</style>
+</helmet>
+<div style="width: 1280px; height: 820px; display: flex; background: #F3F1EC; color: #1E1D1A; font-family: 'IBM Plex Sans', sans-serif;">
+<dc-import name="Sidebar" active="Dump" hint-size="220px,820px"></dc-import>
+<main style="flex-grow: 1; box-sizing: border-box; padding: 32px 40px; display: flex; gap: 24px;">
+<div style="flex-grow: 1; display: flex; flex-direction: column; gap: 20px;">
+<h1 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 32px; font-weight: 700;">Dump videos</h1>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px;">
+<button type="button" onClick="{{pickNew}}" style="{{newStyle}}">
+<span style="font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 700;">A · New raw footage</span>
+<span style="font-size: 14px; color: #5E5A52;">Never posted. We cut it into lots of short clips.</span>
+</button>
+<button type="button" onClick="{{pickOld}}" style="{{oldStyle}}">
+<span style="font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 700;">B · Recycle old videos</span>
+<span style="font-size: 14px; color: #5E5A52;">Already posted. We give them a new hook and wait 90 days per platform.</span>
+</button>
+</div>
+<div style="border: 2px dashed #9C978C; border-radius: 12px; background: #FFFFFF; height: 150px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;">
+<div style="font-size: 18px; font-weight: 600;">Drop videos here</div>
+<div style="font-size: 14px; color: #5E5A52;">or <a href="#">choose files</a> · any size · many at once</div>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #D6D2C8; border-radius: 12px; padding: 16px 20px; display: flex; flex-direction: column; gap: 12px;">
+<sc-for list="{{files}}" as="f" hint-placeholder-count="3">
+<div style="display: flex; align-items: center; gap: 14px;">
+<div style="width: 220px; font-size: 14px; font-family: 'IBM Plex Mono', monospace;">{{f.name}}</div>
+<div style="flex-grow: 1; height: 8px; background: #E4E0D7; border-radius: 4px;"><div style="{{f.bar}}"></div></div>
+<div style="width: 90px; text-align: right; font-size: 13px; color: #5E5A52;">{{f.status}}</div>
+<sc-if value="{{isRecycle}}" hint-placeholder-val="{{false}}">
+<div style="width: 160px; height: 36px; border: 1px solid #D6D2C8; border-radius: 6px; font-size: 13px; color: #5E5A52; display: flex; align-items: center; padding: 0 10px; box-sizing: border-box;">Posted on… / views</div>
+</sc-if>
+</div>
+</sc-for>
+</div>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 600;">Notes for this dump
+<textarea rows="3" placeholder="e.g. Trip weekend, lean funny. The kitchen one is my favorite." style="font-family: inherit; font-size: 15px; padding: 12px; border: 1px solid #B8B3A8; border-radius: 8px; resize: none; background: #FFFFFF;"></textarea>
+</label>
+<div style="display: flex; align-items: center; gap: 16px;">
+<button type="button" style="height: 56px; padding: 0 48px; border-radius: 12px; border: none; background: #2B55A0; color: #FFFFFF; font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 700;">Dump</button>
+<div style="font-size: 14px; color: #5E5A52;">We'll email you when the clips are ready to review.</div>
+</div>
+</div>
+<aside style="width: 300px; display: flex; flex-direction: column; gap: 12px;">
+<h2 style="margin: 44px 0 0 0; font-size: 16px; font-weight: 600;">Recent dumps</h2>
+<sc-for list="{{recent}}" as="d" hint-placeholder-count="3">
+<div style="background: #FFFFFF; border: 1px solid #D6D2C8; border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px;">
+<div style="font-size: 14px; font-weight: 600;">{{d.title}}</div>
+<div style="font-size: 13px; color: #5E5A52;">{{d.meta}}</div>
+<div style="font-size: 13px; font-weight: 600; color: {{d.color}};">{{d.status}}</div>
+</div>
+</sc-for>
+</aside>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":820}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { door: 'new' }; }
+  renderVals() {
+    const isNew = this.state.door === 'new';
+    const base = 'text-align:left;display:flex;flex-direction:column;gap:6px;padding:20px;border-radius:12px;background:#FFFFFF;font-family:inherit;color:#1E1D1A;cursor:pointer;min-height:96px;';
+    const on = 'border:3px solid #2B55A0;';
+    const off = 'border:1px solid #D6D2C8;';
+    const bar = (p) => 'width:' + p + '%;height:8px;border-radius:4px;background:#2B55A0;';
+    return {
+      pickNew: () => this.setState({ door: 'new' }),
+      pickOld: () => this.setState({ door: 'old' }),
+      newStyle: base + (isNew ? on : off),
+      oldStyle: base + (isNew ? off : on),
+      isRecycle: !isNew,
+      files: [
+        { name: 'IMG_4412.MOV', bar: bar(100), status: 'Uploaded' },
+        { name: 'IMG_4413.MOV', bar: bar(62), status: '62%' },
+        { name: 'kitchen_long.mp4', bar: bar(8), status: '8%' }
+      ],
+      recent: [
+        { title: 'Sep 22 · Door A · 6 videos', meta: '41 clips made', status: 'Ready for review', color: '#2B55A0' },
+        { title: 'Sep 18 · Door B · 9 videos', meta: '18 clips made', status: 'Reviewed', color: '#2E6B3F' },
+        { title: 'Sep 25 · Door A · 3 videos', meta: 'Cutting… about 20 min', status: 'Cutting', color: '#5E5A52' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

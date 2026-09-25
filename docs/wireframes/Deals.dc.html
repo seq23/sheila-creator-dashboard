@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Brand deals</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=Space+Grotesk:wght@500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#2B55A0}a:hover{color:#1C3D78}
+</style>
+</helmet>
+<div style="width: 1280px; height: 820px; display: flex; background: #F3F1EC; color: #1E1D1A; font-family: 'IBM Plex Sans', sans-serif;">
+<dc-import name="Sidebar" active="Deals" hint-size="220px,820px"></dc-import>
+<main style="flex-grow: 1; box-sizing: border-box; padding: 32px 40px; display: flex; flex-direction: column; gap: 14px;">
+<div style="display: flex; align-items: center; gap: 12px;">
+<h1 style="margin: 0; flex-grow: 1; font-family: 'Space Grotesk', sans-serif; font-size: 32px; font-weight: 700;">Brand deals</h1>
+<a href="MediaKit.dc.html" style="display: flex; align-items: center; min-height: 44px; padding: 0 16px; border-radius: 10px; border: 1px solid #B8B3A8; background: #FFFFFF; color: #1E1D1A; font-size: 14px; font-weight: 500; text-decoration: none;">View my media kit</a>
+<button type="button" style="min-height: 44px; padding: 0 16px; border-radius: 10px; border: 1px solid #B8B3A8; background: #FFFFFF; font-family: inherit; font-size: 14px;">+ Add a brand I love</button>
+</div>
+<div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px;">
+<sc-for list="{{stages}}" as="s" hint-placeholder-count="6">
+<div style="{{s.style}}">
+<span style="font-size: 12px; font-weight: 500;">{{s.name}}</span>
+<span style="font-family: 'Space Grotesk', sans-serif; font-size: 22px; font-weight: 700;">{{s.n}}</span>
+</div>
+</sc-for>
+</div>
+<div style="display: flex; gap: 16px; flex-grow: 1; min-height: 0;">
+<section style="width: 400px; display: flex; flex-direction: column; gap: 10px;">
+<div style="font-size: 14px; font-weight: 600;">Suggested this week · 12 brands</div>
+<sc-for list="{{brands}}" as="b" hint-placeholder-count="4">
+<div style="{{b.style}}">
+<div style="display: flex; align-items: center; gap: 10px;">
+<div style="width: 36px; height: 36px; border-radius: 8px; background: #E4E0D7; border: 1px dashed #9C978C;"></div>
+<div style="flex-grow: 1; font-size: 15px; font-weight: 600;">{{b.name}}</div>
+<span style="font-size: 12px; font-weight: 600; padding: 3px 8px; border-radius: 10px; background: #E7F1EA; color: #2E6B3F;">Fit {{b.fit}}</span>
+</div>
+<div style="font-size: 13px; color: #5E5A52; line-height: 1.4;">{{b.why}}</div>
+</div>
+</sc-for>
+</section>
+<section style="flex-grow: 1; background: #FFFFFF; border: 2px solid #2B55A0; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 12px;">
+<div style="display: flex; align-items: center; gap: 12px;">
+<h2 style="margin: 0; flex-grow: 1; font-size: 20px; font-weight: 600;">[Brand A]</h2>
+<a href="#" style="font-size: 14px;">Website</a>
+<a href="#" style="font-size: 14px;">Creator program</a>
+<a href="#" style="font-size: 14px;">Their TikTok</a>
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px; padding: 12px; border-radius: 8px; background: #F7F5F1; font-size: 14px;">
+<div><span style="font-weight: 600;">Why it fits:</span> matches your "[theme]" theme; sponsored 3 creators your size this month; not on your off-limits list.</div>
+<div><span style="font-weight: 600;">Contact:</span> <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px;">partnerships@[brand].com</span> · found on <a href="#">their contact page</a></div>
+</div>
+<div style="display: flex; gap: 6px; font-size: 13px;">
+<span style="padding: 6px 12px; border-radius: 16px; background: #1E1D1A; color: #FFFFFF; font-weight: 600;">Email</span>
+<span style="padding: 6px 12px; border-radius: 16px; border: 1px solid #B8B3A8;">DM</span>
+<span style="padding: 6px 12px; border-radius: 16px; border: 1px solid #B8B3A8;">Follow-up day 5</span>
+<span style="padding: 6px 12px; border-radius: 16px; border: 1px solid #B8B3A8;">Follow-up day 12</span>
+</div>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600;">Subject
+<input type="text" value="Creator partnership idea: [product] × [her name]" style="min-height: 40px; padding: 0 10px; border: 1px solid #B8B3A8; border-radius: 8px; font-family: inherit; font-size: 14px; font-weight: 400;">
+</label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600; flex-grow: 1;">Email
+<div style="flex-grow: 1; padding: 12px; border: 1px solid #B8B3A8; border-radius: 8px; font-size: 14px; font-weight: 400; line-height: 1.5; color: #1E1D1A; white-space: pre-line;">Hi [first name or team],
+
+[One line about their product she genuinely uses.]
+[Audience fit in numbers from her stats.]
+Two clips that show the style: [clip link] · [clip link]
+Media kit: [her media-kit link]
+
+[One clear ask.]
+[Her name]</div>
+</label>
+<div style="display: flex; gap: 10px; align-items: center;">
+<button type="button" style="min-height: 48px; padding: 0 22px; border-radius: 10px; border: none; background: #2B55A0; color: #FFFFFF; font-family: inherit; font-size: 15px; font-weight: 600;">Open in Gmail</button>
+<button type="button" style="min-height: 48px; padding: 0 18px; border-radius: 10px; border: 1px solid #B8B3A8; background: #FFFFFF; font-family: inherit; font-size: 15px;">Copy</button>
+<button type="button" style="min-height: 48px; padding: 0 18px; border-radius: 10px; border: 1px solid #B8B3A8; background: #FFFFFF; font-family: inherit; font-size: 15px;">Mark as sent</button>
+<span style="flex-grow: 1;"></span>
+<button type="button" style="min-height: 48px; padding: 0 12px; border: none; background: transparent; color: #5E5A52; font-family: inherit; font-size: 14px; text-decoration: underline;">Not a fit — hide</button>
+</div>
+</section>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":820}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const st = (on) => 'display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:10px;' + (on ? 'background:#1E1D1A;color:#FFFFFF;' : 'background:#FFFFFF;border:1px solid #D6D2C8;');
+    const card = (on) => 'display:flex;flex-direction:column;gap:8px;padding:14px;border-radius:12px;background:#FFFFFF;' + (on ? 'border:2px solid #2B55A0;' : 'border:1px solid #D6D2C8;');
+    return {
+      stages: [
+        { name: 'Found', n: 12, style: st(true) }, { name: 'Drafted', n: 5, style: st(false) },
+        { name: 'Sent', n: 7, style: st(false) }, { name: 'Replied', n: 2, style: st(false) },
+        { name: 'Negotiating', n: 1, style: st(false) }, { name: 'Won', n: 0, style: st(false) }
+      ],
+      brands: [
+        { name: '[Brand A]', fit: 92, why: 'Sponsors creators your size · has a creator program · fits your top theme', style: card(true) },
+        { name: '[Brand B]', fit: 87, why: 'You listed it as a brand you use', style: card(false) },
+        { name: '[Brand C]', fit: 81, why: 'Affiliate program open · audience overlap', style: card(false) },
+        { name: '[Brand D]', fit: 76, why: 'Recently ran #ad posts with 2 creators in your brief', style: card(false) }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

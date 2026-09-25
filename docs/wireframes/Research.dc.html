@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Research Brief</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=Space+Grotesk:wght@500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#2B55A0}a:hover{color:#1C3D78}
+</style>
+</helmet>
+<div style="width: 1280px; height: 820px; display: flex; background: #F3F1EC; color: #1E1D1A; font-family: 'IBM Plex Sans', sans-serif;">
+<dc-import name="Sidebar" active="Research" hint-size="220px,820px"></dc-import>
+<main style="flex-grow: 1; box-sizing: border-box; padding: 32px 40px; display: flex; flex-direction: column; gap: 16px;">
+<div style="display: flex; align-items: center; gap: 12px;">
+<div style="flex-grow: 1;">
+<h1 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 32px; font-weight: 700;">Research Brief</h1>
+<div style="font-size: 14px; color: #5E5A52; margin-top: 4px;">Draft v2 · 24 sources · needs your approval before clips are cut</div>
+</div>
+<button type="button" style="min-height: 44px; padding: 0 16px; border-radius: 10px; border: 1px solid #B8B3A8; background: #FFFFFF; font-family: inherit; font-size: 14px;">Upload outside report</button>
+<button type="button" style="min-height: 44px; padding: 0 16px; border-radius: 10px; border: 1px solid #B8B3A8; background: #FFFFFF; font-family: inherit; font-size: 14px;">Refresh research</button>
+<button type="button" style="min-height: 44px; padding: 0 20px; border-radius: 10px; border: none; background: #2E6B3F; color: #FFFFFF; font-family: inherit; font-size: 15px; font-weight: 600;">Approve brief</button>
+</div>
+<div style="display: flex; gap: 10px; font-size: 13px;">
+<span style="padding: 4px 10px; border-radius: 12px; background: #E3ECF8; color: #1C3D78; font-weight: 600;">Her data</span>
+<span style="padding: 4px 10px; border-radius: 12px; background: #ECE9E2; color: #1E1D1A; font-weight: 600;">Web</span>
+<span style="padding: 4px 10px; border-radius: 12px; background: #FBEFE6; color: #7A3309; font-weight: 600;">Uncertain</span>
+<span style="color: #5E5A52; padding: 4px 0;">Every claim links its source.</span>
+</div>
+<div style="display: flex; gap: 16px; flex-grow: 1;">
+<nav aria-label="Brief sections" style="width: 190px; display: flex; flex-direction: column; gap: 4px; font-size: 14px;">
+<a href="#" style="padding: 10px 12px; border-radius: 8px; background: #FFFFFF; color: #1E1D1A; font-weight: 600; text-decoration: none;">Posting times</a>
+<a href="#" style="padding: 10px 12px; border-radius: 8px; color: #1E1D1A; text-decoration: none;">How often</a>
+<a href="#" style="padding: 10px 12px; border-radius: 8px; color: #1E1D1A; text-decoration: none;">Audience</a>
+<a href="#" style="padding: 10px 12px; border-radius: 8px; color: #1E1D1A; text-decoration: none;">Content themes</a>
+<a href="#" style="padding: 10px 12px; border-radius: 8px; color: #1E1D1A; text-decoration: none;">Hooks</a>
+<a href="#" style="padding: 10px 12px; border-radius: 8px; color: #1E1D1A; text-decoration: none;">Cut styles + length</a>
+<a href="#" style="padding: 10px 12px; border-radius: 8px; color: #1E1D1A; text-decoration: none;">Creators to learn from</a>
+<a href="#" style="padding: 10px 12px; border-radius: 8px; color: #1E1D1A; text-decoration: none;">What to film next</a>
+</nav>
+<article style="flex-grow: 1; background: #FFFFFF; border: 1px solid #D6D2C8; border-radius: 12px; padding: 24px; display: flex; flex-direction: column; gap: 14px;">
+<h2 style="margin: 0; font-size: 20px; font-weight: 600;">Posting times</h2>
+<sc-for list="{{claims}}" as="c" hint-placeholder-count="4">
+<div style="display: flex; gap: 12px; padding: 12px 0; border-top: 1px solid #ECE9E2;">
+<span style="{{c.tagStyle}}">{{c.tag}}</span>
+<div style="flex-grow: 1; display: flex; flex-direction: column; gap: 4px;">
+<div style="font-size: 15px; line-height: 1.45;">{{c.text}}</div>
+<a href="#" style="font-size: 13px;">{{c.src}}</a>
+</div>
+</div>
+</sc-for>
+</article>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":820}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const tag = { 'Her data': 'background:#E3ECF8;color:#1C3D78;', 'Web': 'background:#ECE9E2;color:#1E1D1A;', 'Uncertain': 'background:#FBEFE6;color:#7A3309;' };
+    const base = 'flex-shrink:0;align-self:flex-start;width:84px;text-align:center;padding:4px 0;border-radius:12px;font-size:12px;font-weight:600;';
+    const C = (t, text, src) => ({ tag: t, tagStyle: base + tag[t], text, src });
+    return { claims: [
+      C('Web', 'Instagram: evenings 6–11 pm are strongest on weekdays except Thursday, where 7–9 am wins; Wednesday is the best day.', 'Buffer · 9.6M Instagram posts'),
+      C('Uncertain', 'TikTok: studies disagree on weekends (one says avoid, one ranks Saturday best). Launch schedule tests both.', 'Sprout Social · Buffer'),
+      C('Web', 'YouTube Shorts: Friday around 4 pm performed best, with Saturday close behind.', 'Buffer · best-times study'),
+      C('Her data', '[After 4 weeks: her own best hours per platform replace the averages above]', 'Her TikTok, Instagram and YouTube stats')
+    ] };
+  }
+}
+</script>
+</body>
+</html>

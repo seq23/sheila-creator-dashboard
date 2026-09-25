@@ -1,0 +1,78 @@
+# Sheila Creator Dashboard
+
+Sheila dumps footage; the dashboard cuts it into vertical clips, she approves them, they post
+through Buffer to TikTok, Instagram and YouTube on a schedule the research says works, and the
+Deals tab finds brands and drafts pitches she sends herself. Owner: **Sheila**. Cost target:
+**$0/month**. Nothing posts unless she approves it.
+
+The plan is `docs/BUILD_PLAN.md` (locked decisions, every screen, data model, phases) and the
+wireframes are `docs/wireframes/`. This README says what is **live**, what is **scaffolded**
+and what only a person can check.
+
+## Stack
+
+| Job | Tool |
+| --- | --- |
+| App + API + crons | One Cloudflare Worker: React/Vite as static assets, Hono API under `/api`, three cron lanes |
+| Login | Email one-time code (Resend), no passwords; owner + optional helper |
+| Data | D1 (`migrations/`), R2 (`raw/`, `clips/`, `brain/`, `voice/`, `kit/`) |
+| Heavy jobs | GitHub Actions, started only by the Worker (`repository_dispatch`, signed), `jobs/*.py` |
+| AI / search / posting / email | OpenRouter free models · Firecrawl · Buffer API · Resend |
+
+Every outside service has a stand-in behind `FAKE_SERVICES=1` (the default in
+`wrangler.jsonc`), so the whole app runs locally and in CI with no accounts.
+
+## Run it
+
+```bash
+npm install
+cp .dev.vars.example .dev.vars
+npm run db:migrate:local
+npm run build && npm run dev        # http://localhost:8787 (Worker + built app)
+npm run dev:app                     # optional: Vite HMR on :5173 proxying /api to :8787
+```
+
+Log in with the owner email from `wrangler.jsonc`; in local mode the 6-digit code is shown on
+the login screen.
+
+## Check it
+
+```bash
+npm run check      # typecheck + unit tests + validators + build   (the merge gate, < 5 min)
+npm run e2e        # Playwright, phone + desktop, against wrangler dev with fake services
+```
+
+CI: `check.yml` on every PR (merge gate), `e2e.yml` post-merge on `main`, `job-*.yml` one per
+job type, listening for its `repository_dispatch`.
+
+## Deploy
+
+```bash
+land <pr>                        # from ~/bin: verifies green, merges, watches main, deploys
+npm run deploy:production        # what land runs: build → D1 migrations → wrangler deploy
+```
+
+Never a bare `wrangler deploy` (stale client, fake services).
+
+## Phase ledger
+
+See `docs/PHASE-LEDGER.md` for what each phase delivered, what is proven by automated tests
+and what is **not yet proven** (needs a person with the test accounts).
+
+## Public-repo rules
+
+Anyone can read this code and the Actions logs, so (section 13 of the plan):
+
+- Logs carry step names, counts and pass/fail only. `worker/lib/log.ts` and `jobs/common.py`
+  are the only places output is written; the validator `no-content-in-logs` refuses others.
+- Her data lives only in her Cloudflare account (D1, R2). Keys live only in `wrangler secret`
+  and GitHub Secrets; per-service keys she pastes are AES-GCM encrypted in D1.
+- Jobs start only from the Worker with a signed, time-limited payload; job → Worker calls are
+  signed the same way. Upload links are session-bound; clip links are long random tokens that
+  expire 30 days after posting.
+
+## Validators
+
+`npm run validate` runs every file in `scripts/validators/`, each admitted in
+`scripts/validate.mjs` with the harm it prevents. A validator that checks zero items fails
+(Rule 0). Adding one means adding it to the register in the same PR.

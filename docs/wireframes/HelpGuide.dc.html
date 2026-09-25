@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Help guide step</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=Space+Grotesk:wght@500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#2B55A0}a:hover{color:#1C3D78}
+</style>
+</helmet>
+<div style="width: 1280px; height: 820px; display: flex; background: #F3F1EC; color: #1E1D1A; font-family: 'IBM Plex Sans', sans-serif;">
+<dc-import name="Sidebar" active="Help" hint-size="220px,820px"></dc-import>
+<main style="flex-grow: 1; box-sizing: border-box; padding: 28px 40px; display: flex; flex-direction: column; gap: 14px;">
+<div style="font-size: 14px; color: #5E5A52;"><a href="Help.dc.html">Help</a> › Everyday</div>
+<div style="display: flex; align-items: flex-end; gap: 16px;">
+<h1 style="margin: 0; flex-grow: 1; font-family: 'Space Grotesk', sans-serif; font-size: 30px; font-weight: 700;">Dump new footage from your phone</h1>
+<button type="button" style="min-height: 44px; padding: 0 14px; border-radius: 8px; border: 1px solid #B8B3A8; background: #FFFFFF; font-family: inherit; font-size: 14px;">Print / PDF</button>
+</div>
+<div style="display: flex; gap: 6px;">
+<sc-for list="{{dots}}" as="d" hint-placeholder-count="5">
+<span style="{{d}}"></span>
+</sc-for>
+</div>
+<div style="display: flex; gap: 24px; flex-grow: 1;">
+<div style="width: 330px; flex-shrink: 0; border-radius: 28px; background: #1E1D1A; padding: 12px; box-sizing: border-box; display: flex;">
+<div style="flex-grow: 1; border-radius: 18px; background: #E4E0D7; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;">
+<span style="font-size: 13px; color: #5E5A52; text-align: center; padding: 0 20px;">[Auto-captured phone screenshot of the Dump screen, demo data]</span>
+<div style="position: absolute; left: 24px; right: 24px; bottom: 96px; height: 52px; border-radius: 12px; border: 4px solid #C2571A; box-sizing: border-box;"></div>
+<span style="position: absolute; right: 12px; bottom: 150px; width: 40px; height: 40px; border-radius: 20px; background: #C2571A; color: #FFFFFF; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 20px; display: flex; align-items: center; justify-content: center;">3</span>
+</div>
+</div>
+<div style="flex-grow: 1; display: flex; flex-direction: column; gap: 16px; padding-top: 8px;">
+<div style="font-family: 'Space Grotesk', sans-serif; font-size: 16px; font-weight: 700; color: #C2571A;">Step 3 of 5</div>
+<div style="font-size: 26px; font-weight: 600; line-height: 1.3;">Tap the blue <span style="background: #2B55A0; color: #FFFFFF; padding: 2px 10px; border-radius: 6px;">Dump</span> button.</div>
+<div style="font-size: 17px; line-height: 1.5; color: #1E1D1A;">Keep this page open until the bar says <b>Uploaded</b>. You'll get an email when your clips are ready to review — usually within an hour.</div>
+<div style="padding: 14px; border-radius: 10px; background: #FFFFFF; border: 1px solid #D6D2C8; font-size: 15px; line-height: 1.5;"><b>Tip:</b> you can add more videos to the same dump before tapping Dump.</div>
+<span style="flex-grow: 1;"></span>
+<div style="display: flex; gap: 12px;">
+<button type="button" style="min-height: 56px; padding: 0 28px; border-radius: 12px; border: 1px solid #1E1D1A; background: #FFFFFF; font-family: inherit; font-size: 17px; font-weight: 600;">Back</button>
+<button type="button" style="min-height: 56px; padding: 0 40px; border-radius: 12px; border: none; background: #2B55A0; color: #FFFFFF; font-family: inherit; font-size: 17px; font-weight: 600;">Next</button>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; padding-top: 12px; border-top: 1px solid #D6D2C8; font-size: 14px;">
+<span style="color: #5E5A52;">At the end: Did this work?</span>
+<span style="padding: 6px 14px; border-radius: 16px; border: 1px solid #B8B3A8; background: #FFFFFF;">Yes</span>
+<span style="padding: 6px 14px; border-radius: 16px; border: 1px solid #B8B3A8; background: #FFFFFF;">No, show me a fix</span>
+<span style="flex-grow: 1;"></span>
+<a href="#" style="font-size: 13px;">Report a problem with this guide</a>
+</div>
+</div>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":820}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const on = 'width:48px;height:6px;border-radius:3px;background:#C2571A;';
+    const off = 'width:48px;height:6px;border-radius:3px;background:#D6D2C8;';
+    return { dots: [on, on, on, off, off] };
+  }
+}
+</script>
+</body>
+</html>

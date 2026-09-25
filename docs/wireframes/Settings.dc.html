@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Settings</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=Space+Grotesk:wght@500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#2B55A0}a:hover{color:#1C3D78}
+</style>
+</helmet>
+<div style="width: 1280px; height: 820px; display: flex; background: #F3F1EC; color: #1E1D1A; font-family: 'IBM Plex Sans', sans-serif;">
+<dc-import name="Sidebar" active="Settings" hint-size="220px,820px"></dc-import>
+<main style="flex-grow: 1; box-sizing: border-box; padding: 32px 40px; display: flex; flex-direction: column; gap: 18px;">
+<h1 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 32px; font-weight: 700;">Settings</h1>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; flex-grow: 1;">
+<section style="background: #FFFFFF; border: 1px solid #D6D2C8; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+<h2 style="margin: 0; font-size: 18px; font-weight: 600;">Posting</h2>
+<sc-for list="{{caps}}" as="c" hint-placeholder-count="3">
+<div style="display: flex; align-items: center; gap: 12px;">
+<span style="flex-grow: 1; font-size: 15px;">{{c.name}} per week</span>
+<button type="button" aria-label="Fewer" style="width: 44px; height: 44px; border-radius: 8px; border: 1px solid #B8B3A8; background: #FFFFFF; font-size: 18px;">−</button>
+<span style="width: 36px; text-align: center; font-family: 'Space Grotesk', sans-serif; font-size: 22px; font-weight: 700;">{{c.n}}</span>
+<button type="button" aria-label="More" style="width: 44px; height: 44px; border-radius: 8px; border: 1px solid #B8B3A8; background: #FFFFFF; font-size: 18px;">+</button>
+<span style="width: 60px; font-size: 12px; color: #5E5A52;">max 10</span>
+</div>
+</sc-for>
+<div style="display: flex; align-items: center; gap: 12px; font-size: 15px;"><span style="flex-grow: 1;">Posting times</span><span style="font-size: 14px; color: #5E5A52;">From research brief (auto)</span></div>
+<div style="display: flex; align-items: center; gap: 12px; font-size: 15px;"><span style="flex-grow: 1;">Audience time zone</span><span style="padding: 10px 12px; border: 1px solid #B8B3A8; border-radius: 8px; font-size: 14px;">[Choose]</span></div>
+<div style="display: flex; align-items: center; gap: 12px; font-size: 15px;"><span style="flex-grow: 1;">Email me when runway is under</span><span style="padding: 10px 12px; border: 1px solid #B8B3A8; border-radius: 8px; font-size: 14px;">2 weeks</span></div>
+<div style="display: flex; align-items: center; gap: 12px; font-size: 15px;"><span style="flex-grow: 1;">Emails go to</span><span style="padding: 10px 12px; border: 1px solid #B8B3A8; border-radius: 8px; font-size: 14px;">[her email]</span></div>
+</section>
+<section style="background: #FFFFFF; border: 1px solid #D6D2C8; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 12px;">
+<div style="display: flex; align-items: center;"><h2 style="margin: 0; flex-grow: 1; font-size: 18px; font-weight: 600;">Connections + health</h2><a href="Connect.dc.html" style="font-size: 14px; font-weight: 600;">Connect accounts</a></div>
+<sc-for list="{{health}}" as="h" hint-placeholder-count="7">
+<div style="display: flex; align-items: center; gap: 12px; padding: 6px 0; border-top: 1px solid #ECE9E2;">
+<span style="{{h.dot}}"></span>
+<span style="flex-grow: 1; font-size: 15px;">{{h.name}}</span>
+<span style="font-size: 13px; color: #5E5A52;">{{h.note}}</span>
+<a href="Connect.dc.html" style="font-size: 14px; font-weight: 600; min-width: 70px; text-align: right;">{{h.action}}</a>
+</div>
+</sc-for>
+</section>
+<section style="background: #FFFFFF; border: 1px solid #D6D2C8; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 12px;">
+<h2 style="margin: 0; font-size: 18px; font-weight: 600;">Features</h2>
+<div style="display: flex; align-items: center; gap: 12px;">
+<div style="flex-grow: 1;"><div style="font-size: 15px; font-weight: 500;">Voice narration</div><div style="font-size: 13px; color: #5E5A52;">Shows the Voice tab. Clips stay real footage.</div></div>
+<button type="button" role="switch" aria-checked="false" aria-label="Voice narration" style="width: 56px; height: 32px; border-radius: 16px; border: none; background: #B8B3A8; padding: 3px; display: flex;"><span style="width: 26px; height: 26px; border-radius: 13px; background: #FFFFFF;"></span></button>
+</div>
+<div style="display: flex; align-items: center; gap: 12px;">
+<div style="flex-grow: 1;"><div style="font-size: 15px; font-weight: 500;">Deeper web research</div><div style="font-size: 13px; color: #5E5A52;">Perplexity search, about $0.25 per brief</div></div>
+<button type="button" role="switch" aria-checked="false" aria-label="Deeper web research" style="width: 56px; height: 32px; border-radius: 16px; border: none; background: #B8B3A8; padding: 3px; display: flex;"><span style="width: 26px; height: 26px; border-radius: 13px; background: #FFFFFF;"></span></button>
+</div>
+</section>
+<section style="background: #FFFFFF; border: 1px solid #D6D2C8; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 10px;">
+<h2 style="margin: 0; font-size: 18px; font-weight: 600;">Help + people</h2>
+<a href="#" style="font-size: 15px;">How the dashboard works (illustrated guide)</a>
+<a href="#" style="font-size: 15px;">Fix a disconnected account</a>
+<div style="display: flex; align-items: center; gap: 12px; font-size: 15px; padding-top: 6px; border-top: 1px solid #ECE9E2;"><span style="flex-grow: 1;">Helper login: [builder email]</span><a href="#" style="font-weight: 600;">Remove</a></div>
+</section>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":820}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const dot = (c) => 'width:12px;height:12px;border-radius:6px;flex-shrink:0;background:' + c + ';';
+    const G = '#2E6B3F', Y = '#C58A12', R = '#B3261E';
+    return {
+      caps: [{ name: 'TikTok', n: 10 }, { name: 'Instagram', n: 7 }, { name: 'YouTube Shorts', n: 5 }],
+      health: [
+        { name: 'Buffer', dot: dot(G), note: 'OK · 7 of 10 queue slots used', action: '' },
+        { name: 'TikTok (via Buffer)', dot: dot(G), note: 'Last post 2h ago', action: '' },
+        { name: 'Instagram (via Buffer)', dot: dot(R), note: 'Disconnected', action: 'Fix' },
+        { name: 'YouTube (via Buffer)', dot: dot(G), note: 'Last post yesterday', action: '' },
+        { name: 'Stats: Instagram + YouTube', dot: dot(G), note: 'Synced 1h ago', action: '' },
+        { name: 'Storage', dot: dot(Y), note: '7.9 of 10 GB', action: 'Details' },
+        { name: 'Clip cutting', dot: dot(G), note: 'Last job OK · Sep 25', action: '' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

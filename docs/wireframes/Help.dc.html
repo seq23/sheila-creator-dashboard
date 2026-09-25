@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Help</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=Space+Grotesk:wght@500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#2B55A0}a:hover{color:#1C3D78}
+</style>
+</helmet>
+<div style="width: 1280px; height: 820px; display: flex; background: #F3F1EC; color: #1E1D1A; font-family: 'IBM Plex Sans', sans-serif;">
+<dc-import name="Sidebar" active="Help" hint-size="220px,820px"></dc-import>
+<main style="flex-grow: 1; box-sizing: border-box; padding: 32px 40px; display: flex; flex-direction: column; gap: 18px;">
+<div style="display: flex; align-items: center; gap: 12px;">
+<h1 style="margin: 0; flex-grow: 1; font-family: 'Space Grotesk', sans-serif; font-size: 32px; font-weight: 700;">Help</h1>
+<button type="button" style="min-height: 44px; padding: 0 16px; border-radius: 10px; border: 1px solid #B8B3A8; background: #FFFFFF; font-family: inherit; font-size: 14px;">Replay the tour</button>
+</div>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 600;">What do you need help with?
+<input type="search" placeholder="Try “post failed” or “add TikTok”" style="min-height: 56px; box-sizing: border-box; padding: 0 18px; border: 2px solid #1E1D1A; border-radius: 12px; font-family: inherit; font-size: 17px; font-weight: 400; background: #FFFFFF;">
+</label>
+<div style="display: flex; gap: 16px; flex-grow: 1;">
+<section style="width: 360px; background: #FFFFFF; border: 1px solid #D6D2C8; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 10px;">
+<h2 style="margin: 0; font-size: 18px; font-weight: 600;">Getting started · 4 of 6 done</h2>
+<div style="height: 8px; background: #E4E0D7; border-radius: 4px;"><div style="width: 66%; height: 8px; background: #2E6B3F; border-radius: 4px;"></div></div>
+<sc-for list="{{start}}" as="s" hint-placeholder-count="6">
+<a href="HelpGuide.dc.html" style="display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 4px; border-top: 1px solid #ECE9E2; color: #1E1D1A; text-decoration: none;">
+<span style="{{s.check}}">{{s.mark}}</span>
+<span style="flex-grow: 1; font-size: 15px;">{{s.t}}</span>
+<span style="font-size: 13px; color: #5E5A52;">{{s.min}}</span>
+</a>
+</sc-for>
+</section>
+<section style="flex-grow: 1; display: flex; flex-direction: column; gap: 16px;">
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px;">
+<sc-for list="{{topics}}" as="t" hint-placeholder-count="2">
+<div style="background: #FFFFFF; border: 1px solid #D6D2C8; border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 8px;">
+<h2 style="margin: 0 0 4px 0; font-size: 17px; font-weight: 600;">{{t.name}}</h2>
+<sc-for list="{{t.items}}" as="i" hint-placeholder-count="4">
+<a href="HelpGuide.dc.html" style="font-size: 15px;">{{i}}</a>
+</sc-for>
+</div>
+</sc-for>
+</div>
+<div style="background: #FBEFE6; border: 1px solid #E3B58F; border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 8px;">
+<h2 style="margin: 0 0 4px 0; font-size: 17px; font-weight: 600; color: #7A3309;">Something's wrong? Fix it</h2>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 16px;">
+<a href="HelpGuide.dc.html" style="font-size: 15px;">A post failed</a>
+<a href="HelpGuide.dc.html" style="font-size: 15px;">Reconnect an account</a>
+<a href="HelpGuide.dc.html" style="font-size: 15px;">Storage almost full</a>
+<a href="HelpGuide.dc.html" style="font-size: 15px;">Upload my TikTok export</a>
+<a href="HelpGuide.dc.html" style="font-size: 15px;">I didn't get an email</a>
+<a href="HelpGuide.dc.html" style="font-size: 15px;">Clips look wrong</a>
+</div>
+</div>
+<div style="font-size: 13px; color: #5E5A52;">Still stuck? <a href="#">Email my helper</a> — we'll include what screen you were on.</div>
+</section>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":820}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const done = 'width:24px;height:24px;border-radius:12px;background:#2E6B3F;color:#FFFFFF;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;';
+    const todo = 'width:24px;height:24px;border-radius:12px;border:2px solid #9C978C;box-sizing:border-box;color:#5E5A52;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;';
+    const S = (t, min, d, n) => ({ t, min, check: d ? done : todo, mark: d ? '✓' : String(n) });
+    return {
+      start: [
+        S('Log in', '1 min', true, 1), S('Connect Buffer', '3 min', true, 2),
+        S('Add TikTok, Instagram, YouTube in Buffer', '5 min', true, 3), S('Connect your stats', '3 min', true, 4),
+        S('Upload your brand docs', '5 min', false, 5), S('Approve your research brief', '5 min', false, 6)
+      ],
+      topics: [
+        { name: 'Everyday', items: ['Dump new footage from your phone', 'Recycle old videos', 'Review and approve clips', 'Move or remove a post', 'What “runway” means'] },
+        { name: 'Brand deals', items: ['Update your media kit', 'Send a pitch', 'Mark a reply', 'Mark a paid partnership'] }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

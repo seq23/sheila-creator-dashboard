@@ -1,0 +1,35 @@
+import { defineConfig, devices } from "@playwright/test";
+
+// Drives the built app through `wrangler dev` with fake services. A `setup` project logs in
+// once and shares the session; `phone` (390×844, the priority for Dump and Review) and
+// `desktop` run every spec. The help-screenshots spec reuses the same server.
+const STORAGE = "test-results/.auth/owner.json";
+
+export default defineConfig({
+  testDir: "tests/e2e",
+  timeout: 45_000,
+  expect: { timeout: 8_000 },
+  retries: process.env.CI ? 1 : 0,
+  workers: 1,
+  reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
+  use: {
+    baseURL: "http://127.0.0.1:8787",
+    trace: "retain-on-failure",
+  },
+  webServer: {
+    command: "bash tests/e2e/serve.sh",
+    url: "http://127.0.0.1:8787/healthz",
+    reuseExistingServer: false, // serve.sh resets the local database; a running server would hold the old one
+    timeout: 120_000,
+    env: {
+      SESSION_SECRET: process.env.SESSION_SECRET ?? "dev-session-secret",
+      SECRETS_KEY: process.env.SECRETS_KEY ?? "YcLVEjArFviauClfN6thsYumeyr3wqfUT9D2VnMNTm0=",
+      JOB_SHARED_SECRET: process.env.JOB_SHARED_SECRET ?? "dev-job-shared-secret",
+    },
+  },
+  projects: [
+    { name: "setup", testMatch: /auth\.setup\.ts/ },
+    { name: "phone", use: { ...devices["iPhone 13"], browserName: "chromium", storageState: STORAGE }, dependencies: ["setup"], testIgnore: /auth\.setup\.ts/ },
+    { name: "desktop", use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 820 }, storageState: STORAGE }, dependencies: ["setup"], testIgnore: /auth\.setup\.ts/ },
+  ],
+});

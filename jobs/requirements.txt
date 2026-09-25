@@ -1,0 +1,4 @@
+# Shared by every job workflow. Heavy, optional tools (faster-whisper, mediapipe, chatterbox)
+# are installed by the job that needs them, inside jobs/<name>.py, so the light jobs stay fast.
+boto3>=1.35,<2
+requests>=2.32,<3

@@ -1,0 +1,30 @@
+# Merge gate: under 5 minutes. Typecheck, unit tests, validators, build. The long suites
+# (Playwright e2e, the real cutting job on a sample) run post-merge on main.
+name: check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run validate
+      - run: npm run build
+      - name: Python job syntax
+        run: python3 -m py_compile jobs/*.py

@@ -1,0 +1,105 @@
+/* Sheila Studio design tokens.
+   Source: the A Sheila Bruce Affair site (seq23/sheila-bruce, src/styles/global.css):
+   cream / ivory ground, espresso ink, gold accent, rose script, Playfair Display headings,
+   Montserrat body, Allura for the one script flourish. The wireframes' layouts stay; their
+   grey-blue palette does not. */
+:root {
+  --cream: #f7f1e7;
+  --ivory: #fffaf1;
+  --paper: #ffffff;
+  --gold: #d7b56d;
+  --gold-deep: #b9944a;
+  --gold-soft: rgba(215, 181, 109, 0.38);
+  --gold-faint: rgba(215, 181, 109, 0.16);
+  --espresso: #211713;
+  --espresso-2: #3a251e;
+  --ink: #211713;
+  --ink-soft: rgba(33, 23, 19, 0.78);
+  --muted: #6f625b;
+  --line: rgba(33, 23, 19, 0.12);
+  --blush: #d9a7b0;
+  --rose: #8f4b5b;
+  --terracotta: #9c4b22;
+  --teal: #0d8c89;
+
+  /* semantic */
+  --bg: var(--cream);
+  --surface: var(--ivory);
+  --surface-2: var(--paper);
+  --text: var(--ink);
+  --text-soft: var(--ink-soft);
+  --text-muted: var(--muted);
+  --primary: var(--espresso);
+  --primary-text: var(--ivory);
+  --accent: var(--gold);
+  --accent-text: var(--espresso);
+  --success: #2e6b3f;
+  --success-soft: rgba(46, 107, 63, 0.14);
+  --warning: #b8720f;
+  --warning-soft: rgba(184, 114, 15, 0.14);
+  --danger: #a63a2b;
+  --danger-soft: rgba(166, 58, 43, 0.12);
+  --grey: #b8b3a8;
+  --focus: 0 0 0 3px rgba(215, 181, 109, 0.55);
+
+  --shadow: 0 24px 60px rgba(33, 23, 19, 0.14);
+  --shadow-soft: 0 14px 36px rgba(33, 23, 19, 0.08);
+  --shadow-tiny: 0 2px 8px rgba(33, 23, 19, 0.06);
+
+  --radius-xl: 28px;
+  --radius-lg: 20px;
+  --radius: 14px;
+  --radius-sm: 10px;
+  --pill: 999px;
+
+  --font-display: "Playfair Display", Georgia, "Times New Roman", serif;
+  --font-body: Montserrat, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-script: Allura, "Brush Script MT", cursive;
+  --font-mono: "SF Mono", Menlo, Consolas, monospace;
+
+  --sidebar-w: 236px;
+  --tabbar-h: 64px;
+  --gutter: 16px;
+  --touch: 44px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #171110;
+    --surface: #221917;
+    --surface-2: #2b201d;
+    --text: #f4ebdf;
+    --text-soft: rgba(244, 235, 223, 0.8);
+    --text-muted: #b9aa9d;
+    --line: rgba(244, 235, 223, 0.12);
+    --primary: var(--gold);
+    --primary-text: var(--espresso);
+    --gold-soft: rgba(215, 181, 109, 0.32);
+    --gold-faint: rgba(215, 181, 109, 0.12);
+    --success-soft: rgba(46, 107, 63, 0.28);
+    --warning-soft: rgba(184, 114, 15, 0.28);
+    --danger-soft: rgba(166, 58, 43, 0.28);
+    --shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+    --shadow-soft: 0 14px 36px rgba(0, 0, 0, 0.35);
+    --shadow-tiny: 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #171110;
+  --surface: #221917;
+  --surface-2: #2b201d;
+  --text: #f4ebdf;
+  --text-soft: rgba(244, 235, 223, 0.8);
+  --text-muted: #b9aa9d;
+  --line: rgba(244, 235, 223, 0.12);
+  --primary: var(--gold);
+  --primary-text: var(--espresso);
+  --gold-soft: rgba(215, 181, 109, 0.32);
+  --gold-faint: rgba(215, 181, 109, 0.12);
+  --success-soft: rgba(46, 107, 63, 0.28);
+  --warning-soft: rgba(184, 114, 15, 0.28);
+  --danger-soft: rgba(166, 58, 43, 0.28);
+  --shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  --shadow-soft: 0 14px 36px rgba(0, 0, 0, 0.35);
+  --shadow-tiny: 0 2px 8px rgba(0, 0, 0, 0.3);
+}

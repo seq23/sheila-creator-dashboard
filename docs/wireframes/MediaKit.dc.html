@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Media kit (public)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=Space+Grotesk:wght@500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#2B55A0}a:hover{color:#1C3D78}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; padding: 24px 16px; display: flex; flex-direction: column; gap: 14px; background: #F3F1EC; color: #1E1D1A; font-family: 'IBM Plex Sans', sans-serif;">
+<div style="display: flex; align-items: center; gap: 14px;">
+<div style="width: 72px; height: 72px; border-radius: 36px; background: #E4E0D7; border: 1px dashed #9C978C;"></div>
+<div style="display: flex; flex-direction: column; gap: 2px;">
+<h1 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 24px; font-weight: 700;">[Sheila's name]</h1>
+<div style="font-size: 14px; color: #5E5A52;">[One-line bio]</div>
+</div>
+</div>
+<div style="display: flex; gap: 6px; flex-wrap: wrap; font-size: 12px; font-weight: 600;">
+<span style="padding: 4px 10px; border-radius: 12px; background: #FFFFFF; border: 1px solid #D6D2C8;">[Theme 1]</span>
+<span style="padding: 4px 10px; border-radius: 12px; background: #FFFFFF; border: 1px solid #D6D2C8;">[Theme 2]</span>
+<span style="padding: 4px 10px; border-radius: 12px; background: #FFFFFF; border: 1px solid #D6D2C8;">[Theme 3]</span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;">
+<sc-for list="{{stats}}" as="s" hint-placeholder-count="3">
+<div style="background: #FFFFFF; border: 1px solid #D6D2C8; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 2px;">
+<span style="font-size: 12px; color: #5E5A52;">{{s.p}}</span>
+<span style="font-family: 'Space Grotesk', sans-serif; font-size: 18px; font-weight: 700;">{{s.f}}</span>
+<span style="font-size: 11px; color: #5E5A52;">{{s.v}}</span>
+</div>
+</sc-for>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #D6D2C8; border-radius: 10px; padding: 12px; font-size: 13px; line-height: 1.5;"><span style="font-weight: 600;">Audience:</span> [top age range] · [top locations] · [gender split] — from her stats, updated weekly</div>
+<div style="font-size: 14px; font-weight: 600;">Top clips</div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;">
+<div style="height: 150px; border-radius: 8px; background: #E4E0D7; border: 1px dashed #9C978C;"></div>
+<div style="height: 150px; border-radius: 8px; background: #E4E0D7; border: 1px dashed #9C978C;"></div>
+<div style="height: 150px; border-radius: 8px; background: #E4E0D7; border: 1px dashed #9C978C;"></div>
+</div>
+<div style="font-size: 13px; color: #5E5A52;"><span style="font-weight: 600; color: #1E1D1A;">Worked with:</span> [past partners, if any]</div>
+<span style="flex-grow: 1;"></span>
+<a href="#" style="display: flex; align-items: center; justify-content: center; min-height: 52px; border-radius: 12px; background: #2B55A0; color: #FFFFFF; font-size: 16px; font-weight: 600; text-decoration: none;">Work with me</a>
+<a href="#" style="text-align: center; font-size: 14px;">Download PDF</a>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { stats: [
+      { p: 'TikTok', f: '[followers]', v: '[avg views]' },
+      { p: 'Instagram', f: '[followers]', v: '[avg reach]' },
+      { p: 'YouTube', f: '[subs]', v: '[avg views]' }
+    ] };
+  }
+}
+</script>
+</body>
+</html>

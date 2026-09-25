@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Connect accounts</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=Space+Grotesk:wght@500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#2B55A0}a:hover{color:#1C3D78}
+</style>
+</helmet>
+<div style="width: 1280px; height: 960px; display: flex; background: #F3F1EC; color: #1E1D1A; font-family: 'IBM Plex Sans', sans-serif;">
+<div style="width: 220px; flex-shrink: 0; background: #1E1D1A;"><dc-import name="Sidebar" active="Settings" hint-size="220px,820px"></dc-import></div>
+<main style="flex-grow: 1; box-sizing: border-box; padding: 32px 40px; display: flex; flex-direction: column; gap: 16px;">
+<div style="display: flex; align-items: center; gap: 12px;">
+<div style="flex-grow: 1;">
+<div style="font-size: 14px; color: #5E5A52;"><a href="Settings.dc.html">Settings</a> › Connections</div>
+<h1 style="margin: 4px 0 0 0; font-family: 'Space Grotesk', sans-serif; font-size: 32px; font-weight: 700;">Connect your accounts</h1>
+</div>
+<button type="button" style="min-height: 44px; padding: 0 16px; border-radius: 10px; border: 1px solid #A8480F; background: #FFFFFF; color: #A8480F; font-family: inherit; font-size: 14px; font-weight: 600;">Disconnect everything</button>
+</div>
+<div style="font-size: 14px; color: #5E5A52;">You always log in on TikTok, Instagram, Google or Buffer's own page. We never see your passwords.</div>
+<div style="display: flex; gap: 16px; flex-grow: 1;">
+<section style="flex-grow: 1; background: #FFFFFF; border: 2px solid #2B55A0; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+<div style="display: flex; align-items: center; gap: 12px;">
+<span style="font-family: 'Space Grotesk', sans-serif; font-size: 13px; font-weight: 700; width: 28px; height: 28px; border-radius: 14px; background: #2B55A0; color: #FFFFFF; display: flex; align-items: center; justify-content: center;">1</span>
+<h2 style="margin: 0; flex-grow: 1; font-size: 20px; font-weight: 600;">Posting · Buffer</h2>
+<span style="display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; color: #2E6B3F;"><span style="width: 10px; height: 10px; border-radius: 5px; background: #2E6B3F;"></span>Connected</span>
+</div>
+<div style="font-size: 14px; color: #5E5A52;">Buffer publishes your clips to TikTok, Instagram and YouTube.</div>
+<div style="background: #F7F5F1; border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 8px; font-size: 14px;">
+<div style="font-weight: 600;">How to connect (2 minutes)</div>
+<div>1. <a href="#">Open Buffer</a> → Settings → API</div>
+<div>2. Click Create key, then copy it</div>
+<div>3. Paste it here</div>
+<div style="display: flex; gap: 8px; margin-top: 4px;">
+<input type="password" aria-label="Buffer key" value="••••••••••••••••" style="flex-grow: 1; min-height: 44px; box-sizing: border-box; padding: 0 12px; border: 1px solid #B8B3A8; border-radius: 8px; font-family: inherit; font-size: 15px;">
+<button type="button" style="min-height: 44px; padding: 0 18px; border-radius: 8px; border: none; background: #2B55A0; color: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 600;">Check key</button>
+</div>
+</div>
+<div style="font-size: 14px; font-weight: 600;">Channels we found in your Buffer</div>
+<sc-for list="{{channels}}" as="c" hint-placeholder-count="3">
+<div style="display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid #ECE9E2;">
+<span style="{{c.dot}}"></span>
+<span style="flex-grow: 1; font-size: 15px; font-weight: 500;">{{c.name}}</span>
+<span style="font-size: 13px; color: #5E5A52;">{{c.note}}</span>
+<a href="#" style="font-size: 14px; font-weight: 600; min-width: 150px; text-align: right;">{{c.action}}</a>
+</div>
+</sc-for>
+</section>
+<section style="width: 440px; background: #FFFFFF; border: 1px solid #D6D2C8; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+<div style="display: flex; align-items: center; gap: 12px;">
+<span style="font-family: 'Space Grotesk', sans-serif; font-size: 13px; font-weight: 700; width: 28px; height: 28px; border-radius: 14px; background: #1E1D1A; color: #FFFFFF; display: flex; align-items: center; justify-content: center;">2</span>
+<h2 style="margin: 0; flex-grow: 1; font-size: 20px; font-weight: 600;">Stats · for research</h2>
+</div>
+<div style="font-size: 14px; color: #5E5A52;">Lets the dashboard learn what works for you. Read-only; it can't post.</div>
+<sc-for list="{{stats}}" as="s" hint-placeholder-count="3">
+<div style="border: 1px solid #D6D2C8; border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+<div style="display: flex; align-items: center; gap: 10px;">
+<span style="{{s.dot}}"></span>
+<span style="flex-grow: 1; font-size: 15px; font-weight: 600;">{{s.name}}</span>
+<span style="font-size: 13px; color: #5E5A52;">{{s.note}}</span>
+</div>
+<div style="display: flex; gap: 8px;">
+<button type="button" style="{{s.btnStyle}}">{{s.btn}}</button>
+<sc-if value="{{s.hasAlt}}" hint-placeholder-val="{{false}}">
+<button type="button" style="min-height: 44px; padding: 0 14px; border-radius: 8px; border: 1px solid #B8B3A8; background: #FFFFFF; font-family: inherit; font-size: 14px;">{{s.alt}}</button>
+</sc-if>
+</div>
+</div>
+</sc-for>
+<div style="font-size: 12px; color: #5E5A52;">TikTok stats: direct connect only if TikTok approves the app. Until then, upload the export from TikTok Studio once a month.</div>
+<div style="display: flex; align-items: center; gap: 12px; padding-top: 8px; border-top: 1px solid #ECE9E2;">
+<span style="font-family: 'Space Grotesk', sans-serif; font-size: 13px; font-weight: 700; width: 28px; height: 28px; border-radius: 14px; background: #1E1D1A; color: #FFFFFF; display: flex; align-items: center; justify-content: center;">3</span>
+<h2 style="margin: 0; flex-grow: 1; font-size: 18px; font-weight: 600;">Brand deals · optional</h2>
+</div>
+<div style="border: 1px solid #D6D2C8; border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+<div style="display: flex; align-items: center; gap: 10px;">
+<span style="width: 12px; height: 12px; border-radius: 6px; flex-shrink: 0; background: #2E6B3F;"></span>
+<span style="flex-grow: 1; font-size: 15px; font-weight: 600;">Hunter.io</span>
+<span style="font-size: 13px; color: #5E5A52;">38 of 50 credits left</span>
+</div>
+<div style="font-size: 13px; color: #5E5A52;">Finds public partnership emails on brand websites. Free account → API → copy key → paste.</div>
+<div style="display: flex; gap: 8px;">
+<input type="password" aria-label="Hunter key" value="••••••••••••" style="flex-grow: 1; min-height: 44px; box-sizing: border-box; padding: 0 12px; border: 1px solid #B8B3A8; border-radius: 8px; font-family: inherit; font-size: 15px;">
+<button type="button" style="min-height: 44px; padding: 0 14px; border-radius: 8px; border: 1px solid #B8B3A8; background: #FFFFFF; font-family: inherit; font-size: 14px;">Check key</button>
+</div>
+</div>
+</section>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const dot = (c) => 'width:12px;height:12px;border-radius:6px;flex-shrink:0;background:' + c + ';';
+    const G = '#2E6B3F', R = '#B3261E', N = '#B8B3A8';
+    const primary = 'min-height:44px;padding:0 16px;border-radius:8px;border:none;background:#2B55A0;color:#FFFFFF;font-family:inherit;font-size:14px;font-weight:600;';
+    const quiet = 'min-height:44px;padding:0 16px;border-radius:8px;border:1px solid #B8B3A8;background:#FFFFFF;color:#1E1D1A;font-family:inherit;font-size:14px;';
+    return {
+      channels: [
+        { name: 'TikTok', dot: dot(G), note: '@[her handle] · posting OK', action: 'Disconnect' },
+        { name: 'Instagram (Professional)', dot: dot(R), note: 'Needs reconnect in Buffer', action: 'Open Buffer to reconnect' },
+        { name: 'YouTube', dot: dot(G), note: '[her channel] · posting OK', action: 'Disconnect' }
+      ],
+      stats: [
+        { name: 'Instagram', dot: dot(G), note: 'Synced 1h ago', btn: 'Reconnect', btnStyle: quiet, hasAlt: false, alt: '' },
+        { name: 'YouTube', dot: dot(N), note: 'Not connected', btn: 'Connect with Google', btnStyle: primary, hasAlt: false, alt: '' },
+        { name: 'TikTok', dot: dot(N), note: 'Not connected', btn: 'Connect TikTok', btnStyle: primary, hasAlt: true, alt: 'Upload TikTok export' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

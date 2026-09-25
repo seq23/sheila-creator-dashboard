@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Voice narration</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=Space+Grotesk:wght@500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#2B55A0}a:hover{color:#1C3D78}
+</style>
+</helmet>
+<div style="width: 1280px; height: 820px; display: flex; background: #F3F1EC; color: #1E1D1A; font-family: 'IBM Plex Sans', sans-serif;">
+<dc-import name="Sidebar" active="Voice" hint-size="220px,820px"></dc-import>
+<main style="flex-grow: 1; box-sizing: border-box; padding: 32px 40px; display: flex; flex-direction: column; gap: 18px;">
+<div style="background: #FBEFE6; border: 1px solid #E3B58F; border-radius: 10px; padding: 12px 16px; font-size: 14px; color: #7A3309;">This tab is hidden until Voice narration is turned on in Settings. Shown here in its "on" state.</div>
+<h1 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 32px; font-weight: 700;">Voice narration</h1>
+<div style="display: flex; gap: 16px; flex-grow: 1;">
+<section style="width: 380px; background: #FFFFFF; border: 1px solid #D6D2C8; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+<h2 style="margin: 0; font-size: 18px; font-weight: 600;">1 · Your voice (once)</h2>
+<div style="display: flex; align-items: center; gap: 14px;">
+<button type="button" aria-label="Record sample" style="width: 64px; height: 64px; border-radius: 32px; border: none; background: #B3261E; display: flex; align-items: center; justify-content: center;"><span style="width: 22px; height: 22px; border-radius: 11px; background: #FFFFFF;"></span></button>
+<div style="font-size: 14px; color: #5E5A52;">Record in a quiet room, or <a href="#">upload a clip</a> of just your voice.</div>
+</div>
+<div style="padding: 12px; border-radius: 8px; background: #F7F5F1; font-size: 14px; line-height: 1.45;">Read aloud: “This is my voice, and I authorize its use in my dashboard.”</div>
+<label style="display: flex; align-items: flex-start; gap: 10px; font-size: 14px;"><input type="checkbox" style="width: 20px; height: 20px; margin: 0;"><span>This is my own voice and I consent to it being cloned for my narrations.</span></label>
+<div style="display: flex; align-items: center; gap: 8px; font-size: 14px;"><span style="width: 10px; height: 10px; border-radius: 5px; background: #2E6B3F;"></span>Voice ready · saved Sep 25</div>
+<button type="button" style="min-height: 44px; border-radius: 8px; border: 1px solid #A8480F; background: #FFFFFF; color: #A8480F; font-family: inherit; font-size: 14px; font-weight: 600;">Delete my voice</button>
+</section>
+<section style="flex-grow: 1; background: #FFFFFF; border: 1px solid #D6D2C8; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+<h2 style="margin: 0; font-size: 18px; font-weight: 600;">2 · Make a narration</h2>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 600;">Script
+<textarea rows="6" placeholder="Type what you want to say, or let AI draft it from your Brand Profile." style="font-family: inherit; font-size: 15px; padding: 12px; border: 1px solid #B8B3A8; border-radius: 8px; resize: none;"></textarea>
+</label>
+<div style="display: flex; gap: 10px;">
+<button type="button" style="min-height: 48px; padding: 0 18px; border-radius: 10px; border: 1px solid #2B55A0; background: #FFFFFF; color: #2B55A0; font-family: inherit; font-size: 15px; font-weight: 600;">Draft with AI</button>
+<button type="button" style="min-height: 48px; padding: 0 24px; border-radius: 10px; border: none; background: #2B55A0; color: #FFFFFF; font-family: inherit; font-size: 15px; font-weight: 600;">Generate</button>
+</div>
+<h3 style="margin: 8px 0 0 0; font-size: 15px; font-weight: 600;">Recent narrations</h3>
+<sc-for list="{{items}}" as="n" hint-placeholder-count="3">
+<div style="display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid #ECE9E2;">
+<button type="button" aria-label="Play" style="width: 44px; height: 44px; border-radius: 22px; border: 1px solid #1E1D1A; background: #FFFFFF; font-size: 14px;">▶</button>
+<span style="flex-grow: 1; font-size: 14px;">{{n.title}}</span>
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #5E5A52;">{{n.len}}</span>
+<a href="#" style="font-size: 14px; font-weight: 600;">Download</a>
+<a href="#" style="font-size: 14px; font-weight: 600;">Attach to clip</a>
+</div>
+</sc-for>
+</section>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":820}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { items: [
+      { title: 'Intro for weekly recap', len: '0:18' },
+      { title: 'Voiceover: room reset', len: '0:27' },
+      { title: 'Brand deal read', len: '0:34' }
+    ] };
+  }
+}
+</script>
+</body>
+</html>

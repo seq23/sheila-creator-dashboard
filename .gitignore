@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.wrangler/
+.dev.vars
+.env
+.env.*
+!.env.example
+test-results/
+playwright-report/
+jobs/.venv/
+jobs/work/
+__pycache__/
+*.pyc
+.DS_Store

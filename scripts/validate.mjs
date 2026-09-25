@@ -1,0 +1,71 @@
+#!/usr/bin/env node
+// Validator runner. Every validator in scripts/validators/ is registered in the ADMISSION
+// REGISTER below with a hard-fail basis. Rule 0: a validator that checks zero items fails.
+// Run: npm run validate
+import { readdir } from "node:fs/promises";
+import { pathToFileURL } from "node:url";
+import path from "node:path";
+
+// ADMISSION REGISTER (collision slot): one line per validator, alphabetical.
+// name → why it hard-fails. A validator not listed here is refused; a listed one that is
+// missing on disk fails the run.
+export const REGISTER = {
+  "help-guides-exist": "every screen's ? button and every fix_guide slug must open a real guide (section 12c)",
+  "jobs-registered": "every job type in the schema must have a handler or dispatch silently does nothing",
+  "no-content-in-logs": "public repo: a console.* outside worker/lib/log.ts can leak her content into Actions logs (section 13)",
+  "no-secrets": "a key in the repo is public the moment it is pushed",
+  "routes-mounted": "a route file nothing mounts is code that exists but nothing invokes",
+  "screens-registered": "every page file must be routed in App.tsx or it is unreachable",
+  "workflows-dispatchable": "every job type must have an Actions workflow listening for its repository_dispatch event",
+};
+
+const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
+const dir = path.join(root, "scripts", "validators");
+const files = (await readdir(dir)).filter((f) => f.endsWith(".mjs")).sort();
+const onDisk = new Set(files.map((f) => f.replace(/\.mjs$/, "")));
+let failed = 0;
+let checked = 0;
+
+for (const name of Object.keys(REGISTER).sort()) {
+  if (!onDisk.has(name)) {
+    console.log(`✗ ${name}: registered but missing on disk`);
+    failed++;
+    continue;
+  }
+}
+for (const name of onDisk) {
+  if (!REGISTER[name]) {
+    console.log(`✗ ${name}: on disk but not in the admission register (scripts/validate.mjs)`);
+    failed++;
+  }
+}
+
+for (const file of files) {
+  const name = file.replace(/\.mjs$/, "");
+  if (!REGISTER[name]) continue;
+  const mod = await import(pathToFileURL(path.join(dir, file)).href);
+  try {
+    const r = await mod.default({ root });
+    const items = Number(r?.items ?? 0);
+    const problems = r?.problems ?? [];
+    if (items === 0) {
+      console.log(`✗ ${name}: checked 0 items (Rule 0: a validator that checks nothing is inert)`);
+      failed++;
+      continue;
+    }
+    checked += items;
+    if (problems.length) {
+      console.log(`✗ ${name} (${items} items):`);
+      for (const p of problems) console.log(`    - ${p}`);
+      failed++;
+    } else {
+      console.log(`✓ ${name} (${items} items)`);
+    }
+  } catch (e) {
+    console.log(`✗ ${name}: threw ${e instanceof Error ? e.message : e}`);
+    failed++;
+  }
+}
+
+console.log(`\n${Object.keys(REGISTER).length} validators, ${checked} items checked, ${failed} failed`);
+process.exit(failed ? 1 : 0);

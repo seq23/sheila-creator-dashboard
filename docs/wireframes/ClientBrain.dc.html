@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Client Brain</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=Space+Grotesk:wght@500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#2B55A0}a:hover{color:#1C3D78}
+</style>
+</helmet>
+<div style="width: 1280px; height: 820px; display: flex; background: #F3F1EC; color: #1E1D1A; font-family: 'IBM Plex Sans', sans-serif;">
+<dc-import name="Sidebar" active="Client Brain" hint-size="220px,820px"></dc-import>
+<main style="flex-grow: 1; box-sizing: border-box; padding: 32px 40px; display: flex; gap: 24px;">
+<section style="width: 340px; display: flex; flex-direction: column; gap: 14px;">
+<h1 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 32px; font-weight: 700;">Client Brain</h1>
+<div style="font-size: 14px; color: #5E5A52;">Everything the AI knows about you. Add docs any time.</div>
+<div style="border: 2px dashed #9C978C; border-radius: 12px; background: #FFFFFF; height: 120px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;">
+<div style="font-size: 16px; font-weight: 600;">Drop brand docs</div>
+<div style="font-size: 13px; color: #5E5A52;">PDF · Word · Markdown · Text</div>
+</div>
+<sc-for list="{{docs}}" as="d" hint-placeholder-count="4">
+<div style="background: #FFFFFF; border: 1px solid #D6D2C8; border-radius: 10px; padding: 12px 14px; display: flex; align-items: center; gap: 10px;">
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 500; padding: 3px 6px; border-radius: 4px; background: #ECE9E2;">{{d.type}}</span>
+<span style="flex-grow: 1; font-size: 14px;">{{d.name}}</span>
+<span style="font-size: 12px; font-weight: 600; color: {{d.color}};">{{d.status}}</span>
+</div>
+</sc-for>
+<button type="button" style="min-height: 48px; border-radius: 10px; border: 1px solid #2B55A0; background: #FFFFFF; color: #2B55A0; font-family: inherit; font-size: 15px; font-weight: 600;">Redraft profile from all docs</button>
+</section>
+<section style="flex-grow: 1; background: #FFFFFF; border: 1px solid #D6D2C8; border-radius: 12px; padding: 24px; display: flex; flex-direction: column; gap: 14px;">
+<div style="display: flex; align-items: center; gap: 12px;">
+<h2 style="margin: 0; flex-grow: 1; font-size: 20px; font-weight: 600;">Brand Profile <span style="font-size: 13px; font-weight: 500; color: #5E5A52;">· draft v3 · edited Sep 24</span></h2>
+<a href="#" style="font-size: 14px;">Versions</a>
+<button type="button" style="min-height: 44px; padding: 0 20px; border-radius: 10px; border: none; background: #2E6B3F; color: #FFFFFF; font-family: inherit; font-size: 15px; font-weight: 600;">Lock profile</button>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;">
+<sc-for list="{{sections}}" as="s" hint-placeholder-count="8">
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600;">{{s.title}}
+<div style="min-height: 66px; box-sizing: border-box; padding: 10px 12px; border: 1px solid #D6D2C8; border-radius: 8px; font-size: 14px; font-weight: 400; color: #5E5A52; background: #FBFAF7;">{{s.body}}</div>
+</label>
+</sc-for>
+</div>
+<div style="font-size: 13px; color: #5E5A52;">Locked profile is used by research, clip picking, captions and narration scripts.</div>
+</section>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":820}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      docs: [
+        { type: 'PDF', name: 'Brand goals 2026.pdf', status: 'Read', color: '#2E6B3F' },
+        { type: 'MD', name: 'chatgpt-strategy-notes.md', status: 'Read', color: '#2E6B3F' },
+        { type: 'DOCX', name: 'Media kit.docx', status: 'Read', color: '#2E6B3F' },
+        { type: 'PDF', name: 'scanned-contract.pdf', status: 'Reading text…', color: '#5E5A52' }
+      ],
+      sections: [
+        { title: 'Who she is', body: '[Drafted from her docs]' },
+        { title: 'Audience', body: '[Who watches, where, age range]' },
+        { title: 'Goals (90 days · 1 year)', body: '[Followers, brand deals, income goals]' },
+        { title: 'Voice and tone', body: '[How she talks on camera]' },
+        { title: 'Content themes (3–5)', body: '[Themes to rotate]' },
+        { title: 'Do / Don’t', body: '[Style rules]' },
+        { title: 'Off-limits topics', body: '[Never post about]' },
+        { title: 'Brand-deal fit · CTAs', body: '[Brands she would work with · calls to action]' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

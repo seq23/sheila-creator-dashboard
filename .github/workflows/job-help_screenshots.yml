@@ -1,0 +1,33 @@
+# Help screenshots (section 12c): Playwright walks each guide with demo data and saves
+# phone + desktop images with numbered callouts. Runs on every release and on demand.
+name: job-help_screenshots
+
+on:
+  repository_dispatch:
+    types: [help_screenshots]
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - run: npm run help:screenshots
+        env:
+          SESSION_SECRET: ci-session-secret
+          SECRETS_KEY: 3Azr0CP6a687IwEqn9ZTM7gF9VgieHdcyXDvKd9Yo24=
+          JOB_SHARED_SECRET: ci-job-secret
+      - uses: actions/upload-artifact@v4
+        with:
+          name: help-screenshots
+          path: help/screenshots

@@ -1,0 +1,61 @@
+// Sheila Creator Dashboard — one Worker serves the React app (static assets),
+// the API, the media links Buffer fetches, and the cron jobs.
+//
+// Why one Worker and not Pages + Worker (the plan said Pages): one deploy, one
+// origin, no CORS, and Workers Static Assets is the direction Cloudflare has
+// moved Pages toward. Nothing about the plan's behaviour changes.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "sheila-creator-dashboard",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "account_id": "8d147e242033699dd37c6f5a451f48d2",
+  "workers_dev": true,
+  "observability": { "enabled": true },
+  "assets": {
+    "directory": "./dist/client",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    // API and media routes must reach the Worker even when a file could match.
+    "run_worker_first": ["/api/*", "/media/*", "/healthz"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "sheila-creator-dashboard-db",
+      "database_id": "f2ddb225-deb9-42e6-b77c-3a122621792f",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    { "binding": "FILES", "bucket_name": "sheila-creator-dashboard-files" }
+  ],
+  "triggers": {
+    "crons": [
+      "0 * * * *",     // hourly: Buffer sync (load next posts, read back status, retry failures)
+      "30 13 * * *",   // daily 13:30 UTC: supply monitor + health check + emails
+      "0 12 * * 1"     // Monday 12:00 UTC: weekly recap, learning update, brand finder
+    ]
+  },
+  "vars": {
+    // Plain-text configuration only. Every key lives in `wrangler secret`.
+    "APP_NAME": "Sheila Studio",
+    "OWNER_EMAIL": "seq.taylor@gmail.com",
+    // "1" swaps every outside service (Buffer, OpenRouter, Firecrawl, Resend, Hunter, GitHub,
+    // Meta, Google) for a realistic stand-in. Production sets it to "0".
+    "FAKE_SERVICES": "1",
+    "PUBLIC_BASE_URL": "http://localhost:8787",
+    "GITHUB_REPO": "seq23/sheila-creator-dashboard",
+    "AUDIENCE_TIMEZONE": "America/New_York"
+  }
+  // Secrets (set with `wrangler secret put <NAME>`), all prefixed with the vendor name so no
+  // reserved env name is ever reused:
+  //   SESSION_SECRET          signs login sessions
+  //   SECRETS_KEY             AES-GCM key (base64, 32 bytes) that encrypts connection keys at rest
+  //   JOB_SHARED_SECRET       HMAC between the Worker and GitHub Actions jobs
+  //   GITHUB_DISPATCH_TOKEN   fine-grained PAT, contents:write on this repo, used only to start jobs
+  //   RESEND_API_KEY          transactional email
+  // Per-user connection keys (Buffer, OpenRouter, Firecrawl, Hunter, Meta, Google) are NOT
+  // secrets here: she pastes them in Connect accounts and they are stored encrypted in D1.
+}
