@@ -7,19 +7,37 @@ last_checked: 2026-09-25
 
 ## What happened
 
-Something needs your attention. This guide walks you through the fix, one step at a time.
+An email from the dashboard did not arrive. The dashboard still shows everything on Home, so nothing is missed.
 
 ## Step 1
 
 ![Step 1](/help/screenshots/i-didnt-get-an-email-1.png)
 
-Open the **I didn't get an email** screen from the menu.
+Check your spam or junk folder for mail from the dashboard, and mark it **Not spam**.
 
 ## Step 2
 
 ![Step 2](/help/screenshots/i-didnt-get-an-email-2.png)
 
-Follow the on-screen prompt. Every screen has one obvious next action.
+Open **Settings** and check the address under **Emails go to**. Fix it and tap **Save** if it is wrong.
+
+## Step 3
+
+![Step 3](/help/screenshots/i-didnt-get-an-email-3.png)
+
+Look at **Email (Resend)** under **Connections + health**. If it is red, tap **How to fix**.
+
+## Step 4
+
+![Step 4](/help/screenshots/i-didnt-get-an-email-4.png)
+
+Tap **Check everything now** and wait for the lights to update.
+
+## Step 5
+
+![Step 5](/help/screenshots/i-didnt-get-an-email-5.png)
+
+If everything is green and mail still does not arrive, tap **No** below to email your helper.
 
 ## Did this work?
 
