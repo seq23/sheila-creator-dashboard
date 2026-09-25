@@ -9,6 +9,7 @@ import { del, get, patch, post } from "../lib/api";
 import { uploadFile } from "../lib/upload";
 import { fmtBytes, fmtDate, plural } from "../lib/format";
 import { Card, Empty, HelpButton, Modal, Notice, PageHead, Skeleton, useLoad, useToast } from "../components/ui";
+import { Icon } from "../components/Icon";
 import "../styles/brain.css";
 
 interface Version {
@@ -117,12 +118,30 @@ export function ClientBrain() {
 
   const dirty = !!profile && !!draft && BRAND_PROFILE_SECTIONS.some((s) => draft[s.key] !== profile.sections[s.key]);
   const readDocs = (data?.docs ?? []).filter((d) => d.extract_status === "done").length;
+  // The screen's one next step, by state: lock an unlocked draft; draft a profile once docs are
+  // read; otherwise add docs.
+  const next: "lock" | "draft" | "choose" | null = !data ? null : profile && !locked ? "lock" : !profile && readDocs > 0 ? "draft" : "choose";
+  const draftProfile = () => act("draft", () => post("/api/brain/profile/draft"), "New draft ready. Read it, edit anything, then lock it.");
 
   return (
     <div className="page">
-      <PageHead title="Client Brain" eyebrow="Everything the AI knows about you. Add docs any time." />
+      <PageHead title="Client Brain" lede="Everything the AI knows about you. Add docs any time.">
+        {next === "lock" ? (
+          <button className="btn" data-primary disabled={dirty || busy === "lock"} title={dirty ? "Save your changes first" : undefined} onClick={() => act("lock", () => post("/api/brain/profile/lock"), "Locked. Research, clips and captions now use this profile.")}>
+            Lock profile
+          </button>
+        ) : next === "draft" ? (
+          <button className="btn" data-primary disabled={busy === "draft"} onClick={draftProfile}>
+            {busy === "draft" ? "Drafting…" : "Draft my profile"}
+          </button>
+        ) : next === "choose" ? (
+          <button className="btn" data-primary onClick={() => inputRef.current?.click()}>
+            Choose docs
+          </button>
+        ) : null}
+      </PageHead>
 
-      {loading && !data ? <Skeleton lines={6} /> : null}
+      {loading && !data ? <Skeleton blocks={2} columns={2} /> : null}
 
       {data ? (
         <div className="brain-split">
@@ -140,9 +159,10 @@ export function ClientBrain() {
               tabIndex={0}
               onKeyDown={(e) => (e.key === "Enter" ? inputRef.current?.click() : undefined)}
             >
-              <div className="brain-drop-title">Drop brand docs</div>
-              <div className="hint">PDF · Word · Markdown · Text — many at once, including exports of past AI chats</div>
-              <span className="btn dark">Choose docs</span>
+              <div className="brain-drop-title">{data.docs.length ? "Drop more brand docs" : "Start with your brand docs"}</div>
+              {data.docs.length ? null : <p className="soft brain-drop-copy">Anything that says who you are and what you want: a brand guide, your media kit, notes, a saved ChatGPT conversation.</p>}
+              <div className="hint">PDF · Word · Markdown · Text — many at once, including exports of past AI chats. Drop them here or tap to pick.</div>
+              {next !== "choose" ? <span className="btn quiet">Choose docs</span> : null}
               <input
                 ref={inputRef}
                 type="file"
@@ -167,15 +187,13 @@ export function ClientBrain() {
                         <span style={{ width: `${u.fraction * 100}%` }} />
                       </div>
                     </div>
-                    <span className="meta">{u.failed ? "Failed" : `${Math.round(u.fraction * 100)}%`}</span>
+                    <span className="meta nums">{u.failed ? "Failed" : `${Math.round(u.fraction * 100)}%`}</span>
                   </div>
                 ))}
               </Card>
             ) : null}
 
-            {data.docs.length === 0 && !uploads.length ? (
-              <Empty title="No docs yet">Upload anything that says who you are and what you want: a brand guide, your media kit, notes, a saved ChatGPT conversation.</Empty>
-            ) : (
+            {data.docs.length === 0 ? null : (
               <Card className="flat">
                 <div className="list" aria-label="Brand docs">
                   {data.docs.map((d) => (
@@ -185,8 +203,8 @@ export function ClientBrain() {
               </Card>
             )}
 
-            {data.docs.length ? (
-              <button className="btn quiet block" disabled={locked || busy === "draft" || readDocs === 0} onClick={() => act("draft", () => post("/api/brain/profile/draft"), "New draft ready. Read it, edit anything, then lock it.")}>
+            {data.docs.length && next !== "draft" ? (
+              <button className="btn quiet block" disabled={locked || busy === "draft" || readDocs === 0} onClick={draftProfile}>
                 {busy === "draft" ? "Drafting…" : profile ? "Redraft profile from all docs" : "Draft my profile"}
               </button>
             ) : null}
@@ -214,7 +232,9 @@ export function ClientBrain() {
             </div>
 
             {!profile ? (
-              <Empty title="No profile yet">{reading ? "Reading your docs… the draft button unlocks when they're read." : "Upload your docs, then press Draft my profile. You'll edit and lock it here."}</Empty>
+              <Empty title="No profile yet" secondary={{ to: "/help/upload-brand-docs", label: "How it works" }}>
+                {reading ? "Reading your docs… Draft my profile unlocks when they’re read." : readDocs > 0 ? "Your docs are read. Press Draft my profile at the top; you’ll edit and lock it here." : "Add your docs, then press Draft my profile. You’ll edit and lock it here."}
+              </Empty>
             ) : (
               <>
                 <div className="btn-row">
@@ -223,17 +243,12 @@ export function ClientBrain() {
                       Unlock to edit
                     </button>
                   ) : (
-                    <>
-                      <button className="btn dark" disabled={!dirty || busy === "save"} onClick={() => act("save", () => patch("/api/brain/profile", { sections: draft }), "Saved as a new version.")}>
-                        {busy === "save" ? "Saving…" : "Save changes"}
-                      </button>
-                      <button className="btn" disabled={dirty || busy === "lock"} title={dirty ? "Save your changes first" : undefined} onClick={() => act("lock", () => post("/api/brain/profile/lock"), "Locked. Research, clips and captions now use this profile.")}>
-                        Lock profile
-                      </button>
-                    </>
+                    <button className="btn dark" disabled={!dirty || busy === "save"} onClick={() => act("save", () => patch("/api/brain/profile", { sections: draft }), "Saved as a new version.")}>
+                      {busy === "save" ? "Saving…" : "Save changes"}
+                    </button>
                   )}
                   <button className="btn quiet" aria-expanded={showVersions} onClick={() => setShowVersions((v) => !v)}>
-                    Versions ({data.versions.length})
+                    Versions (<span className="nums">{data.versions.length}</span>)
                   </button>
                 </div>
 
@@ -269,7 +284,7 @@ export function ClientBrain() {
                   ))}
                 </div>
                 <Notice tone={locked ? "ok" : "info"}>
-                  <span>{locked ? "The locked profile is used by research, clip picking, captions and narration scripts." : "Lock the profile when it sounds like you. Until it's locked, no clips are cut."}</span>
+                  <span>{locked ? "The locked profile is used by research, clip picking, captions and narration scripts." : "Save your changes, then press Lock profile at the top when it sounds like you. Until it’s locked, no clips are cut."}</span>
                 </Notice>
               </>
             )}
@@ -311,7 +326,7 @@ function DocLine({ doc, busy, onRetry, onRemove }: { doc: BrainData["docs"][numb
         ? { text: "Reading text…", tone: "" }
         : doc.extract_status === "pending"
           ? { text: "Waiting to be read", tone: "" }
-          : { text: "Couldn't read · flagged", tone: "bad" };
+          : { text: "Couldn’t read · flagged", tone: "bad" };
   return (
     <div className="brain-doc">
       <div className="list-row">
@@ -325,7 +340,7 @@ function DocLine({ doc, busy, onRetry, onRemove }: { doc: BrainData["docs"][numb
         <span className={`pill ${status.tone}`}>{status.text}</span>
         {!flagged ? (
           <button className="icon-btn" aria-label={`Remove ${doc.file_name}`} onClick={onRemove} disabled={busy}>
-            ×
+            <Icon name="close" size="sm" />
           </button>
         ) : null}
       </div>

@@ -1,0 +1,317 @@
+[
+  {
+    "viewport": "desktop",
+    "route": "/",
+    "url": "http://127.0.0.1:8796/",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "viewport": "desktop",
+    "route": "/dump",
+    "url": "http://127.0.0.1:8796/dump",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "viewport": "desktop",
+    "route": "/review",
+    "url": "http://127.0.0.1:8796/review",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "viewport": "desktop",
+    "route": "/calendar",
+    "url": "http://127.0.0.1:8796/calendar",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "viewport": "desktop",
+    "route": "/brain",
+    "url": "http://127.0.0.1:8796/brain",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "viewport": "desktop",
+    "route": "/research",
+    "url": "http://127.0.0.1:8796/research",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "viewport": "desktop",
+    "route": "/stats",
+    "url": "http://127.0.0.1:8796/stats",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "viewport": "desktop",
+    "route": "/settings",
+    "url": "http://127.0.0.1:8796/settings",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "viewport": "desktop",
+    "route": "/settings/connections",
+    "url": "http://127.0.0.1:8796/settings/connections",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "viewport": "desktop",
+    "route": "/deals",
+    "url": "http://127.0.0.1:8796/deals",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "viewport": "desktop",
+    "route": "/deals?tab=kit",
+    "url": "http://127.0.0.1:8796/deals?tab=kit",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "viewport": "desktop",
+    "route": "/kit/sheila",
+    "url": "http://127.0.0.1:8796/kit/sheila",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "viewport": "desktop",
+    "route": "/voice",
+    "url": "http://127.0.0.1:8796/voice",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "viewport": "desktop",
+    "route": "/help",
+    "url": "http://127.0.0.1:8796/help",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "viewport": "desktop",
+    "route": "/help/dump-new-footage",
+    "url": "http://127.0.0.1:8796/help/dump-new-footage",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "viewport": "tablet",
+    "route": "/",
+    "url": "http://127.0.0.1:8796/",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "viewport": "tablet",
+    "route": "/dump",
+    "url": "http://127.0.0.1:8796/dump",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "viewport": "tablet",
+    "route": "/review",
+    "url": "http://127.0.0.1:8796/review",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "viewport": "tablet",
+    "route": "/calendar",
+    "url": "http://127.0.0.1:8796/calendar",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "viewport": "tablet",
+    "route": "/brain",
+    "url": "http://127.0.0.1:8796/brain",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "viewport": "tablet",
+    "route": "/research",
+    "url": "http://127.0.0.1:8796/research",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "viewport": "tablet",
+    "route": "/stats",
+    "url": "http://127.0.0.1:8796/stats",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "viewport": "tablet",
+    "route": "/settings",
+    "url": "http://127.0.0.1:8796/settings",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "viewport": "tablet",
+    "route": "/settings/connections",
+    "url": "http://127.0.0.1:8796/settings/connections",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "viewport": "tablet",
+    "route": "/deals",
+    "url": "http://127.0.0.1:8796/deals",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "viewport": "tablet",
+    "route": "/deals?tab=kit",
+    "url": "http://127.0.0.1:8796/deals?tab=kit",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "viewport": "tablet",
+    "route": "/kit/sheila",
+    "url": "http://127.0.0.1:8796/kit/sheila",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "viewport": "tablet",
+    "route": "/voice",
+    "url": "http://127.0.0.1:8796/voice",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "viewport": "tablet",
+    "route": "/help",
+    "url": "http://127.0.0.1:8796/help",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "viewport": "tablet",
+    "route": "/help/dump-new-footage",
+    "url": "http://127.0.0.1:8796/help/dump-new-footage",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "viewport": "mobile",
+    "route": "/",
+    "url": "http://127.0.0.1:8796/",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "viewport": "mobile",
+    "route": "/dump",
+    "url": "http://127.0.0.1:8796/dump",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "viewport": "mobile",
+    "route": "/review",
+    "url": "http://127.0.0.1:8796/review",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "viewport": "mobile",
+    "route": "/calendar",
+    "url": "http://127.0.0.1:8796/calendar",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "viewport": "mobile",
+    "route": "/brain",
+    "url": "http://127.0.0.1:8796/brain",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "viewport": "mobile",
+    "route": "/research",
+    "url": "http://127.0.0.1:8796/research",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "viewport": "mobile",
+    "route": "/stats",
+    "url": "http://127.0.0.1:8796/stats",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "viewport": "mobile",
+    "route": "/settings",
+    "url": "http://127.0.0.1:8796/settings",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "viewport": "mobile",
+    "route": "/settings/connections",
+    "url": "http://127.0.0.1:8796/settings/connections",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "viewport": "mobile",
+    "route": "/deals",
+    "url": "http://127.0.0.1:8796/deals",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "viewport": "mobile",
+    "route": "/deals?tab=kit",
+    "url": "http://127.0.0.1:8796/deals?tab=kit",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "viewport": "mobile",
+    "route": "/kit/sheila",
+    "url": "http://127.0.0.1:8796/kit/sheila",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "viewport": "mobile",
+    "route": "/voice",
+    "url": "http://127.0.0.1:8796/voice",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "viewport": "mobile",
+    "route": "/help",
+    "url": "http://127.0.0.1:8796/help",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "viewport": "mobile",
+    "route": "/help/dump-new-footage",
+    "url": "http://127.0.0.1:8796/help/dump-new-footage",
+    "status": 200,
+    "ok": true
+  }
+]

@@ -27,7 +27,7 @@ Copy your key (it starts with fc-).
 
 ![Step 4](/help/screenshots/connect-firecrawl-4.png)
 
-In the dashboard, open **Settings → Connections**, paste it into **Web research · Firecrawl**, and tap **Check key**.
+In the dashboard, open **Settings → Connections**, find the **Firecrawl** card under **AI and research**, paste it into the box, and tap **Check key**.
 
 ## Step 5
 

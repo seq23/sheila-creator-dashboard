@@ -6,6 +6,7 @@ import type { SettingsShape } from "@shared/types";
 import { get } from "../lib/api";
 import { CHECKLIST_KEY, GROUPS, INDEX, TOUR_KEY, guide, helperMail, lastScreen, readStore, searchGuides, writeStore } from "../lib/guides";
 import { Card, HelpButton, PageHead, useLoad } from "../components/ui";
+import { Icon } from "../components/Icon";
 import "../styles/help.css";
 
 const MINUTES: Record<string, string> = {
@@ -52,7 +53,7 @@ export function Help() {
 
   return (
     <div className="page help-home">
-      <PageHead title="Help">
+      <PageHead title="Help" lede="A picture-by-picture guide for every screen. Search for what you need, or start at the top of Getting started.">
         <button type="button" className="btn quiet" onClick={replayTour}>
           Replay the tour
         </button>
@@ -79,43 +80,70 @@ export function Help() {
               </div>
             </Card>
           ) : (
-            <p className="soft">Try a shorter word, like "pitch", "Buffer" or "caption". Or email your helper below.</p>
+            <p className="soft">Try a shorter word, like “pitch”, “Buffer” or “caption”. Or email your helper below.</p>
           )}
         </section>
       ) : null}
 
       <div className="help-grid">
-        <section className="section">
-          <div className="section-head">
-            <h2>Getting started</h2>
-            <span className="soft">
-              {done} of {checklist.length} done
-            </span>
-          </div>
-          <Card className="flat">
-            <div className="meter ok" aria-hidden="true">
-              <span style={{ width: `${(done / Math.max(1, checklist.length)) * 100}%` }} />
+        <div className="help-col">
+          <section className="section">
+            <div className="section-head">
+              <h2>Getting started</h2>
+              <span className="soft nums">
+                {done} of {checklist.length} done
+              </span>
             </div>
-            <ol className="checklist">
-              {checklist.map((g, i) => {
-                const on = ticks.includes(g.slug);
-                return (
-                  <li key={g.slug} className={on ? "on" : ""}>
-                    <button type="button" className="tick" aria-pressed={on} aria-label={`${on ? "Untick" : "Tick"} ${g.title}`} onClick={() => toggle(g.slug)}>
-                      {on ? "✓" : i + 1}
-                    </button>
-                    <Link to={`/help/${g.slug}`} className="grow">
-                      {g.title}
-                    </Link>
-                    <span className="soft small">{MINUTES[g.slug] ?? ""}</span>
-                  </li>
-                );
-              })}
-            </ol>
-          </Card>
-        </section>
+            <Card className="flat">
+              <div className="meter ok" aria-hidden="true">
+                <span style={{ width: `${(done / Math.max(1, checklist.length)) * 100}%` }} />
+              </div>
+              <ol className="checklist">
+                {checklist.map((g, i) => {
+                  const on = ticks.includes(g.slug);
+                  return (
+                    <li key={g.slug} className={on ? "on" : ""}>
+                      <button type="button" className="tick" aria-pressed={on} aria-label={`${on ? "Untick" : "Tick"} ${g.title}`} onClick={() => toggle(g.slug)}>
+                        {on ? <Icon name="check" size="sm" /> : i + 1}
+                      </button>
+                      <Link to={`/help/${g.slug}`} className="grow checklist-link">
+                        {g.title}
+                      </Link>
+                      <span className="help-minutes nums">{MINUTES[g.slug] ?? ""}</span>
+                    </li>
+                  );
+                })}
+              </ol>
+            </Card>
+          </section>
 
-        <div>
+          <section className="section fixit">
+            <div className="section-head">
+              <h2>Something’s wrong? Fix it</h2>
+            </div>
+            <Card className="flat">
+              <div className="list">
+                {fixIt.map((g) => (
+                  <GuideRow key={g.slug} slug={g.slug} title={g.title} />
+                ))}
+                <GuideRow slug="reconnect-an-account" title="Reconnect an account" />
+                <details className="reconnects">
+                  <summary>
+                    <span className="grow">Reconnect one service</span>
+                    <Icon name="right" size="sm" className="reconnects-chev" />
+                  </summary>
+                  <div className="list">
+                    {reconnects.map((g) => (
+                      <GuideRow key={g.slug} slug={g.slug} title={g.title} />
+                    ))}
+                  </div>
+                </details>
+              </div>
+            </Card>
+          </section>
+        </div>
+
+        <div className="help-col">
           {topics.map((t) => (
             <section key={t.key} className="section">
               <div className="section-head">
@@ -133,34 +161,10 @@ export function Help() {
         </div>
       </div>
 
-      <section className="section fixit">
-        <div className="section-head">
-          <h2>Something's wrong? Fix it</h2>
-        </div>
-        <div className="fixit-grid">
-          {fixIt.map((g) => (
-            <Link key={g.slug} to={`/help/${g.slug}`} className="card link fixit-card">
-              {g.title}
-            </Link>
-          ))}
-          <Link to="/help/reconnect-an-account" className="card link fixit-card">
-            Reconnect an account
-          </Link>
-        </div>
-        <details className="reconnects">
-          <summary>Reconnect one service</summary>
-          <div className="list">
-            {reconnects.map((g) => (
-              <GuideRow key={g.slug} slug={g.slug} title={g.title} />
-            ))}
-          </div>
-        </details>
-      </section>
-
       <Card className="flat stuck">
         <div className="grow">
           <h3>Still stuck?</h3>
-          <p className="soft">{helper ? "Email your helper. We'll include which screen you were on." : "Add a helper in Settings and this button emails them for you."}</p>
+          <p className="soft">{helper ? "Email your helper. We’ll include which screen you were on." : "Add a helper in Settings and this button emails them for you."}</p>
         </div>
         {helper ? (
           <a className="btn" href={helperMail(helper, lastScreen())}>
@@ -183,9 +187,9 @@ function GuideRow({ slug, title }: { slug: string; title: string }) {
     <Link to={`/help/${slug}`} className="list-row guide-row">
       <div className="grow">
         <div className="title">{title}</div>
-        {steps ? <div className="meta">{steps} steps</div> : null}
+        {steps ? <div className="meta nums">{steps} steps</div> : null}
       </div>
-      <span aria-hidden="true">›</span>
+      <Icon name="right" size="sm" className="guide-row-chev" />
     </Link>
   );
 }

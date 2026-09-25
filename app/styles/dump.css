@@ -1,0 +1,17 @@
+/* Hallmark · design-system: docs/design/DESIGN.md · designed-as-app
+   Dump. Tokens only (tokens.css); the doors, dropzone and lists are shared pieces in global.css. */
+.dump-main {
+  gap: var(--space-md);
+}
+.dump-choose {
+  margin-top: var(--space-2xs);
+}
+.dump-meter {
+  margin-top: var(--space-2xs);
+}
+.dump-pct {
+  flex-shrink: 0;
+}
+.dump-asset-edit {
+  padding: 0 0 var(--space-xs);
+}

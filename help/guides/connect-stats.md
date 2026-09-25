@@ -33,7 +33,7 @@ For TikTok, tap **Upload TikTok export**; it opens Stats (see **Upload your TikT
 
 ![Step 5](/help/screenshots/connect-stats-5.png)
 
-Each row turns green with the account name. Your numbers are read once a week; open **Stats** and tap **Sync now** any time.
+Each row turns green with the account name. Your numbers are read once a week; open **Stats** and tap **Update numbers** any time.
 
 ## Did this work?
 

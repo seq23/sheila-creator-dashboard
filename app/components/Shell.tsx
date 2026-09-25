@@ -1,25 +1,39 @@
 // Desktop sidebar + phone bottom tab bar (section 4). Badges: Review count, Deals follow-ups,
 // Voice "Off" until switched on. The Voice item is hidden entirely unless the feature is on.
-import { NavLink, Outlet } from "react-router-dom";
+// Phone: Home · Dump · Review · Calendar in the bar (the daily four, per the wireframes) and a
+// Menu tab that opens a sheet with every other screen, so nothing is desktop-only. The help
+// guides say "tap X in the menu"; the tab is called Menu so that sentence is true on a phone.
+import { useEffect, useState } from "react";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import type { Me } from "@shared/types";
 import { useApp } from "../state";
+import { Icon, type IconName } from "./Icon";
 import { Tour } from "./Tour";
 
-const NAV: { to: string; label: string; icon: string; badge?: (s: ShellCounts) => string | number | undefined; feature?: keyof Me["features"] }[] = [
-  { to: "/", label: "Home", icon: "⌂" },
-  { to: "/dump", label: "Dump", icon: "＋" },
-  { to: "/review", label: "Review", icon: "▶", badge: (s) => s.reviewCount || undefined },
-  { to: "/calendar", label: "Calendar", icon: "▦" },
-  { to: "/deals", label: "Deals", icon: "✦", badge: (s) => s.followups || undefined },
-  { to: "/brain", label: "Client Brain", icon: "◎" },
-  { to: "/research", label: "Research", icon: "◈" },
-  { to: "/stats", label: "Stats", icon: "▲" },
-  { to: "/voice", label: "Voice", icon: "♪", feature: "voice" },
-  { to: "/settings", label: "Settings", icon: "⚙" },
-  { to: "/help", label: "Help", icon: "?" },
+interface NavItem {
+  to: string;
+  label: string;
+  icon: IconName;
+  badge?: (s: ShellCounts) => string | number | undefined;
+  feature?: keyof Me["features"];
+  group: "daily" | "business" | "setup";
+}
+
+const NAV: NavItem[] = [
+  { to: "/", label: "Home", icon: "home", group: "daily" },
+  { to: "/dump", label: "Dump", icon: "dump", group: "daily" },
+  { to: "/review", label: "Review", icon: "review", badge: (s) => s.reviewCount || undefined, group: "daily" },
+  { to: "/calendar", label: "Calendar", icon: "calendar", group: "daily" },
+  { to: "/deals", label: "Deals", icon: "deals", badge: (s) => s.followups || undefined, group: "business" },
+  { to: "/brain", label: "Client Brain", icon: "brain", group: "business" },
+  { to: "/research", label: "Research", icon: "research", group: "business" },
+  { to: "/stats", label: "Stats", icon: "stats", group: "business" },
+  { to: "/voice", label: "Voice", icon: "voice", feature: "voice", group: "business" },
+  { to: "/settings", label: "Settings", icon: "settings", group: "setup" },
+  { to: "/help", label: "Help", icon: "help", group: "setup" },
 ];
 
-const TABS = ["/", "/dump", "/review", "/calendar", "/help"];
+const TABS = ["/", "/dump", "/review", "/calendar"];
 
 export interface ShellCounts {
   reviewCount: number;
@@ -28,15 +42,42 @@ export interface ShellCounts {
 
 export function Shell() {
   const { me, counts, health } = useApp();
+  const loc = useLocation();
+  const [menuOpen, setMenuOpen] = useState(false);
   const items = NAV.filter((n) => !n.feature || me?.features[n.feature]);
   const allOk = health.every((h) => h.light === "green" || h.light === "grey");
-  const badge = (n: (typeof NAV)[number]) => n.badge?.(counts);
+  const badge = (n: NavItem) => n.badge?.(counts);
+  const menuItems = items.filter((n) => !TABS.includes(n.to));
+  const menuBadge = menuItems.reduce((sum, n) => sum + (Number(badge(n)) || 0), 0);
+  const inMenu = menuItems.some((n) => (n.to === "/" ? loc.pathname === "/" : loc.pathname.startsWith(n.to)));
+
+  // The sheet closes on navigation and on Escape.
+  useEffect(() => setMenuOpen(false), [loc.pathname, loc.search]);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e: KeyboardEvent) => (e.key === "Escape" ? setMenuOpen(false) : undefined);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [menuOpen]);
+
+  const link = (n: NavItem) => (
+    <NavLink key={n.to} to={n.to} end={n.to === "/"}>
+      <Icon name={n.icon} />
+      {n.label}
+      {badge(n) ? (
+        <span className="badge" aria-label={`${badge(n)} waiting`}>
+          {badge(n)}
+        </span>
+      ) : null}
+    </NavLink>
+  );
+
   return (
     <div className="shell">
       <aside className="sidebar">
         <NavLink to="/" className="brand" aria-label="Sheila Studio home">
           <span className="brand-mark">
-            <img src="/assets/brand/sheila-logo.png" alt="" />
+            <img src="/assets/brand/sheila-logo.png" alt="Sheila Bruce logo" />
           </span>
           <span>
             <div className="brand-name">Sheila Studio</div>
@@ -44,38 +85,41 @@ export function Shell() {
           </span>
         </NavLink>
         <nav className="nav" aria-label="Main">
-          {items.map((n) => (
-            <NavLink key={n.to} to={n.to} end={n.to === "/"}>
-              <span aria-hidden="true" style={{ width: 18, textAlign: "center", opacity: 0.8 }}>
-                {n.icon}
-              </span>
-              {n.label}
-              {badge(n) ? <span className="badge">{badge(n)}</span> : null}
-            </NavLink>
-          ))}
+          {items.filter((n) => n.group === "daily").map(link)}
+          <hr className="nav-rule" />
+          {items.filter((n) => n.group === "business").map(link)}
+          <hr className="nav-rule" />
+          {items.filter((n) => n.group === "setup").map(link)}
         </nav>
         <div className="sidebar-foot">
-          <div className="row">
-            <span className={`dot ${allOk ? "green" : "yellow"}`} />
+          <NavLink to="/settings" className="row">
+            <span className={`dot ${allOk ? "green" : "yellow"}`} aria-hidden="true" />
             {allOk ? "All systems OK" : "Something needs you"}
+          </NavLink>
+          <div className="who" title={me?.email}>
+            {me?.email}
           </div>
-          <div style={{ opacity: 0.7, fontSize: "0.78rem" }}>{me?.email}</div>
         </div>
       </aside>
       <main className="main" id="main">
         <Outlet />
         <Tour />
       </main>
+      {menuOpen ? <button type="button" className="more-back" aria-label="Close the menu" onClick={() => setMenuOpen(false)} /> : null}
+      <div className="more-sheet" id="more-sheet" hidden={!menuOpen}>
+        <nav aria-label="More screens">{menuItems.map(link)}</nav>
+      </div>
       <nav className="tabbar" aria-label="Main">
-        {NAV.filter((n) => TABS.includes(n.to)).map((n) => (
-          <NavLink key={n.to} to={n.to} end={n.to === "/"}>
-            <span aria-hidden="true" style={{ fontSize: "1.2rem" }}>
-              {n.icon}
+        {items.filter((n) => TABS.includes(n.to)).map(link)}
+        <button type="button" data-menu className={inMenu ? "active" : ""} aria-expanded={menuOpen} aria-controls="more-sheet" onClick={() => setMenuOpen((v) => !v)}>
+          <Icon name={menuOpen ? "close" : "more"} />
+          Menu
+          {menuBadge ? (
+            <span className="badge" aria-label={`${menuBadge} waiting`}>
+              {menuBadge}
             </span>
-            {n.label}
-            {badge(n) ? <span className="badge">{badge(n)}</span> : null}
-          </NavLink>
-        ))}
+          ) : null}
+        </button>
       </nav>
     </div>
   );

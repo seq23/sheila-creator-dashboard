@@ -1,8 +1,9 @@
-/* Stats (phase 8). Only tokens from tokens.css. */
+/* Hallmark · design-system: docs/design/DESIGN.md · designed-as-app
+   Stats (phase 8). Only tokens from tokens.css. */
 .stats-split {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 24px;
+  gap: var(--space-md);
   align-items: start;
 }
 @media (max-width: 900px) {
@@ -18,8 +19,8 @@
 .stats-rank {
   display: inline-grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: var(--gold-faint);
   font-family: var(--font-display);
@@ -41,21 +42,22 @@
   display: grid;
   grid-template-columns: 120px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-xs);
   min-height: var(--touch);
 }
 .stats-when {
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
   font-weight: 600;
 }
 .stats-num {
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 @media (max-width: 560px) {
   .stats-bar {
-    grid-template-columns: 1fr auto;
-    row-gap: 4px;
-    padding: 6px 0;
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: var(--space-3xs);
+    padding: var(--space-2xs) 0;
   }
   .stats-bar .meter {
     grid-column: 1 / -1;

@@ -45,11 +45,9 @@ export function Login() {
         <span className="brand-mark">
           <img src="/assets/brand/sheila-logo.png" alt="Sheila Bruce" />
         </span>
-        <div style={{ textAlign: "center" }}>
-          <div className="script" style={{ fontSize: "1.9rem", lineHeight: 1 }}>
-            welcome back
-          </div>
-          <h1 style={{ fontSize: "1.8rem" }}>Sheila Studio</h1>
+        <div className="login-title">
+          <span className="script">welcome back</span>
+          <h1>Sheila Studio</h1>
         </div>
         {stage === "email" ? (
           <form onSubmit={request} className="section">
@@ -58,7 +56,7 @@ export function Login() {
               <input id="email" className="input" type="email" autoComplete="email" inputMode="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
               <div className="hint">We email you a 6-digit code. No password to remember.</div>
             </div>
-            <button className="btn big block" disabled={busy}>
+            <button className="btn big block" data-primary disabled={busy}>
               {busy ? "Sending…" : "Email me a code"}
             </button>
           </form>
@@ -74,7 +72,7 @@ export function Login() {
                 </div>
               ) : null}
             </div>
-            <button className="btn big block" disabled={busy || code.length !== 6}>
+            <button className="btn big block" data-primary disabled={busy || code.length !== 6}>
               {busy ? "Checking…" : "Log in"}
             </button>
             <button type="button" className="btn quiet block" onClick={() => setStage("email")}>

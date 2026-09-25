@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { Link } from "react-router-dom";
 import type { Light } from "@shared/types";
 import { ApiFailure } from "../lib/api";
+import { Icon } from "./Icon";
 
 // ---------- toasts
 interface Toast {
@@ -76,13 +77,20 @@ export function useLoad<T>(loader: () => Promise<T>, deps: unknown[] = []) {
 }
 
 // ---------- pieces
-export function PageHead({ eyebrow, title, crumb, children }: { eyebrow?: string; title: ReactNode; crumb?: ReactNode; children?: ReactNode }) {
+/**
+ * Every screen's title block: optional breadcrumb, a short uppercase eyebrow (dates only) or a
+ * script flourish (the brand's Allura, at most one per screen), the Playfair title, and a one-
+ * sentence lede. `children` is the action area; mark the screen's one next step `data-primary`.
+ */
+export function PageHead({ eyebrow, script, title, lede, crumb, children }: { eyebrow?: string; script?: string; title: ReactNode; lede?: ReactNode; crumb?: ReactNode; children?: ReactNode }) {
   return (
     <div className="page-head">
       <div>
         {crumb ? <div className="crumb">{crumb}</div> : null}
         {eyebrow ? <div className="eyebrow">{eyebrow}</div> : null}
+        {script ? <span className="script">{script}</span> : null}
         <h1>{title}</h1>
+        {lede ? <p className="lede">{lede}</p> : null}
       </div>
       {children ? <div className="actions">{children}</div> : null}
     </div>
@@ -117,19 +125,32 @@ export function Stat({ label, value, sub, meter, children }: { label: string; va
   );
 }
 
+const LIGHT_WORDS: Record<Light, string> = { green: "Working", yellow: "Needs a look", red: "Not working", grey: "Not set up" };
+
+/** A health light. The colour is never the only signal: the name says it in words. */
 export function Dot({ light }: { light: Light }) {
-  return <span className={`dot ${light}`} aria-label={light} />;
+  return <span className={`dot ${light}`} role="img" data-light={light} aria-label={LIGHT_WORDS[light]} />;
 }
 
-export function Empty({ title, children, cta }: { title: string; children?: ReactNode; cta?: { to: string; label: string } }) {
+/** An empty state always says what to do next, with a link to do it. */
+export function Empty({ title, children, cta, secondary, primary }: { title: string; children?: ReactNode; cta?: { to: string; label: string }; secondary?: { to: string; label: string }; /** the CTA is the screen's one next step */ primary?: boolean }) {
   return (
     <div className="empty">
       <h3>{title}</h3>
       {children ? <p className="soft">{children}</p> : null}
-      {cta ? (
-        <Link className="btn" to={cta.to}>
-          {cta.label}
-        </Link>
+      {cta || secondary ? (
+        <div className="btn-row">
+          {cta ? (
+            <Link className="btn" to={cta.to} data-primary={primary || undefined}>
+              {cta.label}
+            </Link>
+          ) : null}
+          {secondary ? (
+            <Link className="btn quiet" to={secondary.to}>
+              {secondary.label}
+            </Link>
+          ) : null}
+        </div>
       ) : null}
     </div>
   );
@@ -139,9 +160,22 @@ export function Notice({ tone = "info", children }: { tone?: "info" | "ok" | "wa
   return <div className={`notice ${tone}`}>{children}</div>;
 }
 
-export function Skeleton({ lines = 3 }: { lines?: number }) {
+/**
+ * Loading placeholder shaped like what is coming: `blocks` draws card-sized blocks in a grid
+ * (dashboards, lists of cards), `lines` draws text lines. It reserves the space so the page does
+ * not jump when data arrives.
+ */
+export function Skeleton({ lines = 3, blocks = 0, columns = 1 }: { lines?: number; blocks?: number; columns?: 1 | 2 | 3 | 4 }) {
+  if (blocks)
+    return (
+      <div className={`grid${columns > 1 ? ` cols-${columns}` : ""}`} aria-busy="true" aria-label="Loading">
+        {Array.from({ length: blocks }).map((_, i) => (
+          <div key={i} className="skeleton skeleton-block" />
+        ))}
+      </div>
+    );
   return (
-    <div className="section" aria-busy="true">
+    <div className="section" aria-busy="true" aria-label="Loading">
       {Array.from({ length: lines }).map((_, i) => (
         <div key={i} className="skeleton" style={{ width: `${70 + ((i * 13) % 30)}%` }} />
       ))}
@@ -158,7 +192,12 @@ export function Modal({ title, children, onClose }: { title: string; children: R
   return (
     <div className="modal-back" onClick={onClose}>
       <div className="modal" role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
-        <h2>{title}</h2>
+        <div className="modal-head">
+          <h2>{title}</h2>
+          <button type="button" className="icon-btn" aria-label="Close" onClick={onClose}>
+            <Icon name="close" />
+          </button>
+        </div>
         {children}
       </div>
     </div>
@@ -184,8 +223,8 @@ export function Switch({ checked, onChange, label, hint }: { checked: boolean; o
     <label className="switch">
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
       <span>
-        <div style={{ fontWeight: 600 }}>{label}</div>
-        {hint ? <div className="hint">{hint}</div> : null}
+        <span className="switch-label">{label}</span>
+        {hint ? <span className="hint switch-hint">{hint}</span> : null}
       </span>
     </label>
   );
@@ -195,7 +234,7 @@ export function Switch({ checked, onChange, label, hint }: { checked: boolean; o
 export function HelpButton({ guide }: { guide: string }) {
   return (
     <Link to={`/help/${guide}`} className="help-btn" aria-label="Help for this screen" title="Help for this screen">
-      ?
+      <Icon name="help" size="lg" />
     </Link>
   );
 }

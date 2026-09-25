@@ -118,13 +118,13 @@ export function Review() {
 
   return (
     <div className="page review-page">
-      <PageHead title="Review clips">
+      <PageHead title="Review clips" lede="Approve the clips you’d post and reject the rest. Nothing posts until you approve it.">
         {tab === "new" && newIds.length > 0 ? (
           <>
             <button className="btn quiet" disabled={busy} onClick={() => setRejecting(newIds)}>
               Reject all
             </button>
-            <button className="btn" disabled={busy} onClick={() => approve(newIds)}>
+            <button className="btn" data-primary disabled={busy} onClick={() => approve(newIds)}>
               Approve all {newIds.length}
             </button>
           </>
@@ -169,20 +169,22 @@ export function Review() {
 
       {tab === "rejected" && visible.length > 0 ? <p className="hint">Rejected clips are removed for good 7 days after you reject them. Changed your mind? Approve or move one back.</p> : null}
 
-      {list.loading && !list.data ? <Skeleton lines={4} /> : null}
-      {list.error ? <Empty title="Review didn't load">Check your connection and try again.</Empty> : null}
+      {list.loading && !list.data ? <Skeleton blocks={3} columns={3} /> : null}
+      {list.error ? <Empty title="Review didn’t load">Check your connection, then pull down or reload the page to try again.</Empty> : null}
 
       {list.data && visible.length === 0 ? (
         nothingAtAll ? (
-          <Empty title="Nothing to review yet" cta={{ to: "/dump", label: "Dump videos" }}>
-            Dump some footage and the clips land here, usually 10 to 30 minutes later. We'll email you.
+          <Empty title="Nothing to review yet" cta={{ to: "/dump", label: "Dump videos" }} primary>
+            Dump some footage and the clips land here, usually 10 to 30 minutes later. We’ll email you.
           </Empty>
         ) : tab === "new" ? (
-          <Empty title="All caught up" cta={{ to: "/calendar", label: "See the Calendar" }}>
-            {counts.hidden && !showHidden ? `Every new clip is reviewed. ${plural(counts.hidden, "clip")} scored lower and are hidden; switch on "Show hidden" to see them.` : "Every new clip is reviewed. Approved clips fill the Calendar."}
+          <Empty title="All caught up" cta={{ to: "/calendar", label: "See the Calendar" }} primary>
+            {counts.hidden && !showHidden ? `Every new clip is reviewed. ${plural(counts.hidden, "clip")} scored lower and are hidden; switch on “Show hidden” to see them.` : "Every new clip is reviewed. Approved clips fill the Calendar."}
           </Empty>
         ) : tab === "approved" ? (
-          <Empty title="No approved clips here">Approve clips in New and they wait here until they post.</Empty>
+          <Empty title="No approved clips here" cta={{ to: "/calendar", label: "See the Calendar" }}>
+            Approve clips in New and they wait here until they post. Posts already planned are on the Calendar.
+          </Empty>
         ) : (
           <Empty title="Nothing rejected">Clips you reject stay here for 7 days in case you change your mind.</Empty>
         )
@@ -248,7 +250,7 @@ export function Review() {
       ) : null}
       {deleting ? (
         <Modal title="Delete this clip for good?" onClose={() => setDeleting(null)}>
-          <p>This removes the video file permanently. You can't undo it. To keep it around for a week instead, reject it.</p>
+          <p>This removes the video file permanently. You can’t undo it. To keep it around for a week instead, reject it.</p>
           <div className="btn-row">
             <button
               className="btn danger"
@@ -306,7 +308,7 @@ function ClipCard(props: {
       </div>
       <div className="clip-body">
         <div className="clip-meta">
-          <span className="mono">{fmtSeconds(seconds)}</span>
+          <span className="nums">{fmtSeconds(seconds)}</span>
           <span>· Score {Math.round(c.score * 100)}</span>
           <span className="pill">{RECIPES[c.recipe]?.label ?? c.recipe}</span>
           {c.door === "recycle" ? <span className="pill">Recycled</span> : null}
@@ -361,11 +363,11 @@ function ClipCard(props: {
         </div>
         <div className="clip-links">
           {tab !== "rejected" ? (
-            <button className="linkish" onClick={props.onEdit}>
+            <button className="link-btn" onClick={props.onEdit}>
               Edit caption & hook
             </button>
           ) : null}
-          <button className="linkish danger-text" onClick={props.onDelete}>
+          <button className="link-btn danger-text" onClick={props.onDelete}>
             Delete this clip
           </button>
         </div>
@@ -377,7 +379,7 @@ function ClipCard(props: {
 function RejectModal({ count, onPick, onClose }: { count: number; onPick: (reason: string | null) => void; onClose: () => void }) {
   return (
     <Modal title={count === 1 ? "Why reject this one?" : `Why reject these ${count}?`} onClose={onClose}>
-      <p className="hint">Tap a reason. It teaches the cutter what you don't like.</p>
+      <p className="hint">Tap a reason. It teaches the cutter what you don’t like.</p>
       <div className="reason-list">
         {REJECT_REASONS.map((r) => (
           <button key={r} className="btn quiet block" onClick={() => onPick(r)}>
@@ -416,7 +418,7 @@ function EditModal({ clip, onSaved, onClose }: { clip: ReviewClip; onSaved: () =
 
   async function save() {
     if (!hook.trim()) {
-      toast.bad(new Error("The on-screen hook can't be empty."));
+      toast.bad(new Error("The on-screen hook can’t be empty."));
       return;
     }
     if (!platforms.length) {
@@ -441,9 +443,12 @@ function EditModal({ clip, onSaved, onClose }: { clip: ReviewClip; onSaved: () =
         <label htmlFor="e-hook">On-screen hook</label>
         <input id="e-hook" className="input" value={hook} maxLength={200} onChange={(e) => setHook(e.target.value)} />
         {hookAlt ? (
-          <button type="button" className="btn quiet small hook-swap" onClick={swap}>
-            Use the other hook: “{hookAlt}”
-          </button>
+          <div className="hook-alt">
+            <span className="hint">Other hook: “{hookAlt}”</span>
+            <button type="button" className="btn quiet small" onClick={swap} aria-label={`Use the other hook: “${hookAlt}”`}>
+              Use the other hook
+            </button>
+          </div>
         ) : null}
       </div>
       <div className="field">
@@ -463,9 +468,9 @@ function EditModal({ clip, onSaved, onClose }: { clip: ReviewClip; onSaved: () =
           </label>
         ))}
       </fieldset>
-      <Switch checked={paid} onChange={setPaid} label="Paid partnership" hint="Adds #ad to the end of the caption. When it posts, also switch on the app's own paid-partnership label." />
+      <Switch checked={paid} onChange={setPaid} label="Paid partnership" hint="Adds #ad to the end of the caption. When it posts, also switch on the app’s own paid-partnership label." />
       <div className="btn-row">
-        <button className="btn" disabled={saving} onClick={save}>
+        <button className="btn" data-primary disabled={saving} onClick={save}>
           {saving ? "Saving…" : "Save"}
         </button>
         <button className="btn quiet" onClick={onClose}>

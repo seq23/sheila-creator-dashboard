@@ -4,8 +4,10 @@ import { get } from "../lib/api";
 import { fmtDate, plural } from "../lib/format";
 import { foldHealth } from "../lib/health";
 import { Card, Dot, Empty, HelpButton, Notice, PageHead, Skeleton, Stat, useLoad } from "../components/ui";
+import { Icon } from "../components/Icon";
 import { useApp } from "../state";
 import { PLATFORM_LABEL, PLATFORMS } from "@shared/constants";
+import "../styles/home.css";
 
 const DUMP_STATUS: Record<HomeSummary["recentDumps"][number]["status"], { text: string; tone: "ok" | "warn" | "bad" | "" }> = {
   uploading: { text: "Still uploading", tone: "warn" },
@@ -23,13 +25,18 @@ export function Home() {
 
   return (
     <div className="page">
-      <PageHead eyebrow={fmtDate(new Date().toISOString(), { weekday: "long", month: "short", day: "numeric" })} title={`Hi ${firstName}`}>
-        <Link to="/dump" className="btn big">
+      <PageHead eyebrow={fmtDate(new Date().toISOString(), { weekday: "long", month: "short", day: "numeric" })} title={`Hi ${firstName}`} lede="What needs you today, and how the week is going.">
+        <Link to="/dump" className="btn big" data-primary>
           + Dump videos
         </Link>
       </PageHead>
 
-      {loading && !data ? <Skeleton lines={4} /> : null}
+      {loading && !data ? (
+        <>
+          <Skeleton blocks={4} columns={4} />
+          <Skeleton blocks={2} columns={2} />
+        </>
+      ) : null}
       {error ? <Notice tone="bad">The dashboard could not load your numbers. Pull down to refresh, or check your connection.</Notice> : null}
 
       {data ? (
@@ -49,7 +56,24 @@ export function Home() {
             </Notice>
           ) : null}
 
-          <div className="grid cols-4">
+          <div className="grid cols-4 home-stats">
+            <Card to="/review" accent={data.waiting.clips > 0}>
+              <Stat
+                label="Waiting for you"
+                value={plural(data.waiting.clips, "clip")}
+                sub={
+                  data.waiting.clips ? (
+                    <strong className="home-go">
+                      Review now <Icon name="arrow" size="sm" />
+                    </strong>
+                  ) : data.waiting.dumpsCutting ? (
+                    `${plural(data.waiting.dumpsCutting, "dump")} cutting`
+                  ) : (
+                    "Nothing to review"
+                  )
+                }
+              />
+            </Card>
             <Card>
               <Stat
                 label="Runway"
@@ -63,32 +87,42 @@ export function Home() {
                 label="This week"
                 value={
                   <>
-                    {data.thisWeek.posted} <small>/ {data.thisWeek.planned}</small>
+                    {data.thisWeek.posted} <small>/ {data.thisWeek.planned} posted</small>
                   </>
                 }
-                sub={`posted · ${PLATFORMS.map((p) => `${PLATFORM_LABEL[p].split(" ")[0]} ${data.thisWeek.perPlatform[p].posted}/${data.thisWeek.perPlatform[p].cap}`).join(" · ")}`}
-              />
+              >
+                <ul className="home-plats" aria-label="Posted this week per platform">
+                  {PLATFORMS.map((p) => (
+                    <li key={p}>
+                      <span>{PLATFORM_LABEL[p].split(" ")[0]}</span>
+                      <span className="nums">
+                        {data.thisWeek.perPlatform[p].posted} / {data.thisWeek.perPlatform[p].cap}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </Stat>
             </Card>
-            <Card to="/review" accent={data.waiting.clips > 0}>
-              <Stat label="Waiting for you" value={plural(data.waiting.clips, "clip")} sub={data.waiting.clips ? <strong style={{ color: "var(--rose)" }}>Review now →</strong> : data.waiting.dumpsCutting ? `${plural(data.waiting.dumpsCutting, "dump")} cutting` : "Nothing to review"} />
-            </Card>
-            <Card to="/settings">
+            <Card to={data.health.length === 0 ? "/settings/connections" : "/settings"}>
               <div className="card-label">Health</div>
               {data.health.length === 0 ? (
-                <div className="hint">Nothing connected yet</div>
+                <>
+                  <div className="hint">Nothing connected yet</div>
+                  <strong className="home-go">
+                    Connect your accounts <Icon name="arrow" size="sm" />
+                  </strong>
+                </>
               ) : (
-                <div className="list">
+                <ul className="home-health">
                   {foldHealth(data.health)
                     .slice(0, 5)
                     .map((h) => (
-                      <div key={h.name} className="row" style={{ padding: "5px 0", fontSize: "0.9rem" }}>
+                      <li key={h.name}>
                         <Dot light={h.light} />
-                        <span className="grow" style={{ flex: 1 }}>
-                          {h.label}
-                        </span>
-                    </div>
-                  ))}
-                </div>
+                        <span className="truncate">{h.label}</span>
+                      </li>
+                    ))}
+                </ul>
               )}
             </Card>
           </div>
@@ -97,8 +131,8 @@ export function Home() {
             <section className="section">
               <div className="section-head">
                 <h2>Recent dumps</h2>
-                <Link to="/dump" className="soft">
-                  All dumps
+                <Link to="/dump">
+                  All dumps <Icon name="arrow" size="sm" />
                 </Link>
               </div>
               {data.recentDumps.length === 0 ? (
@@ -111,7 +145,7 @@ export function Home() {
                     {data.recentDumps.map((d) => {
                       const s = DUMP_STATUS[d.status];
                       return (
-                        <Link key={d.id} to={d.status === "ready" ? "/review" : `/dump/${d.id}`} className="list-row" style={{ textDecoration: "none" }}>
+                        <Link key={d.id} to={d.status === "ready" ? "/review" : `/dump/${d.id}`} className="list-row">
                           <div className="grow">
                             <div className="title">
                               {fmtDate(d.created_at)} · {d.door === "new" ? "New footage" : "Recycle"} · {plural(d.files, "video")}
@@ -132,19 +166,19 @@ export function Home() {
             <section className="section">
               <div className="section-head">
                 <h2>Follow-ups</h2>
-                <Link to="/deals" className="soft">
-                  Deals
+                <Link to="/deals">
+                  Deals <Icon name="arrow" size="sm" />
                 </Link>
               </div>
               {data.followups.length === 0 ? (
-                <Card className="flat">
-                  <div className="hint">No brand follow-ups due. Pitches you send show up here on day 5 and day 12.</div>
-                </Card>
+                <Empty title="No follow-ups due" secondary={{ to: "/deals", label: "Open Deals" }}>
+                  Pitches you send from Deals show up here on day 5 and day 12, so no brand goes quiet on you.
+                </Empty>
               ) : (
                 <Card className="flat">
                   <div className="list">
                     {data.followups.map((f) => (
-                      <Link key={f.dealId} to="/deals" className="list-row" style={{ textDecoration: "none" }}>
+                      <Link key={f.dealId} to="/deals" className="list-row">
                         <div className="grow">
                           <div className="title">{f.brand}</div>
                           <div className="meta">Follow up {fmtDate(f.dueAt)}</div>

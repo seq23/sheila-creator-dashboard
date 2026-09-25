@@ -43,6 +43,9 @@ test.describe("home and dump", () => {
     await expect(page.getByText("This week")).toBeVisible();
     await expect(page.getByText("Waiting for you")).toBeVisible();
     await expect(page.getByRole("link", { name: "+ Dump videos" })).toBeVisible();
+    // one next step per screen: the Dump link is the only primary action
+    await expect(page.locator("[data-primary]")).toHaveCount(1);
+    await expect(page.locator("[data-primary]")).toHaveText("+ Dump videos");
   });
 
   test("every screen is reachable and has a ? help button", async ({ page }) => {
@@ -55,12 +58,18 @@ test.describe("home and dump", () => {
   test("dump: pick a door, upload a small file in chunks, Dump is gated on the brief", async ({ page }) => {
     await page.goto("/dump");
     await page.getByRole("button", { name: /Recycle old videos/ }).click();
+    // before anything is uploaded the one next step is choosing videos
+    await expect(page.locator("[data-primary]")).toHaveCount(1);
+    await expect(page.locator("[data-primary]")).toHaveText("Choose videos");
     // Random bytes: the dashboard refuses a file it has already seen (never re-upload the identical video).
     const bytes = Buffer.alloc(300_000);
     for (let i = 0; i < bytes.length; i += 4) bytes.writeUInt32LE((Math.random() * 0xffffffff) >>> 0, i);
     await page.locator('input[type="file"]').setInputFiles({ name: "sample.mp4", mimeType: "video/mp4", buffer: bytes });
     await expect(page.getByText("Uploaded")).toBeVisible({ timeout: 20_000 });
     await page.getByLabel("Notes for this dump").fill("Test dump from Playwright");
+    // once a video is in, the primary moves to the Dump button
+    await expect(page.locator("[data-primary]")).toHaveCount(1);
+    await expect(page.getByRole("button", { name: "Dump", exact: true })).toHaveAttribute("data-primary", "true");
     await page.getByRole("button", { name: "Dump", exact: true }).click();
     // Section 6 gate: no Brand Profile locked yet → a plain-English stop with a fix link.
     await expect(page.locator(".toast.bad")).toContainText("Brand Profile");
