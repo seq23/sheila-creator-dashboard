@@ -10,6 +10,7 @@ import { del, get, patch, post } from "../lib/api";
 import { fmtDate } from "../lib/format";
 import { uploadFile } from "../lib/upload";
 import { Card, Notice, Skeleton, useLoad, useToast } from "../components/ui";
+import { Icon } from "../components/Icon";
 import "../styles/mediakit.css";
 
 function num(n: number): string {
@@ -27,7 +28,7 @@ export function MediaKit() {
   return (
     <div className="kit-page">
       <main className="kit">
-        {loading && !data ? <Skeleton lines={6} /> : null}
+        {loading && !data ? <Skeleton blocks={3} /> : null}
         {error ? (
           <div className="kit-missing">
             <h1>No media kit here</h1>
@@ -41,35 +42,44 @@ export function MediaKit() {
 }
 
 function KitView({ kit, slug }: { kit: MediaKitPublic; slug: string }) {
+  const mail = kit.contact_email ? `mailto:${kit.contact_email}?subject=${encodeURIComponent(`Working together: ${kit.name}`)}` : null;
   return (
     <>
       <header className="kit-head">
-        {kit.photo_url ? <img className="kit-photo" src={kit.photo_url} alt={kit.name} /> : <img className="kit-photo logo" src="/assets/brand/sheila-logo.png" alt="" />}
-        <div>
-          <div className="script kit-script">media kit</div>
-          <h1>{kit.name}</h1>
-          {kit.bio ? <p className="kit-bio">{kit.bio}</p> : null}
-        </div>
+        {kit.photo_url ? (
+          <img className="kit-photo" src={kit.photo_url} alt={kit.name} />
+        ) : (
+          <span className="kit-mark">
+            <img src="/assets/brand/sheila-logo.png" alt={`${kit.name} logo`} />
+          </span>
+        )}
+        <span className="script kit-script">media kit</span>
+        <h1>{kit.name}</h1>
+        {kit.bio ? <p className="kit-bio">{kit.bio}</p> : null}
+        {kit.themes.length ? (
+          <div className="kit-themes" aria-label="What I make">
+            {kit.themes.map((t) => (
+              <span key={t} className="kit-chip">
+                {t}
+              </span>
+            ))}
+          </div>
+        ) : null}
+        {mail ? (
+          <a className="btn big kit-cta" data-primary href={mail}>
+            Work with me
+          </a>
+        ) : null}
       </header>
-
-      {kit.themes.length ? (
-        <div className="kit-themes" aria-label="What I make">
-          {kit.themes.map((t) => (
-            <span key={t} className="kit-chip">
-              {t}
-            </span>
-          ))}
-        </div>
-      ) : null}
 
       {kit.platforms.length ? (
         <section className="kit-stats" aria-label="Numbers">
           {kit.platforms.map((p) => (
             <div key={p.platform} className="kit-stat">
               <div className="kit-stat-p">{PLATFORM_LABEL[p.platform]}</div>
-              <div className="kit-stat-f">{num(p.followers)}</div>
+              <div className="kit-stat-f nums">{num(p.followers)}</div>
               <div className="kit-stat-l">followers</div>
-              <div className="kit-stat-v">{num(p.avg_views)} avg views</div>
+              <div className="kit-stat-v nums">{num(p.avg_views)} avg views</div>
             </div>
           ))}
         </section>
@@ -82,7 +92,7 @@ function KitView({ kit, slug }: { kit: MediaKitPublic; slug: string }) {
       ) : null}
 
       {kit.featured.length ? (
-        <section aria-label="Top clips">
+        <section className="kit-section" aria-label="Top clips">
           <h2>Top clips</h2>
           <div className="kit-clips">
             {kit.featured.map((f) => (
@@ -102,13 +112,13 @@ function KitView({ kit, slug }: { kit: MediaKitPublic; slug: string }) {
       ) : null}
 
       {kit.rates ? (
-        <section aria-label="Rates">
+        <section className="kit-section" aria-label="Rates">
           <h2>Rates</h2>
           <dl className="kit-rates">
             {Object.entries(kit.rates).map(([k, v]) => (
               <div key={k}>
                 <dt>{k}</dt>
-                <dd>{v}</dd>
+                <dd className="nums">{v}</dd>
               </div>
             ))}
           </dl>
@@ -116,8 +126,8 @@ function KitView({ kit, slug }: { kit: MediaKitPublic; slug: string }) {
       ) : null}
 
       <div className="kit-actions">
-        {kit.contact_email ? (
-          <a className="btn big block" href={`mailto:${kit.contact_email}?subject=${encodeURIComponent(`Working together: ${kit.name}`)}`}>
+        {mail ? (
+          <a className="btn big block" href={mail}>
             Work with me
           </a>
         ) : null}
@@ -171,7 +181,7 @@ export function MediaKitEditor() {
     setSlug(data.kit.public_slug);
   }, [data]);
 
-  if (loading && !data) return <Skeleton lines={5} />;
+  if (loading && !data) return <Skeleton blocks={3} columns={2} />;
   if (!data) return <Notice tone="bad">Your media kit did not load. Try again in a moment.</Notice>;
 
   async function save() {
@@ -222,33 +232,39 @@ export function MediaKitEditor() {
   return (
     <div className="kit-editor">
       <Card className="flat kit-link">
-        <div className="grow">
-          <div className="card-label">Your public link</div>
-          <div className="mono">{data.public_url}</div>
-          <div className="hint">{data.kit.updated_at ? `Saved ${fmtDate(data.kit.updated_at)} · ` : ""}Numbers refresh weekly from your stats.</div>
+        <div className="kit-link-top">
+          <div className="grow">
+            <div className="card-title">Your public link</div>
+            <div className="mono kit-url">{data.public_url}</div>
+            <div className="hint">{data.kit.updated_at ? `Saved ${fmtDate(data.kit.updated_at)} · ` : ""}Numbers refresh weekly from your stats.</div>
+          </div>
+          <div className="btn-row">
+            <a className="btn quiet small" href={`/kit/${data.kit.public_slug}`} target="_blank" rel="noreferrer">
+              Open my media kit
+            </a>
+            <a className="btn quiet small" href="/api/mediakit/pdf" target="_blank" rel="noreferrer">
+              Download PDF
+            </a>
+            <button
+              type="button"
+              className="btn quiet small"
+              onClick={() => navigator.clipboard.writeText(data.public_url).then(() => toast.ok("Link copied."), () => toast.bad(new Error("Copy the link by hand.")))}
+            >
+              Copy link
+            </button>
+          </div>
         </div>
-        <div className="btn-row">
-          <a className="btn quiet" href={`/kit/${data.kit.public_slug}`} target="_blank" rel="noreferrer">
-            Open my media kit
-          </a>
-          <a className="btn quiet" href="/api/mediakit/pdf" target="_blank" rel="noreferrer">
-            Download PDF
-          </a>
-          <button
-            type="button"
-            className="btn quiet"
-            onClick={() => navigator.clipboard.writeText(data.public_url).then(() => toast.ok("Link copied."), () => toast.bad(new Error("Copy the link by hand.")))}
-          >
-            Copy link
-          </button>
-        </div>
+        <label className="field kit-slug">
+          <span className="label">Link name</span>
+          <input className="input" value={slug} onChange={(e) => setSlug(e.target.value.toLowerCase())} />
+        </label>
       </Card>
 
       {!data.profile_locked ? <Notice tone="info">Your themes and audience come from your locked Brand Profile. Lock it in Client Brain and they appear here.</Notice> : null}
 
       <div className="grid cols-2">
         <Card>
-          <h3>About you</h3>
+          <h2 className="card-title">About you</h2>
           <div className="kit-photo-row">
             {data.kit.has_photo && p?.photo_url ? <img className="kit-photo small" src={p.photo_url} alt="Your media kit photo" /> : <div className="kit-photo small empty" aria-hidden="true" />}
             <div className="btn-row">
@@ -257,7 +273,7 @@ export function MediaKitEditor() {
                 <input type="file" accept="image/*" className="sr-only" aria-label="Media kit photo" onChange={(e) => onPhoto(e.target.files?.[0])} />
               </label>
               {data.kit.has_photo ? (
-                <button type="button" className="linkish" onClick={() => del("/api/mediakit/photo").then(reload, (e) => toast.bad(e))}>
+                <button type="button" className="link-btn" onClick={() => del("/api/mediakit/photo").then(reload, (e) => toast.bad(e))}>
                   Remove
                 </button>
               ) : null}
@@ -266,7 +282,7 @@ export function MediaKitEditor() {
           <label className="field">
             <span className="label">One-line bio</span>
             <textarea className="textarea" maxLength={300} value={bio} onChange={(e) => setBio(e.target.value)} placeholder="Hosting, style and everyday luxury for women who love to gather." />
-            <span className="hint">{bio.length}/300</span>
+            <span className="hint nums">{bio.length}/300</span>
           </label>
           <label className="field">
             <span className="label">Email brands should use</span>
@@ -279,7 +295,7 @@ export function MediaKitEditor() {
         </Card>
 
         <Card>
-          <h3>Your 3 best clips</h3>
+          <h2 className="card-title">Your 3 best clips</h2>
           {data.clips.length === 0 ? (
             <p className="soft">Approve some clips in Review first; the best ones show up here to pick from.</p>
           ) : (
@@ -290,7 +306,7 @@ export function MediaKitEditor() {
                   <label key={c.id} className={`kit-pick-item${on ? " on" : ""}`}>
                     <input type="checkbox" checked={on} onChange={() => toggleClip(c.id)} disabled={!on && featured.length >= 3} />
                     <span className="kit-pick-thumb" aria-hidden="true">
-                      {c.cover_url ? <img src={c.cover_url} alt="" /> : "▶"}
+                      {c.cover_url ? <img src={c.cover_url} alt="" /> : <Icon name="review" size="sm" />}
                     </span>
                     <span className="kit-pick-text">{c.hook_text || "Clip"}</span>
                   </label>
@@ -298,35 +314,32 @@ export function MediaKitEditor() {
               })}
             </div>
           )}
-          <div className="hint">{featured.length} of 3 picked</div>
+          <div className="hint nums">{featured.length} of 3 picked</div>
         </Card>
       </div>
 
       <Card>
-        <h3>Rates (optional)</h3>
+        <h2 className="card-title">Rates (optional)</h2>
         <p className="soft">Only shown if you fill them in.</p>
         {rates.map((r, i) => (
-          <div key={i} className="row wrap kit-rate">
+          <div key={i} className="kit-rate">
             <input className="input" aria-label={`Rate ${i + 1} label`} placeholder="TikTok video" value={r.k} onChange={(e) => setRates(rates.map((x, j) => (j === i ? { ...x, k: e.target.value } : x)))} />
             <input className="input" aria-label={`Rate ${i + 1} price`} placeholder="$800" value={r.v} onChange={(e) => setRates(rates.map((x, j) => (j === i ? { ...x, v: e.target.value } : x)))} />
-            <button type="button" className="linkish" onClick={() => setRates(rates.filter((_, j) => j !== i))}>
+            <button type="button" className="link-btn" onClick={() => setRates(rates.filter((_, j) => j !== i))}>
               Remove
             </button>
           </div>
         ))}
         {rates.length < 6 ? (
-          <button type="button" className="btn quiet small" onClick={() => setRates([...rates, { k: "", v: "" }])}>
-            + Add a rate
+          <button type="button" className="btn quiet small kit-add-rate" onClick={() => setRates([...rates, { k: "", v: "" }])}>
+            <Icon name="plus" size="sm" />
+            Add a rate
           </button>
         ) : null}
-        <label className="field kit-slug">
-          <span className="label">Link name</span>
-          <input className="input" value={slug} onChange={(e) => setSlug(e.target.value.toLowerCase())} />
-        </label>
       </Card>
 
-      <div className="btn-row">
-        <button type="button" className="btn big" onClick={save} disabled={saving}>
+      <div className="kit-save">
+        <button type="button" className="btn big" data-primary onClick={save} disabled={saving}>
           {saving ? "Saving…" : "Save media kit"}
         </button>
       </div>

@@ -9,7 +9,8 @@ import { DEAL_STAGES, PLATFORMS, PLATFORM_LABEL, type DealStage, type Platform }
 import { del, get, patch, post } from "../lib/api";
 import { fmtDate } from "../lib/format";
 import { gmailComposeUrl, pitchAsText } from "../lib/gmail";
-import { Card, Empty, HelpButton, Modal, Notice, PageHead, Skeleton, useLoad, useToast } from "../components/ui";
+import { Card, HelpButton, Modal, Notice, PageHead, Skeleton, useLoad, useToast } from "../components/ui";
+import { Icon } from "../components/Icon";
 import { MediaKitEditor } from "./MediaKit";
 import "../styles/deals.css";
 
@@ -77,15 +78,23 @@ export function Deals() {
 
   return (
     <div className="page deals">
-      <PageHead title="Brand deals">
-        {data ? (
-          <a className="btn quiet" href={data.kit_path} target="_blank" rel="noreferrer">
-            View my media kit
-          </a>
+      <PageHead title="Brand deals" lede={tab === "kit" ? "The one link that goes in every pitch: your photo, numbers and best clips." : "Brands that fit you, a pitch in your words, and every deal you’re working on."}>
+        {tab === "brands" ? (
+          <>
+            <button type="button" className="btn" data-primary onClick={runFinder} disabled={!data || data.finder.running || !data.profile_locked}>
+              {data?.finder.running ? "Looking for brands…" : "Find brands now"}
+            </button>
+            <button type="button" className="btn quiet small" onClick={() => setAdding(true)}>
+              <Icon name="plus" size="sm" />
+              Add a brand I love
+            </button>
+            {data ? (
+              <a className="btn quiet small" href={data.kit_path} target="_blank" rel="noreferrer">
+                View my media kit
+              </a>
+            ) : null}
+          </>
         ) : null}
-        <button type="button" className="btn quiet" onClick={() => setAdding(true)}>
-          + Add a brand I love
-        </button>
       </PageHead>
 
       <div className="deals-tabs" role="tablist" aria-label="Deals sections">
@@ -101,7 +110,7 @@ export function Deals() {
         <MediaKitEditor />
       ) : (
         <>
-          {loading && !data ? <Skeleton lines={5} /> : null}
+          {loading && !data ? <Skeleton blocks={4} columns={2} /> : null}
           {error ? <Notice tone="bad">Brand deals did not load. Check your connection and try again.</Notice> : null}
           {data ? (
             <>
@@ -116,8 +125,8 @@ export function Deals() {
               <div className="stage-strip" aria-label="Deal stages">
                 {DEAL_STAGES.filter((s) => s !== "passed").map((s) => (
                   <div key={s} className={`stage${data.stages[s] ? " has" : ""}`}>
+                    <strong className="nums">{data.stages[s]}</strong>
                     <span>{STAGE_LABEL[s]}</span>
-                    <strong>{data.stages[s]}</strong>
                   </div>
                 ))}
               </div>
@@ -130,9 +139,6 @@ export function Deals() {
                     <h2>Suggested this week · {suggestedCount} brands</h2>
                   </div>
                   <div className="finder-bar">
-                    <button type="button" className="btn" onClick={runFinder} disabled={data.finder.running || !data.profile_locked}>
-                      {data.finder.running ? "Looking for brands…" : "Find brands now"}
-                    </button>
                     <span className="hint">
                       {data.finder.finished_at ? `Last search ${fmtDate(data.finder.finished_at)}` : data.finder.running ? "This takes a few minutes." : "Runs every Monday on its own."}
                       {data.hunter.connected ? ` · Hunter: ${data.hunter.credits_left ?? "?"} lookups left` : ""}
@@ -146,7 +152,21 @@ export function Deals() {
                     </Notice>
                   ) : null}
                   {brands.length === 0 ? (
-                    <Empty title="No brands yet">Press Find brands now, or add a brand you already use and love. Those make the strongest pitches.</Empty>
+                    <div className="empty">
+                      <h3>No brands yet</h3>
+                      <p className="soft">{data.profile_locked ? "Tap Find brands now at the top, or add a brand you already use and love. Those make the strongest pitches." : "Lock your Brand Profile first, then tap Find brands now. Or add a brand you already use and love."}</p>
+                      <div className="btn-row">
+                        {data.profile_locked ? null : (
+                          <Link className="btn quiet" to="/brain">
+                            Open Client Brain
+                          </Link>
+                        )}
+                        <button type="button" className="btn quiet" onClick={() => setAdding(true)}>
+                          <Icon name="plus" size="sm" />
+                          Add a brand you love
+                        </button>
+                      </div>
+                    </div>
                   ) : (
                     brands.map((b) => (
                       <button key={b.id} type="button" className={`brand-card${b.id === selected ? " on" : ""}${b.status === "hidden" ? " hidden-brand" : ""}`} onClick={() => pick(b.id)} aria-pressed={b.id === selected}>
@@ -154,17 +174,18 @@ export function Deals() {
                           <span className="brand-logo" aria-hidden="true">
                             {b.name.slice(0, 1)}
                           </span>
-                          <span className="brand-name">{b.name}</span>
+                          <span className="brand-card-name">{b.name}</span>
                           {b.deal && b.deal.stage !== "found" ? <span className="pill">{STAGE_LABEL[b.deal.stage]}</span> : null}
-                          <span className="pill ok">Fit {Math.round(b.fit_score * 100)}</span>
+                          <span className="pill ok nums">Fit {Math.round(b.fit_score * 100)}</span>
                         </span>
                         <span className="brand-why">{b.origin === "her_list" ? "You listed it as a brand you use" : b.why_now ?? b.fit_reasons.slice(0, 2).join(" · ")}</span>
                         {b.deal?.next_followup_at && new Date(b.deal.next_followup_at).getTime() <= Date.now() + 86400_000 ? <span className="pill warn">Follow-up due {fmtDate(b.deal.next_followup_at)}</span> : null}
                       </button>
                     ))
                   )}
-                  <label className="switch-line">
-                    <input type="checkbox" checked={showHidden} onChange={(e) => setShowHidden(e.target.checked)} /> Show brands I hid
+                  <label className="check switch-line">
+                    <input type="checkbox" checked={showHidden} onChange={(e) => setShowHidden(e.target.checked)} />
+                    Show brands I hid
                   </label>
                 </section>
 
@@ -172,9 +193,9 @@ export function Deals() {
                   {current ? (
                     <BrandDetail key={current.id} b={current} kitUrl={data.kit_url} onChange={reload} onBack={() => pick(null)} />
                   ) : (
-                    <Card className="flat pick-hint">
+                    <div className="pick-hint">
                       <p className="soft">Pick a brand to see why it fits, who to contact and your pitch.</p>
-                    </Card>
+                    </div>
                   )}
                 </section>
               </div>
@@ -210,8 +231,9 @@ function Marketplace({ m }: { m: DealsData["marketplace"] }) {
         {m.hasData ? (
           <div className="mk-checks">
             {m.checks.map((c) => (
-              <span key={c.label} className={`pill ${c.ok ? "ok" : ""}`} title={`${c.label}: ${c.have ?? 0} of ${c.need}`}>
-                {c.ok ? "✓" : "·"} {c.label}
+              <span key={c.label} className={`pill nums${c.ok ? " ok" : ""}`} title={`${c.label}: ${c.have ?? 0} of ${c.need}`}>
+                {c.ok ? <Icon name="check" size="sm" /> : null}
+                {c.label}
               </span>
             ))}
           </div>
@@ -275,7 +297,7 @@ function BrandDetail({ b, kitUrl, onChange, onBack }: { b: Card2; kitUrl: string
   async function hide() {
     try {
       await patch(`/api/deals/brands/${b.id}`, { status: b.status === "hidden" ? "suggested" : "hidden" });
-      toast.ok(b.status === "hidden" ? "Back in your list." : "Hidden. It won't be suggested again.");
+      toast.ok(b.status === "hidden" ? "Back in your list." : "Hidden. It won’t be suggested again.");
       onBack();
       onChange();
     } catch (e) {
@@ -301,7 +323,7 @@ function BrandDetail({ b, kitUrl, onChange, onBack }: { b: Card2; kitUrl: string
   async function copy() {
     try {
       await navigator.clipboard.writeText(part === "dm" ? text : pitchAsText(subject, text));
-      toast.ok("Copied. Paste it wherever you're sending it.");
+      toast.ok("Copied. Paste it wherever you’re sending it.");
     } catch {
       toast.bad(new Error("Your browser blocked copying. Select the text and copy it by hand."));
     }
@@ -311,23 +333,24 @@ function BrandDetail({ b, kitUrl, onChange, onBack }: { b: Card2; kitUrl: string
     <Card accent className="detail">
       <div ref={top} />
       <button type="button" className="btn quiet small back-btn" onClick={onBack}>
-        ‹ All brands
+        <Icon name="left" size="sm" />
+        All brands
       </button>
       <div className="row between wrap detail-head">
         <h2>{b.name}</h2>
         <div className="row wrap links">
           {b.website ? (
-            <a href={b.website} target="_blank" rel="noreferrer">
+            <a className="link-btn" href={b.website} target="_blank" rel="noreferrer">
               Website
             </a>
           ) : null}
           {b.program_url ? (
-            <a href={b.program_url} target="_blank" rel="noreferrer">
+            <a className="link-btn" href={b.program_url} target="_blank" rel="noreferrer">
               Creator program
             </a>
           ) : null}
           {Object.entries(b.socials).map(([k, v]) => (
-            <a key={k} href={v} target="_blank" rel="noreferrer">
+            <a key={k} className="link-btn" href={v} target="_blank" rel="noreferrer">
               Their {k === "tiktok" ? "TikTok" : k === "instagram" ? "Instagram" : k === "youtube" ? "YouTube" : k}
             </a>
           ))}
@@ -335,16 +358,16 @@ function BrandDetail({ b, kitUrl, onChange, onBack }: { b: Card2; kitUrl: string
       </div>
 
       <div className="why">
-        <div>
+        <p>
           <strong>Why it fits:</strong> {b.fit_reasons.length ? `${b.fit_reasons.map((r) => r.replace(/\.$/, "")).join("; ")}.` : "You added it."}
-        </div>
+        </p>
         {b.why_now ? (
-          <div>
+          <p>
             <strong>Why now:</strong> {b.why_now.replace(/\.$/, "")}.
-          </div>
+          </p>
         ) : null}
         {b.contacts.length ? (
-          <div className="contact-line">
+          <p className="contact-line">
             <strong>Contact:</strong>{" "}
             {b.contacts.length > 1 ? (
               <select className="select inline" aria-label="Contact" value={contact?.id ?? ""} onChange={(e) => setContactId(e.target.value)}>
@@ -361,14 +384,14 @@ function BrandDetail({ b, kitUrl, onChange, onBack }: { b: Card2; kitUrl: string
             <a href={contact!.found_on_url} target="_blank" rel="noreferrer">
               {hostOf(contact!.found_on_url)}
             </a>
-          </div>
+          </p>
         ) : (
-          <div className="contact-line">
+          <p className="contact-line">
             <strong>Contact:</strong> none found yet. The finder only keeps public business contacts.{" "}
-            <button type="button" className="linkish" onClick={() => setAddContact(true)}>
+            <button type="button" className="link-btn" onClick={() => setAddContact(true)}>
               Add one you found
             </button>
-          </div>
+          </p>
         )}
         {b.source_links.length ? (
           <div className="hint">
@@ -388,7 +411,7 @@ function BrandDetail({ b, kitUrl, onChange, onBack }: { b: Card2; kitUrl: string
           <button type="button" className="btn big" onClick={draftPitch} disabled={busy}>
             {busy ? "Writing…" : "Draft a pitch"}
           </button>
-          <button type="button" className="linkish" onClick={hide}>
+          <button type="button" className="link-btn" onClick={hide}>
             {b.status === "hidden" ? "Show it again" : "Not a fit — hide"}
           </button>
         </div>
@@ -443,12 +466,12 @@ function BrandDetail({ b, kitUrl, onChange, onBack }: { b: Card2; kitUrl: string
               </button>
             ) : null}
             {draft.status === "drafted" ? (
-              <button type="button" className="linkish" onClick={draftPitch} disabled={busy}>
+              <button type="button" className="link-btn" onClick={draftPitch} disabled={busy}>
                 {busy ? "Writing…" : "Redraft"}
               </button>
             ) : null}
             <span className="grow" />
-            <button type="button" className="linkish" onClick={hide}>
+            <button type="button" className="link-btn" onClick={hide}>
               {b.status === "hidden" ? "Show it again" : "Not a fit — hide"}
             </button>
           </div>
@@ -465,7 +488,7 @@ function BrandDetail({ b, kitUrl, onChange, onBack }: { b: Card2; kitUrl: string
           onSent={async (sentAt) => {
             try {
               await post(`/api/deals/pitches/${draft.id}/sent`, { sent_at: sentAt });
-              toast.ok("Marked as sent. We'll remind you to follow up on day 5.");
+              toast.ok("Marked as sent. We’ll remind you to follow up on day 5.");
               setSending(false);
               onChange();
             } catch (e) {
@@ -508,7 +531,7 @@ function Tracker({ b, stage, pitch, onAct, onChange }: { b: Card2; stage: DealSt
         ) : null}
         {stage === "replied" ? (
           <button type="button" className="btn" onClick={() => move("negotiating", "Moved to negotiating.")}>
-            We're talking terms
+            We’re talking terms
           </button>
         ) : null}
         {stage === "replied" || stage === "negotiating" ? (
@@ -517,12 +540,12 @@ function Tracker({ b, stage, pitch, onAct, onChange }: { b: Card2; stage: DealSt
           </button>
         ) : null}
         {stage !== "won" && stage !== "passed" && stage !== "found" ? (
-          <button type="button" className="linkish" onClick={() => move("passed", "Closed. It won't be suggested again.")}>
+          <button type="button" className="link-btn" onClick={() => move("passed", "Closed. It won’t be suggested again.")}>
             Pass on it
           </button>
         ) : null}
         {stage === "won" || stage === "passed" ? (
-          <button type="button" className="linkish" onClick={() => move("negotiating", "Reopened.")}>
+          <button type="button" className="link-btn" onClick={() => move("negotiating", "Reopened.")}>
             Reopen
           </button>
         ) : null}
@@ -559,21 +582,23 @@ function Deliverables({ dealId, detail, onAct, onChange }: { dealId: string; det
       <h3>What you owe them</h3>
       <Notice tone="info">
         <span>
-          Sponsored clips are flagged <strong>Paid partnership</strong> in Review: the caption gets #ad, and remember to switch on the platform's paid-partnership label when it posts. <Link to="/help/mark-a-paid-partnership">How</Link>
+          Sponsored clips are flagged <strong>Paid partnership</strong> in Review: the caption gets #ad, and remember to switch on the platform’s paid-partnership label when it posts. <Link to="/help/mark-a-paid-partnership">How</Link>
         </span>
       </Notice>
       {detail.deliverables.length ? (
         <div className="list">
           {detail.deliverables.map((d) => (
             <div key={d.id} className="list-row">
-              <input type="checkbox" aria-label={`Done: ${PLATFORM_LABEL[d.platform]} due ${fmtDate(d.due_at)}`} checked={d.done} onChange={() => toggle(d)} />
+              <label className="check">
+                <input type="checkbox" aria-label={`Done: ${PLATFORM_LABEL[d.platform]} due ${fmtDate(d.due_at)}`} checked={d.done} onChange={() => toggle(d)} />
+              </label>
               <div className="grow">
                 <div className="title">
                   {PLATFORM_LABEL[d.platform]} · due {fmtDate(d.due_at)}
                 </div>
                 {d.note ? <div className="meta">{d.note}</div> : null}
               </div>
-              <button type="button" className="linkish" onClick={() => remove(d)}>
+              <button type="button" className="link-btn" onClick={() => remove(d)}>
                 Remove
               </button>
             </div>
@@ -613,7 +638,7 @@ function SentModal({ onClose, onSent }: { onClose: () => void; onSent: (sentAt: 
   const min = useMemo(() => new Date(Date.now() - 60 * 86400_000).toISOString().slice(0, 10), []);
   return (
     <Modal title="Mark as sent" onClose={onClose}>
-      <p>We'll remind you to follow up on day 5 and day 12, on Home and in your Monday email.</p>
+      <p>We’ll remind you to follow up on day 5 and day 12, on Home and in your Monday email.</p>
       <label className="field">
         <span className="label">When did you send it?</span>
         <input className="input" type="date" value={day} min={min} max={today} onChange={(e) => setDay(e.target.value)} />

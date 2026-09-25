@@ -3,11 +3,10 @@
 // browser or upload a clip of just her voice, read the consent line, tick consent (owner only).
 // Step 2: write a script or draft one from her profile, Generate, listen, download, attach.
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
 import { del, get, patch, post } from "../lib/api";
 import { fmtDate } from "../lib/format";
 import { uploadFile } from "../lib/upload";
-import { Card, Empty, HelpButton, Modal, Notice, PageHead, Skeleton, useLoad, useToast } from "../components/ui";
+import { Card, Dot, Empty, HelpButton, Modal, Notice, PageHead, Skeleton, useLoad, useToast } from "../components/ui";
 import "../styles/voice.css";
 
 interface VoiceState {
@@ -31,11 +30,11 @@ export function Voice() {
 
   return (
     <div className="page voice">
-      <PageHead title="Voice narration" />
-      {loading && !data ? <Skeleton lines={4} /> : null}
+      <PageHead title="Voice narration" lede="Spoken voice-overs in your own voice. Your clips stay real footage either way." />
+      {loading && !data ? <Skeleton blocks={2} /> : null}
       {data && !data.enabled ? (
-        <Empty title="Voice narration is off" cta={{ to: "/settings", label: "Open Settings" }}>
-          Your clips stay real footage either way. Turn on Voice narration in Settings if you want spoken voice-overs in your own voice.
+        <Empty title="Voice narration is off" cta={{ to: "/settings", label: "Open Settings" }} primary>
+          Turn on Voice narration in Settings if you want spoken voice-overs in your own voice.
         </Empty>
       ) : null}
       {data && data.enabled ? (
@@ -65,7 +64,7 @@ function SampleCard({ v, onChange }: { v: VoiceState; onChange: () => void }) {
 
   async function start() {
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
-      toast.bad(new Error("This browser can't record here. Use Upload a clip instead."));
+      toast.bad(new Error("This browser can’t record here. Use Upload a clip instead."));
       return;
     }
     try {
@@ -130,7 +129,7 @@ function SampleCard({ v, onChange }: { v: VoiceState; onChange: () => void }) {
       {v.hasSample ? (
         <div className="row between wrap">
           <div className="row">
-            <span className="dot green" /> Voice ready · saved {fmtDate(v.consent_at)}
+            <Dot light="green" /> Voice ready · saved {fmtDate(v.consent_at)}
           </div>
           {v.owner ? (
             <button type="button" className="btn danger" onClick={() => setConfirmDelete(true)}>
@@ -140,7 +139,7 @@ function SampleCard({ v, onChange }: { v: VoiceState; onChange: () => void }) {
         </div>
       ) : null}
       {!v.owner ? (
-        <Notice tone="info">Only Sheila's own login can record or replace the voice.</Notice>
+        <Notice tone="info">Only Sheila’s own login can record or replace the voice.</Notice>
       ) : (
         <>
           <p className="soft">
@@ -151,7 +150,7 @@ function SampleCard({ v, onChange }: { v: VoiceState; onChange: () => void }) {
             <button type="button" className={`rec-btn${recording ? " on" : ""}`} aria-label={recording ? "Stop recording" : "Record sample"} onClick={recording ? stop : start}>
               <span />
             </button>
-            <span className="soft">{recording ? `Recording… ${seconds}s` : clip ? "Recorded. Listen, then save." : "Tap to record"}</span>
+            <span className="soft nums">{recording ? `Recording… ${seconds}s` : clip ? "Recorded. Listen, then save." : "Tap to record"}</span>
             <label className="btn quiet">
               Upload a clip
               <input type="file" accept="audio/*,video/*" className="sr-only" aria-label="Upload a voice clip" onChange={(e) => setClip(e.target.files?.[0] ?? null)} />
@@ -163,7 +162,7 @@ function SampleCard({ v, onChange }: { v: VoiceState; onChange: () => void }) {
             <span>This is my own voice and I consent to it being cloned for my narrations.</span>
           </label>
           <div className="btn-row">
-            <button type="button" className="btn" onClick={save} disabled={!clip || !consent || saving}>
+            <button type="button" className="btn" data-primary={!v.hasSample || undefined} onClick={save} disabled={!clip || !consent || saving}>
               {saving ? "Saving…" : "Save my voice"}
             </button>
           </div>
@@ -207,7 +206,7 @@ function NarrateCard({ v, onChange }: { v: VoiceState; onChange: () => void }) {
     setBusy("gen");
     try {
       await post("/api/voice/narrations", { script });
-      toast.ok("Generating. It shows up below when it's ready; short scripts take a few minutes.");
+      toast.ok("Generating. It shows up below when it’s ready; short scripts take a few minutes.");
       setScript("");
       onChange();
     } catch (e) {
@@ -226,13 +225,13 @@ function NarrateCard({ v, onChange }: { v: VoiceState; onChange: () => void }) {
       <label className="field">
         <span className="label">Script</span>
         <textarea className="textarea" rows={5} maxLength={1500} value={script} onChange={(e) => setScript(e.target.value)} placeholder="What should the voice-over say?" />
-        <span className="hint">{script.length}/1500 · about {Math.max(1, Math.round(script.split(/\s+/).filter(Boolean).length / 2.5))} seconds</span>
+        <span className="hint nums">{script.length}/1500 · about {Math.max(1, Math.round(script.split(/\s+/).filter(Boolean).length / 2.5))} seconds</span>
       </label>
       <div className="btn-row">
         <button type="button" className="btn quiet" onClick={draft} disabled={!!busy}>
           {busy === "draft" ? "Drafting…" : "Draft with AI"}
         </button>
-        <button type="button" className="btn" onClick={generate} disabled={!!busy || !v.hasSample || script.trim().length < 10}>
+        <button type="button" className={v.hasSample ? "btn" : "btn quiet"} data-primary={v.hasSample || undefined} onClick={generate} disabled={!!busy || !v.hasSample || script.trim().length < 10}>
           {busy === "gen" ? "Starting…" : "Generate"}
         </button>
       </div>
@@ -249,9 +248,7 @@ function Narrations({ v, onChange }: { v: VoiceState; onChange: () => void }) {
         <h2>Recent narrations</h2>
       </div>
       {v.narrations.length === 0 ? (
-        <Card className="flat">
-          <p className="hint">Narrations you generate show up here to listen to, download or attach to a clip.</p>
-        </Card>
+        <Empty title="No narrations yet">Write a script in step 2 and press Generate. Each narration shows up here to listen to, download or attach to a clip.</Empty>
       ) : (
         <Card className="flat">
           <div className="list">
@@ -307,7 +304,7 @@ function AttachModal({ narrationId, onClose, onDone }: { narrationId: string; on
   async function pick(clipId: string) {
     try {
       await patch(`/api/voice/narrations/${narrationId}`, { clip_id: clipId });
-      toast.ok("Attached. You'll see it on the clip in Review.");
+      toast.ok("Attached. You’ll see it on the clip in Review.");
       onClose();
       onDone();
     } catch (e) {
@@ -319,9 +316,9 @@ function AttachModal({ narrationId, onClose, onDone }: { narrationId: string; on
       {!data ? (
         <Skeleton />
       ) : data.clips.length === 0 ? (
-        <p className="soft">
-          No approved clips yet. <Link to="/review">Open Review</Link>
-        </p>
+        <Empty title="No approved clips yet" cta={{ to: "/review", label: "Open Review" }}>
+          Approve a clip in Review, then attach this narration to it.
+        </Empty>
       ) : (
         <div className="list">
           {data.clips.map((c) => (

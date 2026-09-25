@@ -10,6 +10,7 @@ import { fmtDate } from "../lib/format";
 import { GROUPS, INDEX, guide, helperMail, lastScreen, shotUrl } from "../lib/guides";
 import { SCREEN_ROUTES, type Block, type GuideStep, type Inline } from "../lib/markdown";
 import { Empty, HelpButton, Notice, PageHead, useLoad, useToast } from "../components/ui";
+import { Icon } from "../components/Icon";
 import "../styles/help.css";
 
 export function HelpGuide() {
@@ -72,7 +73,12 @@ export function HelpGuide() {
         crumb={
           <>
             <Link to="/help">Help</Link>
-            {group ? ` › ${group.title}` : null}
+            {group ? (
+              <>
+                <Icon name="right" size="sm" />
+                <span>{group.title}</span>
+              </>
+            ) : null}
           </>
         }
         title={g.meta.title}
@@ -89,7 +95,7 @@ export function HelpGuide() {
         ) : (
           <>
             <div className="guide-progress" aria-live="polite">
-              <span>
+              <span className="nums">
                 Step {n} of {total}
               </span>
               <div className="meter ok" aria-hidden="true">
@@ -99,11 +105,13 @@ export function HelpGuide() {
             <Step step={step} n={n} />
             <div className="guide-nav">
               <button type="button" className="btn quiet" onClick={() => go(n - 1)} disabled={n === 1}>
+                <Icon name="left" size="sm" />
                 Back
               </button>
               {!last ? (
-                <button type="button" className="btn" onClick={() => go(n + 1)}>
+                <button type="button" className="btn" data-primary onClick={() => go(n + 1)}>
                   Next
+                  <Icon name="right" size="sm" />
                 </button>
               ) : screenRoute ? (
                 <Link className="btn quiet" to={screenRoute}>
@@ -128,7 +136,7 @@ export function HelpGuide() {
               </Notice>
             ) : (
               <div className="btn-row">
-                <button type="button" className="btn" onClick={() => feedback(true)}>
+                <button type="button" className="btn" data-primary onClick={() => feedback(true)}>
                   Yes
                 </button>
                 <button type="button" className="btn quiet" onClick={() => feedback(false)}>

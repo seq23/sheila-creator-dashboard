@@ -8,16 +8,20 @@ import type { ConnectionView } from "@shared/types";
 import { get, post } from "../lib/api";
 import { ago } from "../lib/format";
 import { Card, Dot, HelpButton, Modal, Notice, PageHead, Skeleton, useLoad, useToast } from "../components/ui";
+import { Icon } from "../components/Icon";
+import "../styles/settings.css";
 import { useApp } from "../state";
 import { PLATFORM_LABEL, type Platform } from "@shared/constants";
 
 type Service = ConnectionView["service"];
 
-const KEY_SERVICES: { service: Service; title: string; why: string; steps: string[]; guide: string; optional?: boolean }[] = [
-  { service: "buffer", title: "Posting · Buffer", why: "Buffer publishes your clips to TikTok, Instagram and YouTube.", steps: ["Open Buffer → Settings → API", "Click Create key, then copy it", "Paste it here"], guide: "connect-buffer" },
-  { service: "openrouter", title: "AI · OpenRouter", why: "Writes captions, hooks, your Research Brief and pitch drafts. Free models by default.", steps: ["Open openrouter.ai → Keys", "Create key, copy it", "Paste it here"], guide: "connect-openrouter" },
-  { service: "firecrawl", title: "Web research · Firecrawl", why: "Searches the web for your Research Brief and brand finder. 1,000 free credits a month.", steps: ["Open firecrawl.dev → API Keys", "Copy your key", "Paste it here"], guide: "connect-firecrawl" },
-  { service: "hunter", title: "Brand deals · Hunter.io", why: "Finds public partnership emails on brand websites. Free account: 50 lookups a month.", steps: ["Create a free Hunter account", "Open API → copy key", "Paste it here"], guide: "connect-hunter", optional: true },
+// `title` is the section-and-vendor name the key box is labelled with (guides and specs find the
+// box by it); `name` is the vendor alone, shown as the card title under the numbered step.
+const KEY_SERVICES: { service: Service; title: string; name: string; why: string; steps: string[]; guide: string; optional?: boolean }[] = [
+  { service: "buffer", title: "Posting · Buffer", name: "Buffer", why: "Buffer publishes your clips to TikTok, Instagram and YouTube.", steps: ["Open Buffer → Settings → API", "Click Create key, then copy it", "Paste it here"], guide: "connect-buffer" },
+  { service: "openrouter", title: "AI · OpenRouter", name: "OpenRouter", why: "Writes captions, hooks, your Research Brief and pitch drafts. Free models by default.", steps: ["Open openrouter.ai → Keys", "Create key, copy it", "Paste it here"], guide: "connect-openrouter" },
+  { service: "firecrawl", title: "Web research · Firecrawl", name: "Firecrawl", why: "Searches the web for your Research Brief and brand finder. 1,000 free credits a month.", steps: ["Open firecrawl.dev → API Keys", "Copy your key", "Paste it here"], guide: "connect-firecrawl" },
+  { service: "hunter", title: "Brand deals · Hunter.io", name: "Hunter.io", why: "Finds public partnership emails on brand websites. Free account: 50 lookups a month.", steps: ["Create a free Hunter account", "Open API → copy key", "Paste it here"], guide: "connect-hunter", optional: true },
 ];
 
 export function Connect() {
@@ -29,6 +33,10 @@ export function Connect() {
   const oauthNote = oauthMessage(params);
   const byService = (s: Service) => data?.find((c) => c.service === s) ?? null;
   const owner = me?.role === "owner";
+  // The screen's one next step: the first thing not connected yet, in the order she sets them up.
+  // With everything connected, Buffer's "Check again" (posting is what matters most).
+  const order: Service[] = ["buffer", "meta", "google", "openrouter", "firecrawl", "hunter"];
+  const primary: Service | null = !owner || !data ? null : (order.find((sv) => byService(sv)?.status !== "ok") ?? "buffer");
 
   async function disconnectAll() {
     try {
@@ -46,47 +54,39 @@ export function Connect() {
       <PageHead
         crumb={
           <>
-            <Link to="/settings">Settings</Link> › Connections
+            <Link to="/settings">Settings</Link> <Icon name="right" size="sm" /> Connections
           </>
         }
         title="Connect your accounts"
-      >
-        {owner ? (
-          <button className="btn danger" onClick={() => setConfirmAll(true)}>
-            Disconnect everything
-          </button>
-        ) : null}
-      </PageHead>
-      <Notice tone="info">
-        <span>You always log in on TikTok, Instagram, Google or Buffer's own page. We never see your passwords. Keys are stored encrypted in your Cloudflare account.</span>
-      </Notice>
+        lede="You always log in on TikTok, Instagram, Google or Buffer’s own page. We never see your passwords, and keys are stored encrypted in your Cloudflare account."
+      />
 
       {oauthNote ? (
         <Notice tone={oauthNote.ok ? "ok" : "bad"}>
-          <span>
-            {oauthNote.text} {oauthNote.guide ? <Link to={`/help/${oauthNote.guide}`}>How to fix</Link> : null}{" "}
-            <button className="btn quiet small" onClick={() => setParams({}, { replace: true })}>
-              OK
-            </button>
+          <span className="grow">
+            {oauthNote.text} {oauthNote.guide ? <Link to={`/help/${oauthNote.guide}`}>How to fix</Link> : null}
           </span>
+          <button className="btn quiet small" onClick={() => setParams({}, { replace: true })}>
+            OK
+          </button>
         </Notice>
       ) : null}
 
-      {loading && !data ? <Skeleton lines={5} /> : null}
+      {loading && !data ? <Skeleton blocks={3} /> : null}
 
       {data ? (
         <>
           <Section n={1} title={KEY_SERVICES[0].title}>
-            <KeyCard def={KEY_SERVICES[0]} conn={byService("buffer")} owner={owner} onChange={reload} />
+            <KeyCard def={KEY_SERVICES[0]} conn={byService("buffer")} owner={owner} primary={primary === "buffer"} onChange={reload} />
             <ChannelsCard conn={byService("buffer")} />
           </Section>
 
           <Section n={2} title="Stats · for research">
             <Card className="flat">
-              <div className="hint">Lets the dashboard learn what works for you. Read-only; it can't post.</div>
+              <div className="hint">Lets the dashboard learn what works for you. Read-only; it can’t post.</div>
               <div className="list">
-                <StatsRow name="Instagram" provider="meta" conn={byService("meta")} connectLabel="Connect with Instagram" owner={owner} onChange={reload} />
-                <StatsRow name="YouTube" provider="google" conn={byService("google")} connectLabel="Connect with Google" owner={owner} onChange={reload} />
+                <StatsRow name="Instagram" provider="meta" conn={byService("meta")} connectLabel="Connect with Instagram" owner={owner} primary={primary === "meta"} onChange={reload} />
+                <StatsRow name="YouTube" provider="google" conn={byService("google")} connectLabel="Connect with Google" owner={owner} primary={primary === "google"} onChange={reload} />
                 <TikTokRow conn={byService("tiktok")} />
               </div>
               <div className="hint">TikTok stats: direct connect only if TikTok approves the app. Until then, upload the export from TikTok Studio once a month.</div>
@@ -95,14 +95,26 @@ export function Connect() {
 
           <Section n={3} title="AI and research">
             <div className="grid cols-2">
-              <KeyCard def={KEY_SERVICES[1]} conn={byService("openrouter")} owner={owner} onChange={reload} />
-              <KeyCard def={KEY_SERVICES[2]} conn={byService("firecrawl")} owner={owner} onChange={reload} />
+              <KeyCard def={KEY_SERVICES[1]} conn={byService("openrouter")} owner={owner} primary={primary === "openrouter"} onChange={reload} />
+              <KeyCard def={KEY_SERVICES[2]} conn={byService("firecrawl")} owner={owner} primary={primary === "firecrawl"} onChange={reload} />
             </div>
           </Section>
 
           <Section n={4} title="Brand deals · optional">
-            <KeyCard def={KEY_SERVICES[3]} conn={byService("hunter")} owner={owner} onChange={reload} />
+            <KeyCard def={KEY_SERVICES[3]} conn={byService("hunter")} owner={owner} primary={primary === "hunter"} onChange={reload} />
           </Section>
+
+          {owner ? (
+            <section className="section connect-danger">
+              <h2>Start over</h2>
+              <p className="soft">Removes every key at once. Nothing posts until you reconnect Buffer.</p>
+              <div>
+                <button className="btn danger" onClick={() => setConfirmAll(true)}>
+                  Disconnect everything
+                </button>
+              </div>
+            </section>
+          ) : null}
         </>
       ) : null}
 
@@ -141,14 +153,14 @@ function StatusPill({ conn }: { conn: ConnectionView | null }) {
   const light = status === "ok" ? "green" : status === "error" ? "red" : "grey";
   const text = status === "ok" ? `Connected${conn?.last_ok_at ? ` · checked ${ago(conn.last_ok_at)}` : ""}` : status === "error" ? (conn?.last_error ?? "Needs you") : status === "disconnected" ? "Disconnected" : "Not connected";
   return (
-    <span className="row" style={{ gap: 8, fontSize: "0.9rem" }}>
+    <span className="row status-pill">
       <Dot light={light} />
       {text}
     </span>
   );
 }
 
-function KeyCard({ def, conn, owner, onChange }: { def: (typeof KEY_SERVICES)[number]; conn: ConnectionView | null; owner: boolean; onChange: () => void }) {
+function KeyCard({ def, conn, owner, primary, onChange }: { def: (typeof KEY_SERVICES)[number]; conn: ConnectionView | null; owner: boolean; primary: boolean; onChange: () => void }) {
   const toast = useToast();
   const [key, setKey] = useState("");
   const [busy, setBusy] = useState(false);
@@ -159,7 +171,7 @@ function KeyCard({ def, conn, owner, onChange }: { def: (typeof KEY_SERVICES)[nu
     setBusy(true);
     try {
       await post(`/api/connections/${def.service}/key`, { key });
-      toast.ok(`${def.title.split(" · ")[1] ?? def.title} connected.`);
+      toast.ok(`${def.name} connected.`);
       setKey("");
       onChange();
     } catch (e) {
@@ -193,12 +205,12 @@ function KeyCard({ def, conn, owner, onChange }: { def: (typeof KEY_SERVICES)[nu
   return (
     <Card>
       <div className="row between wrap">
-        <h3>{def.title}</h3>
+        <h3>{def.name}</h3>
         <StatusPill conn={conn} />
       </div>
       <p className="soft">{def.why}</p>
       {credits !== undefined ? (
-        <div className="hint">
+        <div className="hint nums">
           {credits} of {(conn?.meta.credits_total as number | undefined) ?? "your"} credits left this month
         </div>
       ) : null}
@@ -206,25 +218,27 @@ function KeyCard({ def, conn, owner, onChange }: { def: (typeof KEY_SERVICES)[nu
         <>
           <div>
             <div className="label">How to connect (2 minutes)</div>
-            <ol style={{ margin: "6px 0 0", paddingLeft: 20 }} className="soft">
+            <ol className="soft key-steps">
               {def.steps.map((s) => (
                 <li key={s}>{s}</li>
               ))}
             </ol>
           </div>
-          <div className="row wrap">
-            <input className="input" type="password" aria-label={`${def.title} key`} value={key} onChange={(e) => setKey(e.target.value)} placeholder="Paste the key" style={{ flex: 1, minWidth: 200 }} disabled={!owner} />
-            <button className="btn" onClick={check} disabled={!owner || busy || key.length < 8}>
+          <div className="key-row">
+            <input className="input" type="password" aria-label={`${def.title} key`} value={key} onChange={(e) => setKey(e.target.value)} placeholder="Paste the key" disabled={!owner} />
+            <button className={primary ? "btn" : "btn quiet"} data-primary={primary || undefined} onClick={check} disabled={!owner || busy || key.length < 8}>
               {busy ? "Checking…" : "Check key"}
             </button>
           </div>
-          <Link to={`/help/${def.guide}`} className="hint">
-            Picture-by-picture guide
-          </Link>
+          <div>
+            <Link to={`/help/${def.guide}`} className="link-btn">
+              Picture-by-picture guide
+            </Link>
+          </div>
         </>
       ) : (
         <div className="btn-row">
-          <button className="btn quiet small" onClick={recheck} disabled={busy}>
+          <button className={primary ? "btn small" : "btn quiet small"} data-primary={primary || undefined} onClick={recheck} disabled={busy}>
             Check again
           </button>
           {owner ? (
@@ -273,9 +287,11 @@ function ChannelsCard({ conn }: { conn: ConnectionView | null }) {
           </div>
         ))}
       </div>
-      <Link to="/help/add-channels-in-buffer" className="hint">
-        How to add TikTok, Instagram and YouTube in Buffer
-      </Link>
+      <div>
+        <Link to="/help/add-channels-in-buffer" className="link-btn">
+          How to add TikTok, Instagram and YouTube in Buffer
+        </Link>
+      </div>
     </Card>
   );
 }
@@ -292,14 +308,14 @@ const OAUTH_ERRORS: Record<string, string> = {
 function oauthMessage(params: URLSearchParams): { ok: boolean; text: string; guide: string | null } | null {
   const who = (p: string | null) => (p === "google" ? "YouTube" : "Instagram");
   const connected = params.get("connected");
-  if (connected === "meta" || connected === "google") return { ok: true, text: `${who(connected)} stats connected. We'll read your results every week.`, guide: null };
+  if (connected === "meta" || connected === "google") return { ok: true, text: `${who(connected)} stats connected. We’ll read your results every week.`, guide: null };
   const err = params.get("oauth_error");
   if (!err) return null;
   const provider = params.get("provider") === "google" ? "google" : "meta";
   return { ok: false, text: `${who(provider)}: ${OAUTH_ERRORS[err] ?? OAUTH_ERRORS.failed}`, guide: `connect-${provider}` };
 }
 
-function StatsRow({ name, provider, conn, connectLabel, owner, onChange }: { name: string; provider: "meta" | "google"; conn: ConnectionView | null; connectLabel: string; owner: boolean; onChange: () => void }) {
+function StatsRow({ name, provider, conn, connectLabel, owner, primary, onChange }: { name: string; provider: "meta" | "google"; conn: ConnectionView | null; connectLabel: string; owner: boolean; primary: boolean; onChange: () => void }) {
   const toast = useToast();
   const status = conn?.status ?? "missing";
   const account = conn?.meta.account as string | undefined;
@@ -314,13 +330,13 @@ function StatsRow({ name, provider, conn, connectLabel, owner, onChange }: { nam
     }
   }
   return (
-    <div className="list-row" style={{ flexWrap: "wrap" }}>
+    <div className="list-row stats-row">
       <Dot light={status === "ok" ? "green" : status === "error" ? "red" : "grey"} />
       <div className="grow">
         <div className="title">{name}</div>
         <div className="meta">
           {status === "ok"
-            ? `${account ? `${account} · ` : ""}${synced ? `Last synced ${ago(synced)}` : "Connected · first sync this week"}`
+            ? `${account ? `${account} · ` : ""}${synced ? `Numbers updated ${ago(synced)}` : "Connected · first numbers this week"}`
             : status === "error"
               ? (conn?.last_error ?? "Needs reconnect")
               : "Not connected"}
@@ -329,7 +345,7 @@ function StatsRow({ name, provider, conn, connectLabel, owner, onChange }: { nam
       {owner ? (
         status === "ok" || status === "error" ? (
           <>
-            <a className="btn quiet small" href={start}>
+            <a className={primary ? "btn small" : "btn quiet small"} data-primary={primary || undefined} href={start}>
               Reconnect
             </a>
             <button className="btn danger small" onClick={disconnect}>
@@ -337,7 +353,7 @@ function StatsRow({ name, provider, conn, connectLabel, owner, onChange }: { nam
             </button>
           </>
         ) : (
-          <a className="btn small" href={start}>
+          <a className={primary ? "btn small" : "btn quiet small"} data-primary={primary || undefined} href={start}>
             {connectLabel}
           </a>
         )

@@ -10,6 +10,7 @@ import { del, get, patch, post } from "../lib/api";
 import { uploadFile } from "../lib/upload";
 import { ago, fmtDate, plural } from "../lib/format";
 import { Card, Empty, HelpButton, Notice, PageHead, Skeleton, useLoad, useToast } from "../components/ui";
+import { Icon } from "../components/Icon";
 import "../styles/research.css";
 
 interface ResearchData {
@@ -98,6 +99,11 @@ export function Research() {
   const sources = useMemo(() => new Map((brief?.sources ?? []).map((s) => [s.id, s])), [brief]);
   const body = editing ?? brief?.body ?? null;
   const isDraft = brief?.status === "draft";
+  // One next step: approve a draft waiting for her; save while editing it; otherwise refresh.
+  // Before the profile is locked, the step is on Client Brain.
+  const approveNext = isDraft && !editing;
+  const lockNext = !!data && !data.profileLocked && !isDraft;
+  const refreshNext = !!data && !isDraft && !lockNext;
 
   const edit = (fn: (b: BriefBody) => void) => {
     if (!editing) return;
@@ -110,29 +116,36 @@ export function Research() {
     <div className="page">
       <PageHead
         title="Research Brief"
-        eyebrow={
-          brief
-            ? `${isDraft ? "Draft" : "Approved"} v${brief.version} · ${plural(data?.counts?.sources ?? 0, "source")}${isDraft ? " · needs your approval before clips are cut" : ` · approved ${fmtDate(brief.approved_at)}`}`
-            : undefined
+        lede={
+          brief ? (
+            <span className="nums">{`${isDraft ? "Draft" : "Approved"} v${brief.version} · ${plural(data?.counts?.sources ?? 0, "source")}${isDraft ? " · needs your approval before clips are cut" : ` · approved ${fmtDate(brief.approved_at)}`}`}</span>
+          ) : (
+            "When and what to post, written from your profile, your numbers and the web. Every claim links its source."
+          )
         }
       >
         <button className="btn quiet" onClick={() => fileRef.current?.click()} disabled={busy === "upload"}>
           {busy === "upload" ? "Adding…" : "Upload outside report"}
         </button>
         <input ref={fileRef} type="file" hidden aria-label="Choose an outside report" accept=".pdf,.docx,.md,.txt" onChange={(e) => (e.target.files ? addReport(e.target.files).finally(() => (e.target.value = "")) : undefined)} />
-        <button className="btn quiet" onClick={() => act("refresh", () => post("/api/research/refresh"), "Researching. Usually 5 to 10 minutes; you can leave this page.")} disabled={running || busy === "refresh" || !data?.profileLocked}>
+        <button className={refreshNext ? "btn" : "btn quiet"} data-primary={refreshNext || undefined} onClick={() => act("refresh", () => post("/api/research/refresh"), "Researching. Usually 5 to 10 minutes; you can leave this page.")} disabled={running || busy === "refresh" || !data?.profileLocked}>
           {running ? "Researching…" : "Refresh research"}
         </button>
-        {isDraft && !editing ? (
-          <button className="btn" onClick={() => act("approve", () => post("/api/research/approve"), "Approved. Clips can be cut now.")} disabled={busy === "approve"}>
+        {lockNext ? (
+          <Link className="btn" data-primary to="/brain">
+            Open Client Brain
+          </Link>
+        ) : null}
+        {approveNext ? (
+          <button className="btn" data-primary onClick={() => act("approve", () => post("/api/research/approve"), "Approved. Clips can be cut now.")} disabled={busy === "approve"}>
             Approve brief
           </button>
         ) : null}
       </PageHead>
 
-      {loading && !data ? <Skeleton lines={6} /> : null}
+      {loading && !data ? <Skeleton blocks={3} /> : null}
 
-      {data && !data.profileLocked ? (
+      {data && !data.profileLocked && brief ? (
         <Notice tone="warn">
           <span>
             Lock your Brand Profile first. The research starts from it. <Link to="/brain">Open Client Brain</Link>
@@ -156,13 +169,19 @@ export function Research() {
       {data?.webSkipped ? (
         <Notice tone="warn">
           <span>
-            Web search was skipped because Firecrawl isn't connected, so this brief uses your data and the posting studies only. <Link to="/help/connect-firecrawl">Connect Firecrawl</Link>, then refresh.
+            Web search was skipped because Firecrawl isn’t connected, so this brief uses your data and the posting studies only. <Link to="/help/connect-firecrawl">Connect Firecrawl</Link>, then refresh.
           </span>
         </Notice>
       ) : null}
 
       {data && !brief && !running ? (
-        <Empty title="No brief yet">{data.profileLocked ? "Press Refresh research. We read your profile, your numbers and the web, and write a brief where every claim links its source." : "Lock your Brand Profile, then come back and press Refresh research."}</Empty>
+        data.profileLocked ? (
+          <Empty title="No brief yet" secondary={{ to: "/help/approve-research-brief", label: "How it works" }}>
+            Press Refresh research at the top. We read your profile, your numbers and the web, and write a brief where every claim links its source.
+          </Empty>
+        ) : (
+          <Empty title="No brief yet">Lock your Brand Profile on Client Brain (the button at the top), then come back and press Refresh research.</Empty>
+        )
       ) : null}
 
       {brief && body ? (
@@ -179,7 +198,7 @@ export function Research() {
             <div className="btn-row">
               {editing ? (
                 <>
-                  <button className="btn dark" disabled={busy === "save"} onClick={async () => (await act("save", () => patch("/api/research", { body: editing }), "Saved.")) && setEditing(null)}>
+                  <button className="btn" data-primary disabled={busy === "save"} onClick={async () => (await act("save", () => patch("/api/research", { body: editing }), "Saved.")) && setEditing(null)}>
                     Save edits
                   </button>
                   <button className="btn quiet" onClick={() => setEditing(null)}>
@@ -275,7 +294,7 @@ export function Research() {
                     <div className="meta">Added {fmtDate(u.uploaded_at)} · used on the next refresh</div>
                   </div>
                   <button className="icon-btn" aria-label={`Remove ${u.file_name}`} onClick={() => act(u.id, () => del(`/api/research/uploads/${u.id}`), "Removed.")}>
-                    ×
+                    <Icon name="close" size="sm" />
                   </button>
                 </div>
               ))}

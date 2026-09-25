@@ -32,8 +32,8 @@ key.
 <!-- route: /settings/connections -->
 <!-- target: role=textbox[name="Brand deals · Hunter.io key"] -->
 
-In the dashboard, open **Settings**, then **Connections**. Scroll to **Brand deals ·
-Hunter.io** and paste the key into the box.
+In the dashboard, open **Settings**, then **Connections**. Scroll to **Brand deals · optional**,
+find the **Hunter.io** card and paste the key into the box.
 
 ## Tap Check key
 

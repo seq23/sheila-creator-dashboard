@@ -125,9 +125,11 @@ test("stats: Instagram sign-in, TikTok export, sync, and an expired token turns 
   expect(bad.status()).toBe(422);
   expect(await bad.json()).toMatchObject({ fix_guide: "upload-your-tiktok-export" });
 
-  // Sync → fake metrics job → Instagram numbers and her own learned times.
+  // Update numbers → fake metrics job → Instagram numbers and her own learned times. The screen
+  // says "Update numbers", never "sync" (plain words, DESIGN.md Microcopy).
   const syncCall = page.waitForResponse((r) => r.url().endsWith("/api/stats/sync"));
-  await page.getByRole("button", { name: "Sync now" }).click();
+  await expect(page.getByRole("button", { name: /sync/i })).toHaveCount(0);
+  await page.getByRole("button", { name: "Update numbers", exact: true }).click();
   const { jobId } = (await (await syncCall).json()) as { jobId: string };
   await runFake(api, jobId);
   await page.reload();

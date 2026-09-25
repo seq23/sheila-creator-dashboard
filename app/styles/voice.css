@@ -1,24 +1,21 @@
-/* Voice narration (section 12). Tokens only. */
-.voice .card {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 16px;
-}
+/* Hallmark · design-system: docs/design/DESIGN.md · designed-as-app
+   Voice narration (section 12). Tokens only. */
 .voice h2 {
   margin: 0;
 }
+/* the line she reads aloud: framed by a hairline, not a side stripe */
 .consent-line {
   margin: 0;
-  padding: 12px 16px;
-  border-left: 4px solid var(--gold);
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--gold-soft);
   background: var(--gold-faint);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
   font-family: var(--font-display);
-  font-size: 1.1rem;
+  font-size: var(--text-md);
+  max-width: var(--measure);
 }
 .rec-row {
-  gap: 14px;
+  gap: var(--space-xs);
 }
 .rec-btn {
   display: grid;
@@ -29,6 +26,7 @@
   border: 0;
   background: var(--danger);
   cursor: pointer;
+  flex-shrink: 0;
 }
 .rec-btn span {
   width: 22px;
@@ -37,24 +35,30 @@
   background: var(--ivory);
 }
 .rec-btn.on span {
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
 }
+/* the whole sentence is the tap target, at least 44 px tall */
 .consent {
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
+  align-items: center;
+  gap: var(--space-xs);
   min-height: var(--touch);
+  padding: var(--space-2xs) 0;
+  cursor: pointer;
+  max-width: var(--measure);
 }
 .consent input {
   width: 22px;
   height: 22px;
-  margin-top: 2px;
+  margin: 0;
   flex-shrink: 0;
+  accent-color: var(--espresso);
+  cursor: pointer;
 }
 .voice-audio {
   width: 100%;
   max-width: 420px;
-  margin-top: 6px;
+  margin-top: var(--space-2xs);
 }
 .narration {
   flex-wrap: wrap;

@@ -7,7 +7,7 @@ last_checked: 2026-09-25
 
 ## What happened
 
-YouTube stats stopped syncing, so research and your media kit use the last numbers we had.
+YouTube stats stopped updating, so research and your media kit use the last numbers we had.
 
 ## Step 1
 
@@ -37,7 +37,7 @@ Pick your YouTube channel and tap **Allow**.
 
 ![Step 5](/help/screenshots/reconnect-google-5.png)
 
-Back in the dashboard, check that YouTube says **Last synced** with today's date.
+Back in the dashboard, check that YouTube says **Numbers updated** with today's date.
 
 ## Did this work?
 

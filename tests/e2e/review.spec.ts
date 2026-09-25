@@ -164,6 +164,8 @@ test("edit a caption, swap to the other hook, untick a platform, mark a paid par
   await expect(card).toContainText(clip.hook_alt!);
   await expect(card.locator(".pill", { hasText: "Paid partnership" })).toBeVisible();
   await expect(card.getByRole("button", { name: "Post to YouTube" })).toHaveAttribute("aria-pressed", "false");
+  // every platform chip is a full 44 px tap target
+  for (const name of ["Post to TikTok", "Post to Instagram", "Post to YouTube"]) expect((await card.getByRole("button", { name }).boundingBox())!.height).toBeGreaterThanOrEqual(44);
 
   const [saved] = (await clipsOf(page.request, dumpId)).filter((c) => c.id === clip.id);
   expect(saved).toMatchObject({ caption: "My own words for this one #ad", hook_text: clip.hook_alt, hook_alt: clip.hook_text, paid_partnership: true, platforms: ["tiktok", "instagram"] });
@@ -211,6 +213,8 @@ test("approve all clears New and marks the dump reviewed", async ({ page }) => {
   const dumpId = await readyDump(page.request);
   await page.goto("/review");
   await expect(group(page, dumpId).locator("article.clip-card")).toHaveCount(8);
+  await expect(page.locator("[data-primary]")).toHaveCount(1);
+  await expect(page.getByRole("button", { name: /^Approve all \d+$/ })).toHaveAttribute("data-primary", "true");
   await page.getByRole("button", { name: /^Approve all \d+$/ }).click();
   await expect(page.locator(".toast").first()).toContainText("approved");
   await expect(group(page, dumpId)).toHaveCount(0);

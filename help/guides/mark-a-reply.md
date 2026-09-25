@@ -45,7 +45,7 @@ follow-up**; we'll remind you once more on day 12.
 <!-- click: .brand-card >> nth=2 -->
 <!-- target: .tracker -->
 
-When you start talking money, tap **We're talking terms**. When you agree, tap **We have a
+When you start talking money, tap **We’re talking terms**. When you agree, tap **We have a
 deal**. Not the right fit? Tap **Pass on it**.
 
 ## Add what you owe them

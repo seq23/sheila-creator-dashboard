@@ -1,13 +1,15 @@
-/* Review (phase 5). Tokens only (tokens.css); shared components are not restyled here. */
+/* Hallmark · design-system: docs/design/DESIGN.md · designed-as-app
+   Review (phase 5). Tokens only (tokens.css); shared components (.btn, .check, .modal, .link-btn)
+   are not restyled here. */
 .review-tabs {
   display: flex;
-  gap: 6px;
+  gap: var(--space-3xs);
   border-bottom: 1px solid var(--line);
   overflow-x: auto;
 }
 .review-tab {
   min-height: var(--touch);
-  padding: 0 16px;
+  padding: 0 var(--space-sm);
   border: 0;
   border-bottom: 3px solid transparent;
   background: transparent;
@@ -16,8 +18,12 @@
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2xs);
   white-space: nowrap;
+  transition: color var(--dur-short) var(--ease-out), border-color var(--dur-short) var(--ease-out);
+}
+.review-tab:hover {
+  color: var(--text);
 }
 .review-tab.on {
   color: var(--text);
@@ -26,7 +32,7 @@
 .review-filters {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: var(--space-2xs) var(--space-xs);
   align-items: center;
 }
 .review-filters .select {
@@ -37,15 +43,20 @@
 .review-group {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--space-xs);
 }
 .review-group-head {
-  font-size: 1.15rem;
+  font-size: var(--text-md);
+}
+.review-group-head .hint {
+  font-family: var(--font-body);
+  font-weight: 500;
+  letter-spacing: 0;
 }
 .review-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 18px;
+  gap: var(--space-md) var(--space-sm);
   align-items: start;
 }
 .clip-card {
@@ -58,8 +69,11 @@
   box-shadow: var(--shadow-tiny);
   min-width: 0;
 }
+/* selected: a thicker gold edge drawn inside, so the card does not grow and shift the grid */
 .clip-card.selected {
-  border: 2px solid var(--gold);
+  border-color: var(--gold);
+  outline: 2px solid var(--gold);
+  outline-offset: -2px;
 }
 .clip-card.is-hidden {
   opacity: 0.85;
@@ -80,18 +94,18 @@
   display: grid;
   place-items: center;
   height: 100%;
-  color: var(--ivory);
+  color: var(--on-dark);
 }
 .clip-select {
   position: absolute;
-  top: 8px;
-  left: 8px;
+  top: var(--space-2xs);
+  left: var(--space-2xs);
   width: var(--touch);
   height: var(--touch);
   display: grid;
   place-items: center;
   border-radius: 50%;
-  background: rgba(255, 250, 241, 0.9);
+  background: var(--glass);
   cursor: pointer;
 }
 .clip-select input {
@@ -102,27 +116,28 @@
   cursor: pointer;
 }
 .clip-body {
-  padding: 14px 16px 16px;
+  padding: var(--space-sm);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2xs);
 }
 .clip-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--space-3xs) var(--space-2xs);
   align-items: center;
-  font-size: 0.85rem;
+  font-size: var(--text-xs);
   color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
 }
 .clip-hook {
   font-family: var(--font-display);
   font-weight: 600;
-  font-size: 1.1rem;
-  line-height: 1.25;
+  font-size: var(--text-md);
+  line-height: var(--lh-snug);
 }
 .clip-caption {
-  font-size: 0.92rem;
+  font-size: var(--text-sm);
   color: var(--text-soft);
   display: -webkit-box;
   -webkit-line-clamp: 3;
@@ -134,20 +149,25 @@
 }
 .clip-platforms {
   display: flex;
-  gap: 6px;
+  gap: var(--space-2xs);
   flex-wrap: wrap;
 }
+/* A platform chip is a toggle: on = gold, off = struck through. 44 px like every target. */
 .plat {
-  min-height: 36px;
-  padding: 0 12px;
+  min-height: var(--touch);
+  padding: 0 var(--space-sm);
   border-radius: var(--pill);
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
   background: transparent;
   color: var(--text-muted);
-  font-size: 0.82rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   cursor: pointer;
   text-decoration: line-through;
+  transition: background-color var(--dur-short) var(--ease-out), border-color var(--dur-short) var(--ease-out);
+}
+.plat:hover {
+  border-color: var(--gold);
 }
 .plat.on {
   background: var(--gold-faint);
@@ -161,9 +181,9 @@
 }
 .clip-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-top: 4px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2xs);
+  margin-top: var(--space-3xs);
 }
 .clip-actions .btn {
   width: 100%;
@@ -171,56 +191,50 @@
 .clip-links {
   display: flex;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--space-2xs);
   flex-wrap: wrap;
 }
-.linkish {
-  background: none;
-  border: 0;
-  padding: 0 2px;
-  min-height: var(--touch);
-  font-weight: 600;
-  font-size: 0.9rem;
-  color: var(--text-soft);
-  text-decoration: underline;
-  cursor: pointer;
-}
-.danger-text {
+.danger-text,
+.danger-text:hover {
   color: var(--danger);
 }
+/* The selection bar: an espresso surface pinned above the tab bar */
 .select-bar {
   position: sticky;
-  bottom: 16px;
-  z-index: 20;
+  bottom: var(--space-sm);
+  z-index: var(--z-sticky);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-xs);
   flex-wrap: wrap;
   background: var(--espresso);
-  color: var(--ivory);
+  color: var(--on-dark);
   border: 1px solid var(--gold);
   border-radius: var(--radius);
-  padding: 10px 14px;
+  padding: var(--space-2xs) var(--space-sm);
   box-shadow: var(--shadow);
 }
 .select-bar .btn.quiet {
-  color: var(--ivory);
+  color: var(--on-dark);
   border-color: var(--gold-soft);
+}
+.select-bar .btn.quiet:hover {
+  background: var(--on-dark-faint);
 }
 .reason-list {
   display: grid;
-  gap: 8px;
+  gap: var(--space-2xs);
 }
-.btn.hook-swap {
-  align-self: flex-start;
-  max-width: 100%;
+.hook-alt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2xs) var(--space-xs);
+}
+.hook-alt .hint {
+  flex: 1 1 12rem;
   overflow-wrap: anywhere;
-  white-space: normal;
-  text-align: left;
-  height: auto;
-  padding-top: 6px;
-  padding-bottom: 6px;
 }
 .edit-platforms {
   border: 0;
@@ -228,27 +242,15 @@
   margin: 0;
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 16px;
+  gap: 0 var(--space-sm);
 }
 .edit-platforms legend {
-  margin-bottom: 6px;
-}
-.check {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: var(--touch);
-  cursor: pointer;
-}
-.check input {
-  width: 20px;
-  height: 20px;
-  accent-color: var(--espresso);
+  margin-bottom: var(--space-3xs);
 }
 
 @media (max-width: 900px) {
   .review-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .clip-media {
     max-height: 56vh;
@@ -257,16 +259,9 @@
     min-height: 52px;
   }
   .select-bar {
-    bottom: calc(var(--tabbar-h) + 12px + env(safe-area-inset-bottom));
+    bottom: calc(var(--tabbar-h) + var(--space-xs) + env(safe-area-inset-bottom));
   }
   .review-filters .select {
     flex: 1 1 140px;
   }
-}
-
-/* The shared .modal has no height limit, so a tall form runs off a phone screen and its Save button
-   can't be reached. Scoped to Review here; the same two lines belong on .modal in global.css. */
-.review-page .modal {
-  max-height: calc(100dvh - 32px);
-  overflow-y: auto;
 }

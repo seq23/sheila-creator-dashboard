@@ -142,7 +142,15 @@ test.describe("brand deals", () => {
     await expect(pub.locator(".kit-clip video")).toHaveCount(3);
     await expect(pub.getByText("Table styling", { exact: true })).toBeVisible();
     await expect(pub.getByText("12.4K")).toBeVisible();
-    await expect(pub.getByRole("link", { name: "Work with me" })).toHaveAttribute("href", /^mailto:partnerships@demo-creator\.example/);
+    // "Work with me" is the page's one next step: under her name (in view without scrolling,
+    // marked primary) and again at the end, both mailing the kit's contact address.
+    const work = pub.getByRole("link", { name: "Work with me" });
+    await expect(work).toHaveCount(2);
+    for (const w of await work.all()) await expect(w).toHaveAttribute("href", /^mailto:partnerships@demo-creator\.example/);
+    await expect(work.first()).toHaveAttribute("data-primary", "");
+    await expect(work.first()).toBeInViewport();
+    await expect(pub.locator("[data-primary]")).toHaveCount(1);
+    await expect(pub.getByRole("img", { name: /logo|Sheila Bruce/ }).first()).toBeVisible();
     const hasScroll = await pub.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
     expect(hasScroll).toBe(false);
     const print = await pub.request.get("/api/public/kit/sheila/print");

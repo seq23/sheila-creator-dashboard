@@ -10,6 +10,7 @@ import path from "node:path";
 // name → why it hard-fails. A validator not listed here is refused; a listed one that is
 // missing on disk fails the run.
 export const REGISTER = {
+  "design-tokens": "a raw colour, font or off-scale size outside tokens.css is how screens drift apart (docs/design/DESIGN.md)",
   "help-guides-exist": "every screen's ? button and every fix_guide slug must open a real guide (section 12c)",
   "jobs-registered": "every job type in the schema must have a handler or dispatch silently does nothing",
   "no-content-in-logs": "public repo: a console.* outside worker/lib/log.ts can leak her content into Actions logs (section 13)",
