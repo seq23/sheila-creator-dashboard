@@ -10,7 +10,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 export CLOUDFLARE_ACCOUNT_ID="${CLOUDFLARE_ACCOUNT_ID:-8d147e242033699dd37c6f5a451f48d2}"
-PUBLIC_BASE_URL="${PUBLIC_BASE_URL:-https://sheila-creator-dashboard.sltaylor.workers.dev}"
+PUBLIC_BASE_URL="${PUBLIC_BASE_URL:-https://sheila-creator-dashboard.seq-taylor.workers.dev}"
 
 echo "==> build client"
 npm run build
