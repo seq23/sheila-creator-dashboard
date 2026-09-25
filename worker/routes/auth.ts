@@ -44,7 +44,9 @@ auth.post("/request", async (c) => {
     .bind(newId("otp"), email, await sha256Hex(`${email}:${code}`), expires)
     .run();
   const { html, text } = emailFrame(`Your ${c.env.APP_NAME} code`, [`Your login code is ${code}.`, "It works for 10 minutes. If you did not ask for it, ignore this email."]);
-  await sendEmail(c.env, { kind: "login_code", to: [email], subject: `${code} is your ${c.env.APP_NAME} code`, html, text });
+  const sent = await sendEmail(c.env, { kind: "login_code", to: [email], subject: `${code} is your ${c.env.APP_NAME} code`, html, text });
+  // Never say "check your email" when the email was refused: she would wait for nothing.
+  if (!sent.ok) return fail(c, 502, "We could not send your code just now. Try again in a minute; if it keeps failing, the email service needs fixing.", "i-didnt-get-an-email");
   // Local development and tests have no mailbox: with FAKE_SERVICES the code comes back here.
   return c.json({ ok: true, ...(fakeServices(c.env) ? { dev_code: code } : {}) });
 });

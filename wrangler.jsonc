@@ -47,7 +47,50 @@
     "FAKE_SERVICES": "1",
     "PUBLIC_BASE_URL": "http://localhost:8787",
     "GITHUB_REPO": "seq23/sheila-creator-dashboard",
-    "AUDIENCE_TIMEZONE": "America/New_York"
+    "AUDIENCE_TIMEZONE": "America/New_York",
+    // Which deployment this is: "production" here, "staging" in env.staging, "dev" in .dev.vars.
+    // /healthz reports it and every job dispatch carries it, so a job reaches the right
+    // Worker, bucket and shared secret.
+    "ENV_NAME": "production"
+  },
+  // STAGING: the owner's own fully real copy (FAKE_SERVICES=0) for testing with throwaway
+  // accounts while Sheila's production stays untouched. Deploy with `npm run deploy:staging`.
+  // scripts/validators/envs-match.mjs fails the build if staging differs from production in
+  // anything except the name, the D1/R2 ids and names, and the vars OWNER_EMAIL,
+  // PUBLIC_BASE_URL, ENV_NAME and FAKE_SERVICES.
+  "env": {
+    "staging": {
+      "name": "sheila-creator-dashboard-staging",
+      "assets": {
+        "directory": "./dist/client",
+        "binding": "ASSETS",
+        "not_found_handling": "single-page-application",
+        "run_worker_first": ["/api/*", "/media/*", "/healthz"]
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "sheila-creator-dashboard-db-staging",
+          "database_id": "c8e9e2c9-0c30-48c5-9c93-acf66a26979c",
+          "migrations_dir": "migrations"
+        }
+      ],
+      "r2_buckets": [
+        { "binding": "FILES", "bucket_name": "sheila-creator-dashboard-files-staging" }
+      ],
+      "triggers": {
+        "crons": ["0 * * * *", "30 13 * * *", "0 12 * * 1"]
+      },
+      "vars": {
+        "APP_NAME": "Sheila Studio",
+        "OWNER_EMAIL": "seq.taylor@gmail.com",
+        "FAKE_SERVICES": "0",
+        "PUBLIC_BASE_URL": "https://sheila-creator-dashboard-staging.seq-taylor.workers.dev",
+        "GITHUB_REPO": "seq23/sheila-creator-dashboard",
+        "AUDIENCE_TIMEZONE": "America/New_York",
+        "ENV_NAME": "staging"
+      }
+    }
   }
   // Secrets (set with `wrangler secret put <NAME>`), all prefixed with the vendor name so no
   // reserved env name is ever reused:

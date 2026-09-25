@@ -6,3 +6,5 @@ SECRETS_KEY=YcLVEjArFviauClfN6thsYumeyr3wqfUT9D2VnMNTm0=
 JOB_SHARED_SECRET=dev-job-shared-secret
 # GITHUB_DISPATCH_TOKEN=
 # RESEND_API_KEY=
+# Which deployment this is; /healthz reports it. Production and staging set it in wrangler.jsonc.
+ENV_NAME=dev

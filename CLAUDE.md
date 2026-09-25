@@ -29,7 +29,7 @@ shared/     constants.ts (caps, slots, recipes) and types.ts (API shapes) — on
 migrations/ D1, numbered; never edit a migration that has run in production
 jobs/       Python jobs for GitHub Actions on common.py (signed calls, safe log, R2)
 help/       guides/*.md (one per task) + index.json; the ? button on every screen opens one
-scripts/    validate.mjs (admission register) + validators/, deploy-production.sh
+scripts/    validate.mjs (admission register) + validators/, deploy-production.sh, deploy-staging.sh
 tests/      unit/ (vitest, domain + crypto), e2e/ (Playwright, phone + desktop)
 ```
 
@@ -52,6 +52,12 @@ assigned in the brief that adds it) · `package.json` deps (union merge only).
 - **Phone first** for Dump and Review: 44 px targets, bottom tab bar under 900 px.
 - **Design language** is A Sheila Bruce Affair (`app/styles/tokens.css`): cream/ivory, espresso,
   gold, rose script; Playfair Display + Montserrat + Allura. Not the wireframes' grey-blue.
+- **Nothing waits on the owner.** A finding becomes an action with a measurement and an
+  automatic fallback, never a question or a "waiting on the owner" stop. Only a secret or an
+  account she alone holds may stop, and it stops as a NAMED stop (a health light + fix guide, or
+  a line under "Staging: named stops" in RUNBOOK). Example: the monthly brief refresh makes a
+  new draft and emails her; it never pauses for approval, the approved brief stays live.
+  `tests/unit/staging-env.test.ts` reads this line.
 - Tests: strengthen, never weaken. A stub that "does nothing" is a stop the UI names, not a
   silent pass.
 
@@ -59,3 +65,9 @@ assigned in the brief that adds it) · `package.json` deps (union merge only).
 
 `land <pr>` (from `~/bin`) or `npm run deploy:production`. Never bare `wrangler deploy`.
 Production URL: https://sheila-creator-dashboard.seq-taylor.workers.dev (until her domain).
+
+Staging (the owner's real twin, her throwaway accounts): `npm run deploy:staging`, URL
+https://sheila-creator-dashboard-staging.seq-taylor.workers.dev. It is `env.staging` in
+`wrangler.jsonc`; `npm run validate:envs` fails if it drifts from production beyond its name,
+its D1/R2 and the vars OWNER_EMAIL, PUBLIC_BASE_URL, ENV_NAME, FAKE_SERVICES. After `land`,
+run `npm run deploy:staging` from main so both match.

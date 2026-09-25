@@ -309,8 +309,14 @@ async function writeHealth(env: Env, buf: BufferState, waitingSafely: number): P
 /** Clip cutting, Email (Resend) and Job runner (GitHub) lights. Also written by the daily lane. */
 export async function serviceHealthRows(env: Env): Promise<void> {
   const fake = fakeServices(env);
+  // The last real send decides: a refused one keeps the red light sendEmail wrote (with Resend's
+  // reason) instead of this check painting it green because a key exists.
+  const lastMail = fake ? null : await env.DB.prepare("SELECT provider_id FROM emails_sent ORDER BY sent_at DESC LIMIT 1").first<{ provider_id: string | null }>();
   if (!fake && !env.RESEND_API_KEY) await setHealth(env.DB, "Email (Resend)", "red", "Email is not set up, so alerts cannot reach you", "connect-resend");
-  else await setHealth(env.DB, "Email (Resend)", "green", fake ? "Test mode · emails are recorded, not sent" : "Ready to send", null);
+  else if (lastMail && !lastMail.provider_id) {
+    const row = await env.DB.prepare("SELECT light FROM health WHERE name = 'Email (Resend)'").first<{ light: string }>();
+    if (row?.light !== "red") await setHealth(env.DB, "Email (Resend)", "red", "The last email was not delivered", "connect-resend");
+  } else await setHealth(env.DB, "Email (Resend)", "green", fake ? "Test mode · emails are recorded, not sent" : "Ready to send", null);
 
   if (!fake && !env.GITHUB_DISPATCH_TOKEN) await setHealth(env.DB, "Job runner (GitHub)", "red", "The job token is missing, so clips cannot be cut", "connect-github");
   else await setHealth(env.DB, "Job runner (GitHub)", "green", fake ? "Test mode · jobs are simulated" : "Ready", null);
