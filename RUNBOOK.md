@@ -134,7 +134,9 @@ curl -s -X POST https://sheila-creator-dashboard-staging.seq-taylor.workers.dev/
 npx wrangler d1 execute sheila-creator-dashboard-db-staging --remote --env staging --json \
   --command "SELECT provider_id FROM emails_sent WHERE kind='login_code' ORDER BY sent_at DESC LIMIT 1"
 # 3. the email itself; its "text" says "Your login code is NNNNNN." and "last_event" is sent/delivered
-RESEND_API_KEY="$(security find-generic-password -s repo-operator-credential-resend-app-18f24eb6 -w)" \
+#    (key from the vault through its Keychain adapter; a bare `security` read can pop a macOS
+#    permission dialog and hang an unattended agent)
+RESEND_API_KEY="$(cd ~/repo-tools/agent && python3 -c 'from repo_operator.vault import keychain as kc; print(kc.get().get("repo-operator-credential-resend-app-18f24eb6", kc.owner_account()) or "", end="")')" \
   sh -c 'curl -s https://api.resend.com/emails/<provider_id> -H "Authorization: Bearer $RESEND_API_KEY"'
 # 4. trade the code for a session cookie
 curl -s -c cookies.txt -X POST https://sheila-creator-dashboard-staging.seq-taylor.workers.dev/api/auth/verify \
