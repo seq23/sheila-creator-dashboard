@@ -1,7 +1,7 @@
 // Heavy jobs run in GitHub Actions, started only from here with a signed payload
 // (section 13). The job then fetches its spec from the Worker and calls back when done.
 import type { Env } from "../env";
-import { fakeServices } from "../env";
+import { envName, fakeServices } from "../env";
 import { newId, nowIso } from "../lib/ids";
 import { log, safeError } from "../lib/log";
 import { signJobMessage } from "../lib/crypto";
@@ -12,6 +12,15 @@ export interface DispatchResult {
   jobId: string;
   dispatched: boolean;
   error: string | null;
+}
+
+/**
+ * The repository_dispatch body. `env` tells the workflow which deployment started the job, so
+ * it picks that deployment's R2 bucket and shared secret (JOB_SHARED_SECRET_STAGING for
+ * staging); `worker_url` is where the job fetches its spec and calls back. Pure, unit-tested.
+ */
+export function dispatchBody(env: Pick<Env, "ENV_NAME" | "PUBLIC_BASE_URL">, type: JobType, p: { jobId: string; nonce: string; ts: number | string; sig: string }) {
+  return { event_type: type, client_payload: { job_id: p.jobId, nonce: p.nonce, ts: p.ts, sig: p.sig, worker_url: env.PUBLIC_BASE_URL, env: envName(env) === "staging" ? "staging" : "production" } };
 }
 
 /**
@@ -45,7 +54,7 @@ export async function dispatchJob(env: Env, type: JobType, refId: string | null)
         "User-Agent": "sheila-creator-dashboard",
         "X-GitHub-Api-Version": "2022-11-28",
       },
-      body: JSON.stringify({ event_type: type, client_payload: { job_id: jobId, nonce, ts: timestamp, sig: signature, worker_url: env.PUBLIC_BASE_URL } }),
+      body: JSON.stringify(dispatchBody(env, type, { jobId, nonce, ts: timestamp, sig: signature })),
     });
     if (res.status !== 204) {
       const err = `GitHub answered ${res.status}`;

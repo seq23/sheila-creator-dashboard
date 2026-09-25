@@ -36,5 +36,8 @@ jobs:
           JOB_SIG: ${{ github.event.client_payload.sig }}
           WORKER_URL: ${{ github.event.client_payload.worker_url }}
           RUN_ID: ${{ github.run_id }}
-          JOB_SHARED_SECRET: ${{ secrets.JOB_SHARED_SECRET }}
+          # Which deployment started this job (the Worker's ENV_NAME). It picks the shared secret and
+          # the bucket; envs-match.mjs pins both bucket names to wrangler.jsonc.
+          JOB_ENV: ${{ github.event.client_payload.env == 'staging' && 'staging' || 'production' }}
+          JOB_SHARED_SECRET: ${{ github.event.client_payload.env == 'staging' && secrets.JOB_SHARED_SECRET_STAGING || secrets.JOB_SHARED_SECRET }}
 

@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Validator runner. Every validator in scripts/validators/ is registered in the ADMISSION
 // REGISTER below with a hard-fail basis. Rule 0: a validator that checks zero items fails.
-// Run: npm run validate
+// Run: npm run validate  (or `node scripts/validate.mjs <name> …` for named validators only,
+// e.g. npm run validate:envs; a name not in the register fails)
 import { readdir } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import path from "node:path";
@@ -10,6 +11,7 @@ import path from "node:path";
 // name → why it hard-fails. A validator not listed here is refused; a listed one that is
 // missing on disk fails the run.
 export const REGISTER = {
+  "envs-match": "staging is production's twin: a config drift or a job workflow without the env mapping sends staging jobs to Sheila's bucket and secret",
   "help-guides-exist": "every screen's ? button and every fix_guide slug must open a real guide (section 12c)",
   "jobs-registered": "every job type in the schema must have a handler or dispatch silently does nothing",
   "no-content-in-logs": "public repo: a console.* outside worker/lib/log.ts can leak her content into Actions logs (section 13)",
@@ -40,9 +42,18 @@ for (const name of onDisk) {
   }
 }
 
+const only = process.argv.slice(2);
+for (const n of only) {
+  if (!REGISTER[n]) {
+    console.log(`✗ ${n}: not in the admission register`);
+    failed++;
+  }
+}
+
 for (const file of files) {
   const name = file.replace(/\.mjs$/, "");
   if (!REGISTER[name]) continue;
+  if (only.length && !only.includes(name)) continue;
   const mod = await import(pathToFileURL(path.join(dir, file)).href);
   try {
     const r = await mod.default({ root });
@@ -67,5 +78,5 @@ for (const file of files) {
   }
 }
 
-console.log(`\n${Object.keys(REGISTER).length} validators, ${checked} items checked, ${failed} failed`);
+console.log(`\n${only.length || Object.keys(REGISTER).length} validators, ${checked} items checked, ${failed} failed`);
 process.exit(failed ? 1 : 0);

@@ -2,7 +2,7 @@
 // from static assets for everything else, and three cron lanes.
 import { Hono } from "hono";
 import type { Env, Vars } from "./env";
-import { fakeServices } from "./env";
+import { envName, fakeServices } from "./env";
 import { log, safeError } from "./lib/log";
 import { auth } from "./routes/auth";
 import { home } from "./routes/home";
@@ -35,7 +35,7 @@ app.use("*", async (c, next) => {
   c.header("Referrer-Policy", "strict-origin-when-cross-origin");
 });
 
-app.get("/healthz", (c) => c.json({ ok: true, fake: fakeServices(c.env) }));
+app.get("/healthz", (c) => c.json({ ok: true, fake: fakeServices(c.env), env: envName(c.env) }));
 
 // ROUTE LEDGER (collision slot): every route module is mounted here, one line each.
 // scripts/validators/routes-mounted.mjs checks that every file in worker/routes is mounted.

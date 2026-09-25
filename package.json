@@ -12,11 +12,14 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "validate": "node scripts/validate.mjs",
+    "validate:envs": "node scripts/validate.mjs envs-match",
     "check": "npm run typecheck && npm run test && npm run validate && npm run build",
     "e2e": "playwright test",
     "db:migrate:local": "wrangler d1 migrations apply sheila-creator-dashboard-db --local",
     "db:migrate:production": "wrangler d1 migrations apply sheila-creator-dashboard-db --remote",
+    "db:migrate:staging": "wrangler d1 migrations apply sheila-creator-dashboard-db-staging --remote --env staging",
     "deploy:production": "bash scripts/deploy-production.sh",
+    "deploy:staging": "bash scripts/deploy-staging.sh",
     "help:screenshots": "playwright test tests/e2e/help-screenshots.spec.ts"
   },
   "dependencies": {
