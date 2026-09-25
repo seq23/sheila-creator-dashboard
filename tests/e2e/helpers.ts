@@ -1,7 +1,7 @@
 import type { Page } from "@playwright/test";
 
 /** Log in through the real one-time-code flow; fake services return the code in the response. */
-export async function login(page: Page, email = "seq.taylor@gmail.com") {
+export async function login(page: Page, email = "asheilabruceaffair@gmail.com") {
   const res = await page.request.post("/api/auth/request", { data: { email } });
   const { dev_code } = (await res.json()) as { dev_code?: string };
   if (!dev_code) throw new Error("fake services did not return a login code");

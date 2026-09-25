@@ -41,7 +41,7 @@
   "vars": {
     // Plain-text configuration only. Every key lives in `wrangler secret`.
     "APP_NAME": "Sheila Studio",
-    "OWNER_EMAIL": "seq.taylor@gmail.com",
+    "OWNER_EMAIL": "asheilabruceaffair@gmail.com",
     // "1" swaps every outside service (Buffer, OpenRouter, Firecrawl, Resend, Hunter, GitHub,
     // Meta, Google) for a realistic stand-in. Production sets it to "0".
     "FAKE_SERVICES": "1",
