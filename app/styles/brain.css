@@ -57,4 +57,7 @@
   .brain-doc .list-row {
     flex-wrap: wrap;
   }
+  .brain-doc .list-row .grow {
+    min-width: 55%;
+  }
 }
