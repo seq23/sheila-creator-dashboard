@@ -376,6 +376,7 @@ def fill_copy(m: Moment, transcript: Transcript, spec: dict[str, Any], i: int) -
         cta = cta_line(spec.get("brand_profile"))
         base = first_sentence(transcript.text_in(m.start, m.end), 25) or m.hook
         base = base.rstrip("….!?,;: ")
+        base = base[:1].upper() + base[1:]
         if m.recipe == "recycle":
             base = f"{base} (a favorite, back again)"
         m.caption = f"{base}. {cta}" if cta else f"{base}."

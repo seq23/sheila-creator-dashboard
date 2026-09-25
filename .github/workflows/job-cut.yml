@@ -1,18 +1,35 @@
-# Cut a dump into clips (section 8). Started ONLY by the Worker (repository_dispatch with a signed payload); the job
-# fetches its spec from the Worker, works in the runner, uploads to R2, calls back.
+# Cut a dump into clips (section 8). The `run` job is started ONLY by the Worker (repository_dispatch with a signed
+# payload); it fetches its spec from the Worker, works in the runner, uploads to R2, calls back.
 # Logs show step names, counts and pass/fail only (section 13).
+#
+# The `selftest` job runs the same pipeline on synthetic footage (jobs/selftest_cut.py) when the pipeline changes.
+# It uses no secrets and never talks to the Worker or R2, so running it on pull requests is safe.
 name: job-cut
 
 on:
   repository_dispatch:
     types: [cut]
+  pull_request:
+    paths:
+      - jobs/cut.py
+      - jobs/common.py
+      - jobs/selftest_cut.py
+      - .github/workflows/job-cut.yml
+  workflow_dispatch:
 
 concurrency:
-  group: job-cut-${{ github.event.client_payload.job_id }}
+  group: job-cut-${{ github.event.client_payload.job_id || github.ref }}
   cancel-in-progress: false
+
+env:
+  JOB_HEAVY: "1"          # cut.py installs faster-whisper (and MediaPipe if it installs within a minute)
+  WHISPER_MODEL: base
+  GLOG_minloglevel: "2"   # MediaPipe's native logging: errors only
+  HF_HUB_DISABLE_PROGRESS_BARS: "1"
 
 jobs:
   run:
+    if: github.event_name == 'repository_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 180
     steps:
@@ -21,7 +38,14 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: jobs/requirements.txt
+          cache-dependency-path: |
+            jobs/requirements.txt
+            jobs/cut.py
+      - name: Whisper model cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: whisper-${{ env.WHISPER_MODEL }}-v1
       - name: System tools
         run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg > /dev/null
       - run: pip install -q -r jobs/requirements.txt
@@ -41,3 +65,26 @@ jobs:
           R2_BUCKET: sheila-creator-dashboard-files
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
+
+  selftest:
+    if: github.event_name != 'repository_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25    # fault detector (~4x a normal run), never a budget
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            jobs/requirements.txt
+            jobs/cut.py
+      - name: Whisper model cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: whisper-${{ env.WHISPER_MODEL }}-v1
+      - name: System tools (ffmpeg with libass; espeak-ng for a spoken sample)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg espeak-ng > /dev/null
+      - name: Pipeline self-test (synthetic footage, no secrets)
+        run: python3 jobs/selftest_cut.py --require-heavy

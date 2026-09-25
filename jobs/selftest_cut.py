@@ -3,6 +3,7 @@
     python3 jobs/selftest_cut.py                  # run and check
     python3 jobs/selftest_cut.py --write-fixture  # also refresh tests/unit/fixtures/cut-result.sample.json
     python3 jobs/selftest_cut.py --keep <dir>     # keep the rendered clips and covers to look at
+    python3 jobs/selftest_cut.py --require-heavy  # CI: fail unless whisper, libass and a spoken sample are present
 
 Two synthetic videos (ffmpeg testsrc2 + tone bursts with pauses, so silence detection has
 something to find): a 60 s landscape video with black bars through Door A, and a 40 s portrait
@@ -155,10 +156,57 @@ def check(result: dict, spec: dict, out: Path, problems: list[str]) -> None:
             log("selftest.clip.ok", recipe=c["recipe"], seconds=round(info["duration"], 1))
 
 
+def check_llm(problems: list[str]) -> None:
+    """The model picker with a stubbed OpenRouter: its moments are used, bad ones are dropped,
+    and a failing call falls back (returns None) instead of failing the dump."""
+    import io
+    import os
+    import urllib.request
+
+    tr = cut.Transcript(words=[cut.Word(float(i), float(i) + 0.8, f"w{i}") for i in range(60)], segments=[(0.0, 60.0, "words")], engine="faster-whisper")
+    spec = spec_for("new", "dmp_llm", [])
+    asset = {"id": "ast_llm", "file_note": None}
+    answer = {"moments": [
+        {"start": 2, "end": 32, "recipe": "talking_head", "hook": "Model hook", "hook_alt": "Model alt", "caption": "Model caption", "hashtags": ["#a"], "hook_strength": 0.9},
+        {"start": 5, "end": 7, "recipe": "story", "hook": "too short"},
+        {"start": 0, "end": 30, "recipe": "ai_video", "hook": "not a recipe"},
+    ]}
+
+    class Res(io.BytesIO):
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    real = urllib.request.urlopen
+    real_sleep = cut.time.sleep
+    os.environ["OPENROUTER_API_KEY"] = "selftest-not-a-key"
+    try:
+        urllib.request.urlopen = lambda *a, **k: Res(json.dumps({"choices": [{"message": {"content": json.dumps(answer)}}]}).encode())  # type: ignore[assignment]
+        got = cut.llm_moments(asset, 60.0, tr, spec, 5, [(0.0, 60.0)])
+        if not got or len(got) != 1 or got[0].hook != "Model hook" or got[0].hook_strength != 0.9:
+            problems.append("model moments not used as answered")
+
+        def boom(*_a, **_k):
+            raise OSError("down")
+
+        urllib.request.urlopen = boom  # type: ignore[assignment]
+        cut.time.sleep = lambda _s: None  # type: ignore[assignment]
+        if cut.llm_moments(asset, 60.0, tr, spec, 5, [(0.0, 60.0)]) is not None:
+            problems.append("model failure did not fall back")
+    finally:
+        urllib.request.urlopen = real  # type: ignore[assignment]
+        cut.time.sleep = real_sleep  # type: ignore[assignment]
+        os.environ.pop("OPENROUTER_API_KEY", None)
+    log("selftest.llm", ok=not any("model" in p for p in problems))
+
+
 def main() -> int:
     write_fixture = "--write-fixture" in sys.argv
     tmp = Path(tempfile.mkdtemp(prefix="cut-selftest-"))
     problems: list[str] = []
+    check_llm(problems)
     try:
         samples = tmp / "samples"
         samples.mkdir()
@@ -178,7 +226,36 @@ def main() -> int:
             shutil.copy(src, dst)
 
         log("selftest.tools", speech=has_speech, libass=cut.ffmpeg_has_filter("subtitles"))
-        heavy = {"whisper": cut._importable("faster_whisper"), "mediapipe": cut._importable("mediapipe") and cut._importable("cv2")}
+        heavy = cut.ensure_heavy()  # installs only with JOB_HEAVY=1 (CI); locally uses what is importable
+        face = bool(cut.face_detector(heavy["mediapipe"]))
+        log("selftest.heavy", whisper=heavy["whisper"], mediapipe=heavy["mediapipe"], face_detector=face)
+        if "--require-heavy" in sys.argv:
+            # CI: the real tools must all be there, or the run proves nothing about production.
+            for name, ok in (("whisper", heavy["whisper"]), ("libass", cut.ffmpeg_has_filter("subtitles")), ("speech", has_speech)):
+                if not ok:
+                    problems.append(f"required tool missing: {name}")
+            if heavy["mediapipe"] and not face:
+                problems.append("mediapipe installed but the face detector did not load")
+        if face:
+            # A public MediaPipe sample portrait placed left of centre in a landscape frame:
+            # the 9:16 crop must follow the face, not the frame centre.
+            try:
+                import urllib.request
+
+                with urllib.request.urlopen("https://storage.googleapis.com/mediapipe-assets/portrait.jpg", timeout=60) as res:
+                    (samples / "portrait.jpg").write_bytes(res.read())
+                cut.ffmpeg([
+                    "-f", "lavfi", "-i", "color=c=gray:s=1920x1080:d=3:r=30", "-loop", "1", "-i", str(samples / "portrait.jpg"),
+                    "-filter_complex", "[1:v]scale=-2:1000[p];[0:v][p]overlay=200:40:shortest=1,format=yuv420p",
+                    "-t", "3", "-c:v", "libx264", "-preset", "ultrafast", str(samples / "face.mp4"),
+                ])
+                cx = cut.face_center(samples / "face.mp4", 0, 2.5, True)
+                expected = (200 + 1000 * 820 / 1024 / 2) / 1920
+                if cx is None or abs(cx - expected) > 0.05:
+                    problems.append("face crop did not follow the face")
+                log("selftest.face", found=cx is not None, off=round(abs((cx or 0) - expected), 3))
+            except OSError:
+                log("selftest.face.sample_unreachable")
         all_platforms = ["tiktok", "instagram", "youtube"]
         runs = [
             spec_for("new", "dmp_selftestnew", [{"id": "ast_selftestwide", "r2_key": "wide.mp4", "allowed_platforms": all_platforms, "file_note": None}]),
@@ -199,6 +276,8 @@ def main() -> int:
                     problems.append("whisper installed but no transcript")
                 if result["engine"]["subtitles"] not in ("burned", "soft"):
                     problems.append("speech but no word subtitles")
+                if "--require-heavy" in sys.argv and result["engine"]["subtitles"] != "burned":
+                    problems.append("libass present but subtitles were not burned")
             if spec["door"] == "recycle" and any(c["platforms"] != ["instagram", "youtube"] for c in result["clips"]):
                 problems.append("recycle clip ignored the allowed platforms")
             check(result, spec, out, problems)
