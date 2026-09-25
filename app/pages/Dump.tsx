@@ -8,6 +8,8 @@ import { uploadFile } from "../lib/upload";
 import { fmtBytes, fmtDate, plural } from "../lib/format";
 import { Card, Empty, HelpButton, Notice, PageHead, Skeleton, useLoad, useToast } from "../components/ui";
 import { PLATFORMS, PLATFORM_LABEL } from "@shared/constants";
+import { Icon } from "../components/Icon";
+import "../styles/dump.css";
 
 type Door = "new" | "recycle";
 
@@ -116,7 +118,7 @@ export function Dump() {
     try {
       await patch(`/api/dumps/${dumpId}`, { notes });
       await post(`/api/dumps/${dumpId}/dump`);
-      toast.ok("Dumped. We'll email you when the clips are ready to review.");
+      toast.ok("Dumped. We’ll email you when the clips are ready to review.");
       setLocal([]);
       reloadCurrent();
       recent.reload();
@@ -140,13 +142,32 @@ export function Dump() {
   const uploading = local.some((l) => l.status === "uploading");
   const uploadedCount = new Set([...local.filter((l) => l.status === "uploaded").map((l) => l.assetId), ...assets.filter((a) => a.upload_status === "uploaded").map((a) => a.id)]).size;
   const totalBytes = assets.reduce((n, a) => n + a.size_bytes, 0);
+  // The one next step: choose videos until something is uploaded, then press Dump.
+  const hasVideos = uploadedCount > 0;
 
   return (
     <div className="page">
-      <PageHead title="Dump videos">{dump && !editable ? <button className="btn quiet" onClick={startNew}>Start a new dump</button> : null}</PageHead>
+      <PageHead title="Dump videos" lede="Drop in your footage. We cut it into short clips and email you when they’re ready to approve.">
+        {dump && !editable ? (
+          dump.status === "ready" ? (
+            <>
+              <button className="btn quiet" onClick={startNew}>
+                Start a new dump
+              </button>
+              <Link to="/review" className="btn" data-primary>
+                Review the clips
+              </Link>
+            </>
+          ) : (
+            <button className="btn" data-primary onClick={startNew}>
+              Start a new dump
+            </button>
+          )
+        ) : null}
+      </PageHead>
 
       <div className="split">
-        <div className="section" style={{ gap: 20 }}>
+        <div className="section dump-main">
           {editable ? (
             <>
               <div className="grid cols-2">
@@ -179,11 +200,17 @@ export function Dump() {
                 tabIndex={0}
                 onKeyDown={(e) => (e.key === "Enter" ? inputRef.current?.click() : undefined)}
               >
-                <div style={{ fontFamily: "var(--font-display)", fontSize: "1.3rem", fontWeight: 600 }}>Drop videos here</div>
+                <div className="dropzone-title">Drop videos here</div>
                 <div className="hint">or choose from your camera roll · any size · many at once</div>
-                <span className="btn dark" style={{ marginTop: 6 }}>
-                  Choose videos
-                </span>
+                {hasVideos ? (
+                  <span className="btn quiet dump-choose">
+                    <Icon name="plus" size="sm" /> Choose videos
+                  </span>
+                ) : (
+                  <span className="btn dump-choose" data-primary>
+                    Choose videos
+                  </span>
+                )}
                 <input ref={inputRef} type="file" accept="video/*" multiple hidden onChange={(e) => e.target.files && addFiles(e.target.files)} />
               </div>
             </>
@@ -192,7 +219,7 @@ export function Dump() {
               <span>
                 {dump.status === "queued" || dump.status === "cutting" ? (
                   <>
-                    <strong>Cutting…</strong> {dump.progress ? `${dump.progress.step} (${dump.progress.done}/${dump.progress.total})` : "usually 10 to 30 minutes"}. We'll email you when the clips are ready. You can leave this page.
+                    <strong>Cutting…</strong> {dump.progress ? `${dump.progress.step} (${dump.progress.done}/${dump.progress.total})` : "usually 10 to 30 minutes"}. We’ll email you when the clips are ready. You can leave this page.
                   </>
                 ) : dump.status === "ready" ? (
                   <>
@@ -222,14 +249,12 @@ export function Dump() {
                 {local.map((l, i) => (
                   <div key={`l${i}`} className="list-row">
                     <div className="grow">
-                      <div className="title" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {l.file.name}
-                      </div>
-                      <div className="meter" style={{ marginTop: 6 }}>
-                        <span style={{ width: `${l.fraction * 100}%`, background: l.status === "failed" ? "var(--danger)" : undefined }} />
+                      <div className="title truncate">{l.file.name}</div>
+                      <div className={`meter dump-meter${l.status === "failed" ? " bad" : ""}`}>
+                        <span style={{ width: `${l.fraction * 100}%` }} />
                       </div>
                     </div>
-                    <span className="meta mono">{l.status === "uploaded" ? "Uploaded" : l.status === "failed" ? "Failed" : `${Math.round(l.fraction * 100)}%`}</span>
+                    <span className="meta nums dump-pct">{l.status === "uploaded" ? "Uploaded" : l.status === "failed" ? "Failed" : `${Math.round(l.fraction * 100)}%`}</span>
                   </div>
                 ))}
                 {assets
@@ -248,10 +273,10 @@ export function Dump() {
                 <textarea id="notes" className="textarea" rows={3} value={notes} onChange={(e) => saveNotes(e.target.value)} placeholder="e.g. Trip weekend, lean funny. The kitchen one is my favorite." />
               </div>
               <div className="row wrap">
-                <button className="btn big" disabled={sending || uploading || uploadedCount === 0} onClick={send}>
+                <button className="btn big" data-primary={hasVideos ? true : undefined} disabled={sending || uploading || uploadedCount === 0} onClick={send}>
                   {sending ? "Sending…" : "Dump"}
                 </button>
-                <span className="hint">We'll email you when the clips are ready to review.</span>
+                <span className="hint">We’ll email you when the clips are ready to review.</span>
               </div>
             </>
           ) : null}
@@ -259,13 +284,13 @@ export function Dump() {
 
         <aside className="section">
           <h2>Recent dumps</h2>
-          {recent.loading && !recent.data ? <Skeleton /> : null}
-          {recent.data && recent.data.length === 0 ? <Empty title="Nothing dumped yet">Your first dump shows up here.</Empty> : null}
+          {recent.loading && !recent.data ? <Skeleton lines={4} /> : null}
+          {recent.data && recent.data.length === 0 ? <Empty title="Nothing dumped yet">Choose videos, add a note and press Dump. Each dump shows up here with how its clips are coming along.</Empty> : null}
           {recent.data && recent.data.length > 0 ? (
             <Card className="flat">
               <div className="list">
                 {recent.data.map((d) => (
-                  <Link key={d.id} to={d.status === "ready" ? "/review" : `/dump/${d.id}`} className="list-row" style={{ textDecoration: "none" }}>
+                  <Link key={d.id} to={d.status === "ready" ? "/review" : `/dump/${d.id}`} className="list-row">
                     <div className="grow">
                       <div className="title">
                         {fmtDate(d.created_at)} · Door {d.door === "new" ? "A" : "B"} · {plural(d.files, "video")}
@@ -301,9 +326,7 @@ function AssetLine({ asset, door, dumpId, editable, onRemove }: { asset: AssetRo
     <div>
       <div className="list-row">
         <div className="grow">
-          <div className="title" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {asset.file_name}
-          </div>
+          <div className="title truncate">{asset.file_name}</div>
           <div className="meta">
             {fmtBytes(asset.size_bytes)}
             {asset.file_note ? ` · ${asset.file_note}` : ""}
@@ -316,7 +339,7 @@ function AssetLine({ asset, door, dumpId, editable, onRemove }: { asset: AssetRo
               {door === "recycle" ? "Posted on…" : "Note"}
             </button>
             <button className="icon-btn" aria-label="Remove this video" onClick={onRemove}>
-              ×
+              <Icon name="close" />
             </button>
           </>
         ) : (
@@ -324,7 +347,7 @@ function AssetLine({ asset, door, dumpId, editable, onRemove }: { asset: AssetRo
         )}
       </div>
       {open ? (
-        <div className="section" style={{ padding: "0 0 12px" }}>
+        <div className="section dump-asset-edit">
           <div className="field">
             <label>Note for this video</label>
             <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Anything we should know about this one" />

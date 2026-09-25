@@ -42,12 +42,14 @@ export function Stats() {
 
   const conn = (p: Platform) => data?.connections.find((c) => c.service === SERVICE[p]) ?? null;
   const canSync = !!data?.connections.some((c) => (c.service === "meta" || c.service === "google") && c.status === "ok");
+  // One next step only while nothing feeds the numbers yet: connecting.
+  const nothingConnected = !!data && !canSync && !data.connections.some((c) => c.service === "tiktok" && c.meta.last_import_at);
 
   async function sync() {
     setBusy("sync");
     try {
       await post("/api/stats/sync");
-      toast.ok("Syncing your Instagram and YouTube results. A few minutes.");
+      toast.ok("Getting your latest Instagram and YouTube results. A few minutes.");
     } catch (e) {
       toast.bad(e);
     } finally {
@@ -82,41 +84,41 @@ export function Stats() {
 
   return (
     <div className="page">
-      <PageHead title="Stats" eyebrow="What's working">
+      <PageHead title="Stats" lede="What’s working: your numbers, your best videos and the times your audience watches.">
         {canSync ? (
           <button className="btn quiet" onClick={sync} disabled={running || busy === "sync"}>
-            {running ? "Syncing…" : "Sync now"}
+            {running ? "Updating…" : "Update numbers"}
           </button>
         ) : (
-          <Link className="btn quiet" to="/settings/connections">
+          <Link className={nothingConnected ? "btn" : "btn quiet"} data-primary={nothingConnected || undefined} to="/settings/connections">
             Connect Instagram / YouTube
           </Link>
         )}
-        <button className="btn" onClick={() => fileRef.current?.click()} disabled={busy === "import"}>
+        <button className="btn quiet" onClick={() => fileRef.current?.click()} disabled={busy === "import"}>
           {busy === "import" ? "Importing…" : "Upload TikTok export"}
         </button>
         <input ref={fileRef} type="file" hidden aria-label="Choose your TikTok export" accept=".csv,text/csv" onChange={(e) => (e.target.files ? importTikTok(e.target.files).finally(() => (e.target.value = "")) : undefined)} />
       </PageHead>
 
-      {loading && !data ? <Skeleton lines={6} /> : null}
+      {loading && !data ? <Skeleton blocks={3} columns={3} /> : null}
       {running ? (
         <Notice tone="info">
           <span>
-            <strong>Syncing…</strong> started {ago(data?.job?.created_at)}. Your numbers update here when it finishes.
+            <strong>Updating…</strong> started {ago(data?.job?.created_at)}. Your numbers update here when it finishes.
           </span>
         </Notice>
       ) : null}
       {data?.job?.status === "failed" ? (
         <Notice tone="bad">
           <span>
-            The last sync stopped ({data.job.safe_error ?? "unknown reason"}). <Link to="/help/connect-stats">How to fix</Link>
+            The last update stopped ({data.job.safe_error ?? "unknown reason"}). <Link to="/help/connect-stats">How to fix</Link>
           </span>
         </Notice>
       ) : null}
 
       {data && !hasAny ? (
-        <Empty title="No results yet">
-          Connect Instagram and YouTube stats, and upload your TikTok export from TikTok Studio. After about 4 weeks of posting, the Calendar switches from the big studies' times to your own best times.
+        <Empty title="No results yet" secondary={{ to: "/help/upload-your-tiktok-export", label: "How to get the TikTok export" }}>
+          Connect Instagram and YouTube stats, and upload your TikTok export from TikTok Studio. After about 4 weeks of posting, the Calendar switches from the big studies’ times to your own best times.
         </Empty>
       ) : null}
 
@@ -133,13 +135,13 @@ export function Stats() {
                   {a ? (
                     <>
                       <div className="stat">{num(a.followers)}</div>
-                      <div className="hint">followers · {num(a.avg_views)} average views</div>
+                      <div className="hint nums">followers · {num(a.avg_views)} average views</div>
                     </>
                   ) : (
                     <div className="soft">No numbers yet</div>
                   )}
                   <div className="hint">
-                    {when ? `${p === "tiktok" ? "Imported" : "Synced"} ${ago(when)}` : p === "tiktok" ? "Upload the export from TikTok Studio" : c?.status === "error" ? "Needs you to reconnect" : "Not connected"}
+                    {when ? `${p === "tiktok" ? "Imported" : "Updated"} ${ago(when)}` : p === "tiktok" ? "Upload the export from TikTok Studio" : c?.status === "error" ? "Needs you to reconnect" : "Not connected"}
                   </div>
                 </Card>
               );
@@ -158,7 +160,7 @@ export function Stats() {
                       <span className={`pill ${learned ? "ok" : ""}`}>{learned ? "Your times" : "Study times"}</span>
                       <div className="grow">
                         <div className="title">{PLATFORM_LABEL[p]}</div>
-                        <div className="meta">
+                        <div className="meta nums">
                           {learned
                             ? `From your own results: ${learned.map((s) => `${DAY[s.day]} ${hour(s.hour)}`).join(" · ")}`
                             : `Launch times from the big studies until there are 4 weeks of your results (${Math.min(L.days, L.needDays)} of ${L.needDays} days, ${plural(L.videos, "video")}).`}
@@ -181,7 +183,7 @@ export function Stats() {
                   <ol className="list stats-top">
                     {data.topClips.map((t, i) => (
                       <li key={t.id} className="list-row">
-                        <span className="stats-rank">{i + 1}</span>
+                        <span className="stats-rank nums">{i + 1}</span>
                         <div className="grow">
                           <div className="title stats-ellipsis">{t.title || "Untitled video"}</div>
                           <div className="meta">
@@ -190,7 +192,7 @@ export function Stats() {
                             {t.origin === "dashboard" ? " · made here" : ""}
                           </div>
                         </div>
-                        <div className="stats-views">
+                        <div className="stats-views nums">
                           <strong>{num(t.views)}</strong>
                           <span className="meta">views</span>
                         </div>

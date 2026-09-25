@@ -9,13 +9,14 @@ import { get, patch, post } from "../lib/api";
 import { plural } from "../lib/format";
 import { Empty, HelpButton, Modal, PageHead, Skeleton, useLoad, useToast } from "../components/ui";
 import { PLATFORMS, PLATFORM_LABEL, RECIPES, type Platform } from "@shared/constants";
+import { Icon } from "../components/Icon";
 import "../styles/calendar.css";
 
 type PoolClip = Pick<ClipRow, "id" | "hook_text" | "cover_url" | "recipe" | "door" | "platforms" | "score">;
 type View = "week" | "month";
 
 const SHORT: Record<Platform, string> = { tiktok: "TikTok", instagram: "Instagram", youtube: "YouTube" };
-const STATUS_TEXT: Record<PostRow["status"], string> = { planned: "Planned", in_buffer: "In Buffer", posted: "Posted ✓", failed: "Failed", unscheduled: "Off" };
+const STATUS_TEXT: Record<PostRow["status"], string> = { planned: "Planned", in_buffer: "In Buffer", posted: "Posted", failed: "Failed", unscheduled: "Off" };
 const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 // ---------- dates as YYYY-MM-DD strings in the audience time zone
@@ -128,7 +129,28 @@ export function Calendar() {
     }
   }
 
-  if (!settings.data) return <Skeleton lines={6} />;
+  const head = (
+    <PageHead title="Calendar" lede="Approved clips go out at the best times. Tap a post to move it, swap it or take it off.">
+      <button className="btn" data-primary onClick={fill} disabled={busy}>
+        {busy ? "Filling…" : "Fill the calendar"}
+      </button>
+    </PageHead>
+  );
+
+  // The page head shows at once; the week holds its shape until the settings arrive.
+  if (!settings.data)
+    return (
+      <div className="page cal">
+        {head}
+        <Skeleton lines={2} />
+        <div className="cal-week" aria-busy="true" aria-label="Loading">
+          {DAY_NAMES.map((n) => (
+            <div key={n} className="skeleton skeleton-block cal-day-skel" />
+          ))}
+        </div>
+        <HelpButton guide="move-or-remove-a-post" />
+      </div>
+    );
   const caps = settings.data.weekly_caps;
 
   // Caps line for the week being shown (week view) or the week containing the anchor (month view).
@@ -142,20 +164,16 @@ export function Calendar() {
 
   return (
     <div className="page cal">
-      <PageHead title="Calendar">
-        <button className="btn" onClick={fill} disabled={busy}>
-          {busy ? "Filling…" : "Fill the calendar"}
-        </button>
-      </PageHead>
+      {head}
 
       <div className="cal-bar">
         <div className="row">
           <button className="icon-btn" aria-label={view === "week" ? "Previous week" : "Previous month"} onClick={() => step(-1)}>
-            ‹
+            <Icon name="left" />
           </button>
           <strong className="cal-title">{title}</strong>
           <button className="icon-btn" aria-label={view === "week" ? "Next week" : "Next month"} onClick={() => step(1)}>
-            ›
+            <Icon name="right" />
           </button>
           {anchor && anchor !== today ? (
             <button className="btn quiet small" onClick={() => setAnchor(null)}>
@@ -177,13 +195,14 @@ export function Calendar() {
         {PLATFORMS.map((p) => {
           const n = weekCount(p);
           return (
-            <span key={p} className={`cal-cap ${p}${n > caps[p] ? " over" : ""}`}>
-              {SHORT[p]} {n} / {caps[p]}
+            <span key={p} className={`cal-cap${n > caps[p] ? " over" : ""}`}>
+              <span className={`cal-dot ${p}`} aria-hidden="true" />
+              {SHORT[p]} <span className="nums">{n} / {caps[p]}</span>
             </span>
           );
         })}
         <span className="hint">
-          cap {settings.data.hard_cap_per_channel} per channel · times in your audience's time zone ({tz})
+          cap {settings.data.hard_cap_per_channel} per channel · times in your audience’s time zone ({tz})
         </span>
       </div>
 
@@ -212,7 +231,7 @@ export function Calendar() {
                   onDrop={(e) => onDrop(e, d)}
                 >
                   <h3 className="cal-day-name">{dayLabel(d)}</h3>
-                  {list.length === 0 ? <div className="cal-none">Nothing planned</div> : null}
+                  {!posts.data ? <div className="skeleton cal-post-skel" aria-hidden="true" /> : list.length === 0 ? <div className="cal-none">Nothing planned</div> : null}
                   {list.map((p) => (
                     <PostCard key={p.id} p={p} tz={tz} onOpen={() => setActing(p)} />
                   ))}
@@ -243,8 +262,11 @@ export function Calendar() {
                 >
                   <span className="num">{Number(d.slice(8))}</span>
                   {list.slice(0, 3).map((p) => (
-                    <span key={p.id} className={`cal-mini ${p.platform} ${p.status}`}>
-                      {timeIn(p.scheduled_at, tz)} {SHORT[p.platform]}
+                    <span key={p.id} className={`cal-mini ${p.status}`}>
+                      <span className={`cal-dot ${p.platform}`} aria-hidden="true" />
+                      <span className="truncate">
+                        {timeIn(p.scheduled_at, tz)} {SHORT[p.platform]}
+                      </span>
                     </span>
                   ))}
                   {list.length > 3 ? <span className="cal-more">+{list.length - 3} more</span> : null}
@@ -324,10 +346,16 @@ function PostCard({ p, tz, onOpen }: { p: PostRow; tz: string; onOpen: () => voi
         <span className="cal-post-text">
           <span className="cal-post-top">
             <span className="cal-time">{timeIn(p.scheduled_at, tz)}</span>
-            <span className={`cal-plat ${p.platform}`}>{SHORT[p.platform]}</span>
+            <span className="cal-plat">
+              <span className={`cal-dot ${p.platform}`} aria-hidden="true" />
+              {SHORT[p.platform]}
+            </span>
           </span>
           <span className="cal-hook">{p.hook_text || "Untitled clip"}</span>
-          <span className={`cal-status ${p.status}`}>{STATUS_TEXT[p.status]}</span>
+          <span className={`cal-status ${p.status}`}>
+            {p.status === "posted" ? <Icon name="check" size="sm" /> : null}
+            {STATUS_TEXT[p.status]}
+          </span>
         </span>
       </div>
       {p.status === "failed" ? (
@@ -374,14 +402,14 @@ function PostActions({ p, tz, today, others, onClose, onMove, onDone }: { p: Pos
       ) : (
         <>
           {p.status === "failed" ? (
-            <button className="btn" onClick={() => run(() => post(`/api/posts/${p.id}/retry`), "We'll try that post again within the hour.")}>
+            <button className="btn" onClick={() => run(() => post(`/api/posts/${p.id}/retry`), "We’ll try that post again within the hour.")}>
               Try again
             </button>
           ) : null}
           <div className="field">
             <label htmlFor="move-day">Move to…</label>
             <div className="row wrap">
-              <select id="move-day" className="select" value={day} onChange={(e) => setDay(e.target.value)} style={{ flex: 1, minWidth: 180 }}>
+              <select id="move-day" className="select cal-select" value={day} onChange={(e) => setDay(e.target.value)}>
                 {nextDays(today, 35).map((d) => (
                   <option key={d} value={d}>
                     {dayLabel(d, { weekday: "long", day: "numeric", month: "short" })}
@@ -399,7 +427,7 @@ function PostActions({ p, tz, today, others, onClose, onMove, onDone }: { p: Pos
             <div className="field">
               <label htmlFor="swap-with">Swap with…</label>
               <div className="row wrap">
-                <select id="swap-with" className="select" value={swapWith} onChange={(e) => setSwapWith(e.target.value)} style={{ flex: 1, minWidth: 180 }}>
+                <select id="swap-with" className="select cal-select" value={swapWith} onChange={(e) => setSwapWith(e.target.value)}>
                   <option value="">Pick another post</option>
                   {others.map((o) => (
                     <option key={o.id} value={o.id}>

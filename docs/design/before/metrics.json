@@ -1,0 +1,644 @@
+{
+  "summary": {
+    "screens": 38,
+    "overflowing": [],
+    "smallTargetCount": 116,
+    "unnamedButtons": 0,
+    "wrappedLabels": 1,
+    "primaryBelowFold": [
+      "settings@phone",
+      "mediakit-editor@phone",
+      "mediakit-public@phone",
+      "help-guide@phone",
+      "mediakit-editor@desktop",
+      "mediakit-public@desktop",
+      "help-guide@desktop"
+    ],
+    "noPrimary": [
+      "research@phone",
+      "help@phone",
+      "research@desktop",
+      "help@desktop"
+    ],
+    "primaryUnmarked": [
+      "login@phone",
+      "tour@phone",
+      "home@phone",
+      "dump@phone",
+      "review@phone",
+      "review-edit@phone",
+      "calendar@phone",
+      "brain@phone",
+      "stats@phone",
+      "settings@phone",
+      "health@phone",
+      "connect@phone",
+      "deals@phone",
+      "mediakit-editor@phone",
+      "mediakit-public@phone",
+      "voice@phone",
+      "help-guide@phone",
+      "login@desktop",
+      "tour@desktop",
+      "home@desktop",
+      "dump@desktop",
+      "review@desktop",
+      "review-edit@desktop",
+      "calendar@desktop",
+      "brain@desktop",
+      "stats@desktop",
+      "settings@desktop",
+      "health@desktop",
+      "connect@desktop",
+      "deals@desktop",
+      "mediakit-editor@desktop",
+      "mediakit-public@desktop",
+      "voice@desktop",
+      "help-guide@desktop"
+    ]
+  },
+  "metrics": {
+    "login@phone": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Email me a code",
+        "marked": false,
+        "aboveFold": true
+      },
+      "pageHeight": 844
+    },
+    "tour@phone": {
+      "overflowX": 0,
+      "smallTargets": [
+        "a.soft \"All dumps\" 82×25",
+        "a.soft \"Deals\" 44×25"
+      ],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "+ Dump videos",
+        "marked": false,
+        "aboveFold": true
+      },
+      "pageHeight": 1147
+    },
+    "home@phone": {
+      "overflowX": 0,
+      "smallTargets": [
+        "a.soft \"All dumps\" 82×25",
+        "a.soft \"Deals\" 44×25"
+      ],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "+ Dump videos",
+        "marked": false,
+        "aboveFold": true
+      },
+      "pageHeight": 1147
+    },
+    "dump@phone": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Choose videos",
+        "marked": false,
+        "aboveFold": true
+      },
+      "pageHeight": 1116
+    },
+    "review@phone": {
+      "overflowX": 0,
+      "smallTargets": [
+        "button.plat.on \"Post to TikTok\" 71×36",
+        "button.plat.on \"Post to Instagram\" 96×36",
+        "button.plat.on \"Post to YouTube\" 86×36",
+        "button.plat.on \"Post to TikTok\" 71×36",
+        "button.plat.on \"Post to Instagram\" 96×36",
+        "button.plat.on \"Post to YouTube\" 86×36",
+        "button.plat.on \"Post to TikTok\" 71×36",
+        "button.plat.on \"Post to Instagram\" 96×36",
+        "button.plat.on \"Post to YouTube\" 86×36"
+      ],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Approve all 3",
+        "marked": false,
+        "aboveFold": true
+      },
+      "pageHeight": 2999
+    },
+    "review-edit@phone": {
+      "overflowX": 0,
+      "smallTargets": [
+        "button.plat.on \"Post to TikTok\" 71×36",
+        "button.plat.on \"Post to Instagram\" 96×36",
+        "button.plat.on \"Post to YouTube\" 86×36",
+        "button.plat.on \"Post to TikTok\" 71×36",
+        "button.plat.on \"Post to Instagram\" 96×36",
+        "button.plat.on \"Post to YouTube\" 86×36",
+        "button.plat.on \"Post to TikTok\" 71×36",
+        "button.plat.on \"Post to Instagram\" 96×36",
+        "button.plat.on \"Post to YouTube\" 86×36"
+      ],
+      "unnamedButtons": [],
+      "wrappedLabels": [
+        "button \"Use the other hook: “Guests al\""
+      ],
+      "primary": {
+        "text": "Save",
+        "marked": false,
+        "aboveFold": true
+      },
+      "pageHeight": 2999
+    },
+    "calendar@phone": {
+      "overflowX": 0,
+      "smallTargets": [
+        "button.btn.quiet.small \"Add\" 61×36",
+        "button.btn.quiet.small \"Add\" 61×36",
+        "button.btn.quiet.small \"Add\" 61×36",
+        "button.btn.quiet.small \"Add\" 61×36",
+        "button.btn.quiet.small \"Add\" 61×36",
+        "button.btn.quiet.small \"Add\" 61×36",
+        "button.btn.quiet.small \"Add\" 61×36",
+        "button.btn.quiet.small \"Add\" 61×36"
+      ],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Fill the calendar",
+        "marked": false,
+        "aboveFold": true
+      },
+      "pageHeight": 1604
+    },
+    "brain@phone": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Choose docs",
+        "marked": false,
+        "aboveFold": true
+      },
+      "pageHeight": 2182
+    },
+    "research@phone": {
+      "overflowX": 0,
+      "smallTargets": [
+        "a \"Demo source\" 88×20",
+        "a \"Demo source\" 88×20",
+        "a \"Demo source\" 88×20",
+        "a \"Demo source\" 88×20",
+        "a \"Demo source\" 88×20",
+        "a \"Demo source\" 88×20",
+        "a \"Demo source\" 88×20"
+      ],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": null,
+      "pageHeight": 2861
+    },
+    "stats@phone": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Upload TikTok export",
+        "marked": false,
+        "aboveFold": true
+      },
+      "pageHeight": 1882
+    },
+    "settings@phone": {
+      "overflowX": 0,
+      "smallTargets": [
+        "button.btn.quiet.small \"Check everything now\" 199×36",
+        "a.btn.dark.small \"Connect accounts\" 166×36"
+      ],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Connect accounts",
+        "marked": false,
+        "aboveFold": false
+      },
+      "pageHeight": 2159
+    },
+    "health@phone": {
+      "overflowX": 0,
+      "smallTargets": [
+        "button.btn.quiet.small \"Check everything now\" 199×36",
+        "a.btn.dark.small \"Connect accounts\" 166×36"
+      ],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Connect accounts",
+        "marked": false,
+        "aboveFold": null
+      },
+      "pageHeight": 2159
+    },
+    "connect@phone": {
+      "overflowX": 0,
+      "smallTargets": [
+        "a \"Settings\" 56×16",
+        "a.hint \"Picture-by-picture guide\" 316×21",
+        "a.btn.small \"Connect with Instagram\" 212×36",
+        "a.btn.small \"Connect with Google\" 188×36",
+        "a.btn.quiet.small \"Upload TikTok export\" 190×36",
+        "a.hint \"Picture-by-picture guide\" 316×21",
+        "a.hint \"Picture-by-picture guide\" 316×21",
+        "a.hint \"Picture-by-picture guide\" 316×21"
+      ],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Check key",
+        "marked": false,
+        "aboveFold": true
+      },
+      "pageHeight": 2759
+    },
+    "deals@phone": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Find brands now",
+        "marked": false,
+        "aboveFold": true
+      },
+      "pageHeight": 1235
+    },
+    "mediakit-editor@phone": {
+      "overflowX": 0,
+      "smallTargets": [
+        "button.btn.quiet.small \"+ Add a rate\" 316×36"
+      ],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Save media kit",
+        "marked": false,
+        "aboveFold": false
+      },
+      "pageHeight": 1847
+    },
+    "mediakit-public@phone": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Work with me",
+        "marked": false,
+        "aboveFold": false
+      },
+      "pageHeight": 1193
+    },
+    "voice@phone": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Save my voice",
+        "marked": false,
+        "aboveFold": true
+      },
+      "pageHeight": 1308
+    },
+    "help@phone": {
+      "overflowX": 0,
+      "smallTargets": [
+        "a.grow \"Log in\" 214×25",
+        "a.grow \"Connect Buffer\" 211×25",
+        "a.grow \"Connect your stats\" 211×25",
+        "a.grow \"Upload your brand docs\" 211×25"
+      ],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": null,
+      "pageHeight": 2515
+    },
+    "help-guide@phone": {
+      "overflowX": 0,
+      "smallTargets": [
+        "a \"Help\" 32×16",
+        "button.btn.quiet.small \"Report a problem with this gui\" 279×36"
+      ],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Next",
+        "marked": false,
+        "aboveFold": false
+      },
+      "pageHeight": 1089
+    },
+    "login@desktop": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Email me a code",
+        "marked": false,
+        "aboveFold": true
+      },
+      "pageHeight": 900
+    },
+    "tour@desktop": {
+      "overflowX": 0,
+      "smallTargets": [
+        "a.soft \"All dumps\" 82×25",
+        "a.soft \"Deals\" 44×25"
+      ],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "+ Dump videos",
+        "marked": false,
+        "aboveFold": true
+      },
+      "pageHeight": 900
+    },
+    "home@desktop": {
+      "overflowX": 0,
+      "smallTargets": [
+        "a.soft \"All dumps\" 82×25",
+        "a.soft \"Deals\" 44×25"
+      ],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "+ Dump videos",
+        "marked": false,
+        "aboveFold": true
+      },
+      "pageHeight": 900
+    },
+    "dump@desktop": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Choose videos",
+        "marked": false,
+        "aboveFold": true
+      },
+      "pageHeight": 900
+    },
+    "review@desktop": {
+      "overflowX": 0,
+      "smallTargets": [
+        "button.plat.on \"Post to TikTok\" 71×36",
+        "button.plat.on \"Post to Instagram\" 96×36",
+        "button.plat.on \"Post to YouTube\" 86×36",
+        "button.plat.on \"Post to TikTok\" 71×36",
+        "button.plat.on \"Post to Instagram\" 96×36",
+        "button.plat.on \"Post to YouTube\" 86×36",
+        "button.plat.on \"Post to TikTok\" 71×36",
+        "button.plat.on \"Post to Instagram\" 96×36",
+        "button.plat.on \"Post to YouTube\" 86×36"
+      ],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Approve all 3",
+        "marked": false,
+        "aboveFold": true
+      },
+      "pageHeight": 1252
+    },
+    "review-edit@desktop": {
+      "overflowX": 0,
+      "smallTargets": [
+        "button.plat.on \"Post to TikTok\" 71×36",
+        "button.plat.on \"Post to Instagram\" 96×36",
+        "button.plat.on \"Post to YouTube\" 86×36",
+        "button.plat.on \"Post to TikTok\" 71×36",
+        "button.plat.on \"Post to Instagram\" 96×36",
+        "button.plat.on \"Post to YouTube\" 86×36",
+        "button.plat.on \"Post to TikTok\" 71×36",
+        "button.plat.on \"Post to Instagram\" 96×36",
+        "button.plat.on \"Post to YouTube\" 86×36",
+        "button.btn.quiet.small.hook-swap \"Use the other hook: “Guests al\" 434×36"
+      ],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Save",
+        "marked": false,
+        "aboveFold": true
+      },
+      "pageHeight": 1252
+    },
+    "calendar@desktop": {
+      "overflowX": 0,
+      "smallTargets": [
+        "button.btn.quiet.small \"Add\" 61×36",
+        "button.btn.quiet.small \"Add\" 61×36",
+        "button.btn.quiet.small \"Add\" 61×36",
+        "button.btn.quiet.small \"Add\" 61×36",
+        "button.btn.quiet.small \"Add\" 61×36",
+        "button.btn.quiet.small \"Add\" 61×36",
+        "button.btn.quiet.small \"Add\" 61×36",
+        "button.btn.quiet.small \"Add\" 61×36"
+      ],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Fill the calendar",
+        "marked": false,
+        "aboveFold": true
+      },
+      "pageHeight": 1118
+    },
+    "brain@desktop": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Choose docs",
+        "marked": false,
+        "aboveFold": true
+      },
+      "pageHeight": 1628
+    },
+    "research@desktop": {
+      "overflowX": 0,
+      "smallTargets": [
+        "a \"Demo source\" 88×20",
+        "a \"Demo source\" 88×20",
+        "a \"Demo source\" 88×20",
+        "a \"Demo source\" 88×20",
+        "a \"Demo source\" 88×20",
+        "a \"Demo source\" 88×20",
+        "a \"Demo source\" 88×20"
+      ],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": null,
+      "pageHeight": 2001
+    },
+    "stats@desktop": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Upload TikTok export",
+        "marked": false,
+        "aboveFold": true
+      },
+      "pageHeight": 1128
+    },
+    "settings@desktop": {
+      "overflowX": 0,
+      "smallTargets": [
+        "button.btn.quiet.small \"Check everything now\" 199×36",
+        "a.btn.dark.small \"Connect accounts\" 166×36"
+      ],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Connect accounts",
+        "marked": false,
+        "aboveFold": true
+      },
+      "pageHeight": 1665
+    },
+    "health@desktop": {
+      "overflowX": 0,
+      "smallTargets": [
+        "button.btn.quiet.small \"Check everything now\" 199×36",
+        "a.btn.dark.small \"Connect accounts\" 166×36"
+      ],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Connect accounts",
+        "marked": false,
+        "aboveFold": null
+      },
+      "pageHeight": 1665
+    },
+    "connect@desktop": {
+      "overflowX": 0,
+      "smallTargets": [
+        "a \"Settings\" 56×16",
+        "a.hint \"Picture-by-picture guide\" 1082×21",
+        "a.btn.small \"Connect with Instagram\" 212×36",
+        "a.btn.small \"Connect with Google\" 188×36",
+        "a.btn.quiet.small \"Upload TikTok export\" 190×36",
+        "a.hint \"Picture-by-picture guide\" 512×21",
+        "a.hint \"Picture-by-picture guide\" 512×21",
+        "a.hint \"Picture-by-picture guide\" 1082×21"
+      ],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Check key",
+        "marked": false,
+        "aboveFold": true
+      },
+      "pageHeight": 1768
+    },
+    "deals@desktop": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Find brands now",
+        "marked": false,
+        "aboveFold": true
+      },
+      "pageHeight": 1049
+    },
+    "mediakit-editor@desktop": {
+      "overflowX": 0,
+      "smallTargets": [
+        "button.btn.quiet.small \"+ Add a rate\" 1082×36"
+      ],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Save media kit",
+        "marked": false,
+        "aboveFold": false
+      },
+      "pageHeight": 1186
+    },
+    "mediakit-public@desktop": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Work with me",
+        "marked": false,
+        "aboveFold": false
+      },
+      "pageHeight": 1112
+    },
+    "voice@desktop": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Save my voice",
+        "marked": false,
+        "aboveFold": true
+      },
+      "pageHeight": 1123
+    },
+    "help@desktop": {
+      "overflowX": 0,
+      "smallTargets": [
+        "a.grow \"Log in\" 408×25",
+        "a.grow \"Connect Buffer\" 405×25",
+        "a.grow \"Add TikTok, Instagram and YouT\" 405×25",
+        "a.grow \"Connect your stats\" 405×25",
+        "a.grow \"Connect Hunter (optional)\" 405×25",
+        "a.grow \"Upload your brand docs\" 405×25",
+        "a.grow \"Approve your research brief\" 405×25"
+      ],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": null,
+      "pageHeight": 1755
+    },
+    "help-guide@desktop": {
+      "overflowX": 0,
+      "smallTargets": [
+        "a \"Help\" 32×16",
+        "button.btn.quiet.small \"Report a problem with this gui\" 279×36"
+      ],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Next",
+        "marked": false,
+        "aboveFold": false
+      },
+      "pageHeight": 1141
+    }
+  }
+}

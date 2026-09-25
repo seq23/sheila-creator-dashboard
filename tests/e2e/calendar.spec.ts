@@ -232,6 +232,10 @@ test.describe("calendar and the hourly Buffer sync", () => {
       await expect(page.locator(`section.cal-day[data-day="${destDay}"] [data-post="${id}"]`)).toBeVisible();
     }
 
+    await expect(page.locator("[data-primary]")).toHaveCount(1);
+    await expect(page.getByRole("button", { name: "Fill the calendar" })).toHaveAttribute("data-primary", "true");
+    // a platform is shown by a dot and its name, never a side stripe
+    await expect(page.locator(".cal-caps .cal-dot")).toHaveCount(3);
     await page.getByRole("button", { name: "Fill the calendar" }).click();
     await expect(page.locator(".toast").last()).toContainText(/Added \d+ posts? to the calendar|already full/);
 
@@ -253,8 +257,10 @@ test.describe("calendar and the hourly Buffer sync", () => {
     await expect(page.locator('[data-health="buffer"]')).toHaveCount(0); // the bare Connect row is folded into Buffer
     await page.getByRole("button", { name: "Check everything now" }).click();
     await expect(page.locator(".toast").first()).toContainText("Checked everything.");
-    await expect(page.locator('[data-health="Instagram (via Buffer)"] .dot')).toHaveAttribute("aria-label", "green");
+    await expect(page.locator('[data-health="Instagram (via Buffer)"] .dot')).toHaveAttribute("data-light", "green");
+    await expect(page.locator('[data-health="Instagram (via Buffer)"] .dot')).toHaveAttribute("aria-label", "Working");
     // a recheck never hides a post that did not go out
-    await expect(page.locator('[data-health="TikTok (via Buffer)"] .dot')).toHaveAttribute("aria-label", "red");
+    await expect(page.locator('[data-health="TikTok (via Buffer)"] .dot')).toHaveAttribute("data-light", "red");
+    await expect(page.locator('[data-health="TikTok (via Buffer)"] .dot')).toHaveAttribute("aria-label", "Not working");
   });
 });

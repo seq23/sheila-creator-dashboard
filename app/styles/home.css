@@ -1,0 +1,69 @@
+/* Hallmark · design-system: docs/design/DESIGN.md · designed-as-app
+   Home. Tokens only (tokens.css); shared pieces (.card, .stat, .list) are not restyled here. */
+
+/* "Review now" on the Waiting card: the one rose word on the screen */
+.home-go {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  font-size: var(--text-sm);
+  color: var(--rose);
+}
+
+/* This week: one tidy row per platform, figures in a column */
+.home-plats,
+.home-health {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.home-plats li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2xs);
+  padding: var(--space-3xs) 0;
+  font-size: var(--text-xs);
+  color: var(--text-soft);
+}
+.home-plats li + li,
+.home-health li + li {
+  border-top: 1px solid var(--line);
+}
+.home-plats .nums {
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* Health: a light and its name per row */
+.home-health li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  padding: var(--space-3xs) 0;
+  font-size: var(--text-sm);
+  min-width: 0;
+}
+
+/* Phones: the four numbers sit two by two in compact cards so "Waiting for you" and the first
+   list are both on the first screen. */
+@media (max-width: 560px) {
+  .home-stats {
+    gap: var(--space-2xs);
+  }
+  .home-stats > .card {
+    padding: var(--space-sm);
+    gap: var(--space-2xs);
+    border-radius: var(--radius);
+  }
+  .home-stats .stat {
+    font-size: var(--text-lg);
+  }
+  .home-stats .card.accent::before {
+    border-radius: calc(var(--radius) - var(--space-3xs));
+  }
+  .home-health li {
+    font-size: var(--text-xs);
+  }
+}

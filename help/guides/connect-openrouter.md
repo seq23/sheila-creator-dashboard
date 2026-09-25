@@ -33,7 +33,7 @@ Copy the key (it starts with sk-or-). You only see it once.
 
 ![Step 5](/help/screenshots/connect-openrouter-5.png)
 
-In the dashboard, open **Settings → Connections**, paste it into **AI · OpenRouter**, and tap **Check key**.
+In the dashboard, open **Settings → Connections**, find the **OpenRouter** card under **AI and research**, paste it into the box, and tap **Check key**.
 
 ## Step 6
 

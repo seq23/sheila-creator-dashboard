@@ -1,0 +1,230 @@
+{
+  "passed": 32,
+  "of": 32,
+  "gates": [
+    {
+      "gate": 1,
+      "name": "display font is not Inter/Roboto/Open Sans/Poppins/Lato/system",
+      "pass": true,
+      "evidence": [],
+      "count": 0
+    },
+    {
+      "gate": 2,
+      "name": "no purple-blue / cyan-magenta gradient",
+      "pass": true,
+      "evidence": [],
+      "count": 0
+    },
+    {
+      "gate": 5,
+      "name": "no gradient text (background-clip: text)",
+      "pass": true,
+      "evidence": [],
+      "count": 0
+    },
+    {
+      "gate": 6,
+      "name": "no thick side-stripe borders (border-left/right ≥ 3px, inset side box-shadow)",
+      "pass": true,
+      "evidence": [],
+      "count": 0
+    },
+    {
+      "gate": 8,
+      "name": "no pure #fff / #000 as a colour",
+      "pass": true,
+      "evidence": [],
+      "count": 0
+    },
+    {
+      "gate": 11,
+      "name": "no transition: all (or property-less transition)",
+      "pass": true,
+      "evidence": [],
+      "count": 0
+    },
+    {
+      "gate": 13,
+      "name": "no bouncy overshoot easing",
+      "pass": true,
+      "evidence": [],
+      "count": 0
+    },
+    {
+      "gate": 14,
+      "name": "one hover signal per element (not transform + shadow together)",
+      "pass": true,
+      "evidence": [],
+      "count": 0
+    },
+    {
+      "gate": 15,
+      "name": "no animated width/height/top/left/margin/padding",
+      "pass": true,
+      "evidence": [],
+      "count": 0
+    },
+    {
+      "gate": 16,
+      "name": "focus ring appears instantly (not transitioned)",
+      "pass": true,
+      "evidence": [],
+      "count": 0
+    },
+    {
+      "gate": 21,
+      "name": "Hallmark stamp at the top of the stylesheet",
+      "pass": true,
+      "evidence": [],
+      "count": 0
+    },
+    {
+      "gate": 26,
+      "name": "spacing on the named 4-pt scale",
+      "pass": true,
+      "evidence": [],
+      "count": 0
+    },
+    {
+      "gate": 28,
+      "name": "interactive states present (focus-visible, active, disabled)",
+      "pass": true,
+      "evidence": [],
+      "count": 0
+    },
+    {
+      "gate": 29,
+      "name": "every motion has a prefers-reduced-motion fallback",
+      "pass": true,
+      "evidence": [],
+      "count": 0
+    },
+    {
+      "gate": 32,
+      "name": "one icon voice (no Unicode glyphs standing in for icons)",
+      "pass": true,
+      "evidence": [],
+      "count": 0
+    },
+    {
+      "gate": 35,
+      "name": "decorative svg/canvas has aria-hidden or a name",
+      "pass": true,
+      "evidence": [],
+      "count": 0
+    },
+    {
+      "gate": 36,
+      "name": "no horizontal scroll at 390 or 1440",
+      "pass": true,
+      "evidence": [],
+      "count": 0
+    },
+    {
+      "gate": 39,
+      "name": "at most three type families (display, body, one outlier)",
+      "pass": true,
+      "evidence": [],
+      "count": 0
+    },
+    {
+      "gate": 42,
+      "name": "input focus uses outline, not a border/box-shadow change",
+      "pass": true,
+      "evidence": [],
+      "count": 0
+    },
+    {
+      "gate": 46,
+      "name": "body text ≥ 4.5:1 on its surface",
+      "pass": true,
+      "evidence": [],
+      "count": 0
+    },
+    {
+      "gate": 47,
+      "name": "focus ring ≥ 3:1 against the page",
+      "pass": true,
+      "evidence": [],
+      "count": 0
+    },
+    {
+      "gate": 49,
+      "name": "accent fill has a named text token (accent-ink)",
+      "pass": true,
+      "evidence": [],
+      "count": 0
+    },
+    {
+      "gate": 53,
+      "name": "no centred-everything blocks (empty states, help boxes)",
+      "pass": true,
+      "evidence": [],
+      "count": 0
+    },
+    {
+      "gate": 58,
+      "name": "no colour/font improvisation outside tokens.css",
+      "pass": true,
+      "evidence": [],
+      "count": 0
+    },
+    {
+      "gate": 59,
+      "name": "no clickable label wraps to two lines",
+      "pass": true,
+      "evidence": [],
+      "count": 0
+    },
+    {
+      "gate": 61,
+      "name": "image-bearing 1fr grid tracks use minmax(0, 1fr)",
+      "pass": true,
+      "evidence": [],
+      "count": 0
+    },
+    {
+      "gate": 62,
+      "name": "html and body overflow-x: clip",
+      "pass": true,
+      "evidence": [],
+      "count": 0
+    },
+    {
+      "gate": 63,
+      "name": "display heads break long words (overflow-wrap: anywhere)",
+      "pass": true,
+      "evidence": [],
+      "count": 0
+    },
+    {
+      "gate": "A1",
+      "name": "tap targets ≥ 44 px (all screens, both viewports)",
+      "pass": true,
+      "evidence": [],
+      "count": 0
+    },
+    {
+      "gate": "A2",
+      "name": "every icon/unnamed button has a name",
+      "pass": true,
+      "evidence": [],
+      "count": 0
+    },
+    {
+      "gate": "A3",
+      "name": "the screen's next step is visible without scrolling",
+      "pass": true,
+      "evidence": [],
+      "count": 0
+    },
+    {
+      "gate": "A4",
+      "name": "the logo has alt text",
+      "pass": true,
+      "evidence": [],
+      "count": 0
+    }
+  ]
+}

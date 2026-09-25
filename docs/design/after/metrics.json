@@ -1,0 +1,465 @@
+{
+  "summary": {
+    "screens": 38,
+    "overflowing": [],
+    "smallTargetCount": 0,
+    "unnamedButtons": 0,
+    "wrappedLabels": 0,
+    "primaryBelowFold": [],
+    "noPrimary": [
+      "help@phone",
+      "help@desktop"
+    ],
+    "primaryUnmarked": []
+  },
+  "metrics": {
+    "login@phone": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Email me a code",
+        "marked": true,
+        "aboveFold": true
+      },
+      "pageHeight": 844
+    },
+    "tour@phone": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "+ Dump videos",
+        "marked": true,
+        "aboveFold": true
+      },
+      "pageHeight": 1113
+    },
+    "home@phone": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "+ Dump videos",
+        "marked": true,
+        "aboveFold": true
+      },
+      "pageHeight": 1113
+    },
+    "dump@phone": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Choose videos",
+        "marked": true,
+        "aboveFold": true
+      },
+      "pageHeight": 1292
+    },
+    "review@phone": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Approve all 3",
+        "marked": true,
+        "aboveFold": true
+      },
+      "pageHeight": 3123
+    },
+    "review-edit@phone": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Save",
+        "marked": true,
+        "aboveFold": true
+      },
+      "pageHeight": 3123
+    },
+    "calendar@phone": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Fill the calendar",
+        "marked": true,
+        "aboveFold": true
+      },
+      "pageHeight": 1779
+    },
+    "brain@phone": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Choose docs",
+        "marked": true,
+        "aboveFold": true
+      },
+      "pageHeight": 2125
+    },
+    "research@phone": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Refresh research",
+        "marked": true,
+        "aboveFold": true
+      },
+      "pageHeight": 3011
+    },
+    "stats@phone": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Connect Instagram / YouTube",
+        "marked": true,
+        "aboveFold": true
+      },
+      "pageHeight": 2034
+    },
+    "settings@phone": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Connect accounts",
+        "marked": true,
+        "aboveFold": true
+      },
+      "pageHeight": 2699
+    },
+    "health@phone": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Connect accounts",
+        "marked": true,
+        "aboveFold": null
+      },
+      "pageHeight": 2699
+    },
+    "connect@phone": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Check key",
+        "marked": true,
+        "aboveFold": true
+      },
+      "pageHeight": 2990
+    },
+    "deals@phone": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Find brands now",
+        "marked": true,
+        "aboveFold": true
+      },
+      "pageHeight": 1330
+    },
+    "mediakit-editor@phone": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Save media kit",
+        "marked": true,
+        "aboveFold": true
+      },
+      "pageHeight": 1943
+    },
+    "mediakit-public@phone": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Work with me",
+        "marked": true,
+        "aboveFold": true
+      },
+      "pageHeight": 1266
+    },
+    "voice@phone": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Save my voice",
+        "marked": true,
+        "aboveFold": true
+      },
+      "pageHeight": 1508
+    },
+    "help@phone": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": null,
+      "pageHeight": 2743
+    },
+    "help-guide@phone": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Next",
+        "marked": true,
+        "aboveFold": true
+      },
+      "pageHeight": 1204
+    },
+    "login@desktop": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Email me a code",
+        "marked": true,
+        "aboveFold": true
+      },
+      "pageHeight": 900
+    },
+    "tour@desktop": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "+ Dump videos",
+        "marked": true,
+        "aboveFold": true
+      },
+      "pageHeight": 900
+    },
+    "home@desktop": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "+ Dump videos",
+        "marked": true,
+        "aboveFold": true
+      },
+      "pageHeight": 900
+    },
+    "dump@desktop": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Choose videos",
+        "marked": true,
+        "aboveFold": true
+      },
+      "pageHeight": 900
+    },
+    "review@desktop": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Approve all 3",
+        "marked": true,
+        "aboveFold": true
+      },
+      "pageHeight": 1313
+    },
+    "review-edit@desktop": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Save",
+        "marked": true,
+        "aboveFold": true
+      },
+      "pageHeight": 1313
+    },
+    "calendar@desktop": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Fill the calendar",
+        "marked": true,
+        "aboveFold": true
+      },
+      "pageHeight": 1179
+    },
+    "brain@desktop": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Choose docs",
+        "marked": true,
+        "aboveFold": true
+      },
+      "pageHeight": 1598
+    },
+    "research@desktop": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Refresh research",
+        "marked": true,
+        "aboveFold": true
+      },
+      "pageHeight": 2143
+    },
+    "stats@desktop": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Connect Instagram / YouTube",
+        "marked": true,
+        "aboveFold": true
+      },
+      "pageHeight": 1192
+    },
+    "settings@desktop": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Connect accounts",
+        "marked": true,
+        "aboveFold": true
+      },
+      "pageHeight": 1347
+    },
+    "health@desktop": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Connect accounts",
+        "marked": true,
+        "aboveFold": null
+      },
+      "pageHeight": 1347
+    },
+    "connect@desktop": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Check key",
+        "marked": true,
+        "aboveFold": true
+      },
+      "pageHeight": 2050
+    },
+    "deals@desktop": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Find brands now",
+        "marked": true,
+        "aboveFold": true
+      },
+      "pageHeight": 1036
+    },
+    "mediakit-editor@desktop": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Save media kit",
+        "marked": true,
+        "aboveFold": true
+      },
+      "pageHeight": 1235
+    },
+    "mediakit-public@desktop": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Work with me",
+        "marked": true,
+        "aboveFold": true
+      },
+      "pageHeight": 1444
+    },
+    "voice@desktop": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Save my voice",
+        "marked": true,
+        "aboveFold": true
+      },
+      "pageHeight": 1218
+    },
+    "help@desktop": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": null,
+      "pageHeight": 1481
+    },
+    "help-guide@desktop": {
+      "overflowX": 0,
+      "smallTargets": [],
+      "unnamedButtons": [],
+      "wrappedLabels": [],
+      "primary": {
+        "text": "Next",
+        "marked": true,
+        "aboveFold": true
+      },
+      "pageHeight": 1036
+    }
+  }
+}

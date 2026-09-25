@@ -21,7 +21,7 @@ Tap **Choose docs** and pick your files: PDF, Word, Markdown or plain text. You 
 
 ![Step 3](/help/screenshots/upload-brand-docs-3.png)
 
-Wait while each doc shows **Reading text…**. When it says **Read**, we have the words. A doc marked **Couldn't read · flagged** says why; tap **Try again** or **Remove**.
+Wait while each doc shows **Reading text…**. When it says **Read**, we have the words. A doc marked **Couldn’t read · flagged** says why; tap **Try again** or **Remove**.
 
 ## Step 4
 

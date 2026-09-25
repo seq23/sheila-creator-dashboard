@@ -25,7 +25,10 @@ function tourDone(): boolean {
 
 function visibleLink(to: string): HTMLElement | null {
   const links = Array.from(document.querySelectorAll<HTMLElement>(`.nav a[href="${to}"], .tabbar a[href="${to}"]`));
-  return links.find((a) => a.getClientRects().length > 0 && getComputedStyle(a).visibility !== "hidden") ?? null;
+  const shown = (a: HTMLElement) => a.getClientRects().length > 0 && getComputedStyle(a).visibility !== "hidden";
+  // On a phone, screens outside the four daily tabs live behind the Menu tab: point at that.
+  const menu = document.querySelector<HTMLElement>(".tabbar [data-menu]");
+  return links.find(shown) ?? (menu && shown(menu) ? menu : null);
 }
 
 interface Place {
