@@ -1,8 +1,17 @@
 import { expect, test } from "@playwright/test";
+import { sql } from "./helpers";
 
 test.describe("login", () => {
   // These tests exercise the login flow itself, so they start without the shared session.
   test.use({ storageState: { cookies: [], origins: [] } });
+
+  // Codes are capped at 5 per email per 15 minutes (worker/routes/auth.ts). The setup project
+  // and both device projects each request one, so a second run of the suite on the same
+  // database would hit the cap and see no code. Each test puts back the codes it asked for
+  // (used ones count too; sessions are cookies and are not touched).
+  test.afterEach(() => {
+    sql("DELETE FROM login_codes WHERE email = 'asheilabruceaffair@gmail.com'");
+  });
 
   test("the login page shows the brand and asks for an email", async ({ page }) => {
     await page.goto("/");

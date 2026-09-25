@@ -4,7 +4,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { canMove, nextFollowup } from "@worker/domain/deals";
+import { canMove, followupsDueLine, nextFollowup } from "@worker/domain/deals";
 import { afterFollowupSent, brandKey, clampFit, contactProblem, followupsDone, isRoleEmail, offLimitsTerms, sortContacts, validSentAt, violatesOffLimits } from "@worker/domain/brandfit";
 import { TIKTOK_ONE, tiktokOneEligibility, views30d } from "@worker/domain/marketplace";
 import { compact, parsePitch, starterPitch, type PitchInput } from "@worker/domain/pitch";
@@ -14,6 +14,22 @@ import { gmailComposeUrl, pitchAsText } from "../../app/lib/gmail";
 import { parseGuide, parseInline, SCREEN_ROUTES } from "../../app/lib/markdown";
 
 const SENT = "2026-09-01T12:00:00.000Z";
+
+describe("weekly recap: follow-ups due", () => {
+  it("lists every due follow-up as brand (date), earliest first, in her timezone", () => {
+    const line = followupsDueLine(
+      [
+        { brand: "Velvet & Vine Wraps", dueAt: "2026-10-02T03:30:00.000Z" }, // 1 Oct, 11:30 pm New York
+        { brand: "Cedar & Salt Kitchen", dueAt: "2026-09-28T12:00:00.000Z" },
+      ],
+      "America/New_York",
+    );
+    expect(line).toBe("Follow-ups due: Cedar & Salt Kitchen (Mon, Sep 28), Velvet & Vine Wraps (Thu, Oct 1).");
+  });
+  it("is no line at all when nothing is due", () => {
+    expect(followupsDueLine([], "America/New_York")).toBeNull();
+  });
+});
 
 describe("pitch follow-ups (day 5, then day 12)", () => {
   it("a fresh send is waiting on the day-5 follow-up", () => {

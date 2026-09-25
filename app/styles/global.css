@@ -852,6 +852,9 @@ p {
   border-radius: var(--radius-xl);
   padding: 26px;
   width: min(520px, 100%);
+  /* a tall modal scrolls inside itself instead of running off a phone screen */
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
   box-shadow: var(--shadow);
   display: flex;
   flex-direction: column;

@@ -12,6 +12,18 @@ export function canMove(from: DealStage, to: DealStage): boolean {
   return ti === fi + 1 || ti === fi - 1 || (from === "replied" && to === "won") || (from === "negotiating" && to === "won");
 }
 
+/**
+ * The weekly recap's follow-ups line: "Follow-ups due: <brand> (<date>), …" for every pitch
+ * whose follow-up falls in the coming week or is already overdue; null when there is none, so
+ * the recap does not carry an empty line. Dates read in her audience timezone.
+ */
+export function followupsDueLine(due: { brand: string; dueAt: string }[], timeZone: string): string | null {
+  if (!due.length) return null;
+  const fmt = new Intl.DateTimeFormat("en-US", { timeZone, weekday: "short", month: "short", day: "numeric" });
+  const parts = [...due].sort((a, b) => a.dueAt.localeCompare(b.dueAt)).map((d) => `${d.brand} (${fmt.format(new Date(d.dueAt))})`);
+  return `Follow-ups due: ${parts.join(", ")}.`;
+}
+
 /** Follow-ups: day 5 and day 12 after sending (section 12b.4). */
 export function nextFollowup(sentAt: string, followupsSent: 0 | 1 | 2): string | null {
   const base = new Date(sentAt).getTime();

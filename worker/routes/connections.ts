@@ -36,8 +36,7 @@ connections.post("/:service/key", requireOwner, async (c) => {
     return fail(c, 422, r.error ?? "That key did not work.", `connect-${service}`);
   }
   await saveConnection(c.env, service, key, "ok", r.meta);
-  await setHealth(c.env.DB, service, "green", "Connected", null);
-  if (service === "buffer") await syncBufferChannelHealth(c.env, r.meta);
+  await writeServiceHealth(c.env, service, true, null);
   await recordEvent(c.env.DB, "connection.ok", service, {}, c.get("user").email);
   log.info("connection.ok", { service });
   return c.json({ ok: true, meta: r.meta });
@@ -53,10 +52,24 @@ connections.post("/:service/recheck", async (c) => {
   if (!key) return fail(c, 409, "Not connected yet.", `connect-${service}`);
   const r = await check(c.env, key);
   await markConnection(c.env, service, r.ok ? "ok" : "error", r.error, r.meta);
-  await setHealth(c.env.DB, service, r.ok ? "green" : "red", r.ok ? "Connected" : (r.error ?? "Needs you"), r.ok ? null : `reconnect-${service}`);
-  if (service === "buffer" && r.ok) await syncBufferChannelHealth(c.env, r.meta);
+  await writeServiceHealth(c.env, service, r.ok, r.error ?? null);
   return r.ok ? c.json({ ok: true, meta: r.meta }) : fail(c, 422, r.error ?? "Check failed.", `reconnect-${service}`);
 });
+
+/**
+ * The health rows a key check owns. Buffer's are the hourly lane's: "Buffer" plus one light per
+ * channel, written by the same code the cron and "Check everything now" run, so a pasted key and
+ * the next hourly check can never disagree (a missing channel is yellow, a failed post stays red).
+ * The bare `buffer` row is not written here: it read red for a missing platform and green for a
+ * channel with a failed post, and Settings had to fold it away.
+ */
+async function writeServiceHealth(env: Env, service: Service, ok: boolean, error: string | null) {
+  if (service === "buffer") {
+    await (await import("../crons/buffer-sync")).recheckEverything(env);
+    return;
+  }
+  await setHealth(env.DB, service, ok ? "green" : "red", ok ? "Connected" : (error ?? "Needs you"), ok ? null : `reconnect-${service}`);
+}
 
 connections.post("/:service/disconnect", requireOwner, async (c) => {
   const service = c.req.param("service") as Service;
@@ -75,15 +88,3 @@ connections.post("/disconnect-all", requireOwner, async (c) => {
   await recordEvent(c.env.DB, "connection.disconnected_all", null, {}, c.get("user").email);
   return c.json({ ok: true });
 });
-
-/** Buffer channels become their own health lights: "TikTok (via Buffer)" etc. */
-export async function syncBufferChannelHealth(env: Env, meta: Record<string, unknown>) {
-  const channels = (meta.channels as { platform: string; handle: string; connected: boolean }[] | undefined) ?? [];
-  const names: Record<string, string> = { tiktok: "TikTok (via Buffer)", instagram: "Instagram (via Buffer)", youtube: "YouTube (via Buffer)" };
-  for (const p of ["tiktok", "instagram", "youtube"]) {
-    const ch = channels.find((x) => x.platform === p);
-    if (!ch) await setHealth(env.DB, names[p], "red", "Not added in Buffer yet", "add-channels-in-buffer");
-    else if (!ch.connected) await setHealth(env.DB, names[p], "red", "Needs reconnect in Buffer", "reconnect-an-account");
-    else await setHealth(env.DB, names[p], "green", `${ch.handle} · posting OK`, null);
-  }
-}
