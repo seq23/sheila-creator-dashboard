@@ -1,9 +1,9 @@
-// Connect accounts (section 4b): Buffer (paste key → channels found), stats (Meta/Google
-// OAuth in Phase 3, TikTok export upload), AI (OpenRouter), web research (Firecrawl),
+// Connect accounts (section 4b): Buffer (paste key → channels found), stats (Instagram and
+// Google sign-in via /api/oauth, TikTok export upload on Stats), AI (OpenRouter), web research (Firecrawl),
 // Hunter (optional). Every connection has Connect / Check again / Disconnect, plus
 // Disconnect everything. She always logs in on the platform's own page.
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import type { ConnectionView } from "@shared/types";
 import { get, post } from "../lib/api";
 import { ago } from "../lib/format";
@@ -25,6 +25,8 @@ export function Connect() {
   const toast = useToast();
   const { data, loading, reload } = useLoad(() => get<ConnectionView[]>("/api/connections"));
   const [confirmAll, setConfirmAll] = useState(false);
+  const [params, setParams] = useSearchParams();
+  const oauthNote = oauthMessage(params);
   const byService = (s: Service) => data?.find((c) => c.service === s) ?? null;
   const owner = me?.role === "owner";
 
@@ -59,6 +61,17 @@ export function Connect() {
         <span>You always log in on TikTok, Instagram, Google or Buffer's own page. We never see your passwords. Keys are stored encrypted in your Cloudflare account.</span>
       </Notice>
 
+      {oauthNote ? (
+        <Notice tone={oauthNote.ok ? "ok" : "bad"}>
+          <span>
+            {oauthNote.text} {oauthNote.guide ? <Link to={`/help/${oauthNote.guide}`}>How to fix</Link> : null}{" "}
+            <button className="btn quiet small" onClick={() => setParams({}, { replace: true })}>
+              OK
+            </button>
+          </span>
+        </Notice>
+      ) : null}
+
       {loading && !data ? <Skeleton lines={5} /> : null}
 
       {data ? (
@@ -72,9 +85,9 @@ export function Connect() {
             <Card className="flat">
               <div className="hint">Lets the dashboard learn what works for you. Read-only; it can't post.</div>
               <div className="list">
-                <StatsRow name="Instagram" conn={byService("meta")} connectLabel="Connect with Instagram" />
-                <StatsRow name="YouTube" conn={byService("google")} connectLabel="Connect with Google" />
-                <StatsRow name="TikTok" conn={byService("tiktok")} connectLabel="Connect TikTok" alt={{ to: "/stats", label: "Upload TikTok export" }} />
+                <StatsRow name="Instagram" provider="meta" conn={byService("meta")} connectLabel="Connect with Instagram" owner={owner} onChange={reload} />
+                <StatsRow name="YouTube" provider="google" conn={byService("google")} connectLabel="Connect with Google" owner={owner} onChange={reload} />
+                <TikTokRow conn={byService("tiktok")} />
               </div>
               <div className="hint">TikTok stats: direct connect only if TikTok approves the app. Until then, upload the export from TikTok Studio once a month.</div>
             </Card>
@@ -267,29 +280,84 @@ function ChannelsCard({ conn }: { conn: ConnectionView | null }) {
   );
 }
 
-function StatsRow({ name, conn, connectLabel, alt }: { name: string; conn: ConnectionView | null; connectLabel: string; alt?: { to: string; label: string } }) {
+const OAUTH_ERRORS: Record<string, string> = {
+  not_set_up: "stats sign-in is not set up on this dashboard yet (the app keys are missing).",
+  denied: "the sign-in was cancelled, so nothing was connected.",
+  expired: "the sign-in took too long. Press Connect again.",
+  no_account: "that account has no Professional Instagram or YouTube channel to read.",
+  failed: "the connection did not finish. Press Connect again.",
+};
+
+/** The redirect back from /api/oauth/<provider>/callback carries ?connected= or ?oauth_error=. */
+function oauthMessage(params: URLSearchParams): { ok: boolean; text: string; guide: string | null } | null {
+  const who = (p: string | null) => (p === "google" ? "YouTube" : "Instagram");
+  const connected = params.get("connected");
+  if (connected === "meta" || connected === "google") return { ok: true, text: `${who(connected)} stats connected. We'll read your results every week.`, guide: null };
+  const err = params.get("oauth_error");
+  if (!err) return null;
+  const provider = params.get("provider") === "google" ? "google" : "meta";
+  return { ok: false, text: `${who(provider)}: ${OAUTH_ERRORS[err] ?? OAUTH_ERRORS.failed}`, guide: `connect-${provider}` };
+}
+
+function StatsRow({ name, provider, conn, connectLabel, owner, onChange }: { name: string; provider: "meta" | "google"; conn: ConnectionView | null; connectLabel: string; owner: boolean; onChange: () => void }) {
+  const toast = useToast();
   const status = conn?.status ?? "missing";
+  const account = conn?.meta.account as string | undefined;
+  const synced = (conn?.meta.last_sync_at as string | null | undefined) ?? null;
+  const start = `/api/oauth/${provider}/start`;
+  async function disconnect() {
+    try {
+      await post(`/api/connections/${provider}/disconnect`);
+      onChange();
+    } catch (e) {
+      toast.bad(e);
+    }
+  }
   return (
-    <div className="list-row">
+    <div className="list-row" style={{ flexWrap: "wrap" }}>
       <Dot light={status === "ok" ? "green" : status === "error" ? "red" : "grey"} />
       <div className="grow">
         <div className="title">{name}</div>
-        <div className="meta">{status === "ok" ? `Synced ${ago(conn?.last_ok_at)}` : status === "error" ? (conn?.last_error ?? "Needs reconnect") : "Not connected"}</div>
+        <div className="meta">
+          {status === "ok"
+            ? `${account ? `${account} · ` : ""}${synced ? `Last synced ${ago(synced)}` : "Connected · first sync this week"}`
+            : status === "error"
+              ? (conn?.last_error ?? "Needs reconnect")
+              : "Not connected"}
+        </div>
       </div>
-      {status === "ok" ? (
-        <button className="btn quiet small" disabled title="Available in the next release">
-          Reconnect
-        </button>
-      ) : (
-        <button className="btn small" disabled title="Stats connections arrive with the Research phase">
-          {connectLabel}
-        </button>
-      )}
-      {alt ? (
-        <Link className="btn quiet small" to={alt.to}>
-          {alt.label}
-        </Link>
+      {owner ? (
+        status === "ok" || status === "error" ? (
+          <>
+            <a className="btn quiet small" href={start}>
+              Reconnect
+            </a>
+            <button className="btn danger small" onClick={disconnect}>
+              Disconnect
+            </button>
+          </>
+        ) : (
+          <a className="btn small" href={start}>
+            {connectLabel}
+          </a>
+        )
       ) : null}
+    </div>
+  );
+}
+
+function TikTokRow({ conn }: { conn: ConnectionView | null }) {
+  const imported = conn?.meta.last_import_at as string | undefined;
+  return (
+    <div className="list-row">
+      <Dot light={imported ? "green" : "grey"} />
+      <div className="grow">
+        <div className="title">TikTok</div>
+        <div className="meta">{imported ? `Last import ${ago(imported)}` : "No export uploaded yet"}</div>
+      </div>
+      <Link className="btn quiet small" to="/stats">
+        Upload TikTok export
+      </Link>
     </div>
   );
 }
