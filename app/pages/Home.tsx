@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import type { HomeSummary } from "@shared/types";
 import { get } from "../lib/api";
 import { fmtDate, plural } from "../lib/format";
+import { foldHealth } from "../lib/health";
 import { Card, Dot, Empty, HelpButton, Notice, PageHead, Skeleton, Stat, useLoad } from "../components/ui";
 import { useApp } from "../state";
 import { PLATFORM_LABEL, PLATFORMS } from "@shared/constants";
@@ -77,12 +78,14 @@ export function Home() {
                 <div className="hint">Nothing connected yet</div>
               ) : (
                 <div className="list">
-                  {data.health.slice(0, 5).map((h) => (
-                    <div key={h.name} className="row" style={{ padding: "5px 0", fontSize: "0.9rem" }}>
-                      <Dot light={h.light} />
-                      <span className="grow" style={{ flex: 1 }}>
-                        {h.name}
-                      </span>
+                  {foldHealth(data.health)
+                    .slice(0, 5)
+                    .map((h) => (
+                      <div key={h.name} className="row" style={{ padding: "5px 0", fontSize: "0.9rem" }}>
+                        <Dot light={h.light} />
+                        <span className="grow" style={{ flex: 1 }}>
+                          {h.label}
+                        </span>
                     </div>
                   ))}
                 </div>

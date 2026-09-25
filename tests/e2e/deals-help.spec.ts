@@ -2,6 +2,7 @@
 // desktop sizes, with fake services and demo data (tests/e2e/seed-demo.sql).
 import { expect, test, type Page } from "@playwright/test";
 import { clearDemo, seedDemo, setVoice, TOUR_OFF } from "./demo";
+import { sql } from "./helpers";
 
 test.describe.configure({ mode: "serial" });
 
@@ -88,6 +89,21 @@ test.describe("brand deals", () => {
     await page.goto("/");
     const followups = page.locator("section", { has: page.getByRole("heading", { name: "Follow-ups" }) });
     await expect(followups).toContainText("Cedar & Salt Kitchen");
+
+    // The Monday recap carries the same follow-up (sent 4 days ago → due tomorrow): the lane
+    // runs its follow-ups query over these rows and records the email. The line's wording is
+    // pinned in tests/unit/deals-domain.test.ts; emails_sent keeps only the subject.
+    const before = ((await (await page.request.get("/api/settings")).json()) as { features: { weekly_recap: boolean } }).features;
+    expect((await page.request.patch("/api/settings", { data: { features: { ...before, weekly_recap: true } } })).ok()).toBe(true);
+    try {
+      expect((await page.request.get("/cdn-cgi/handler/scheduled?cron=0+12+*+*+1")).ok()).toBe(true);
+      await expect.poll(() => sql<{ n: number }>("SELECT COUNT(*) AS n FROM emails_sent WHERE kind = 'weekly_recap'")[0]?.n ?? 0, { timeout: 20_000 }).toBeGreaterThan(0);
+    } finally {
+      // The lane also queued the metrics and brand-finder jobs; a queued finder would make the
+      // next project's "Find brands now" refuse, so put back what the trigger created.
+      await page.request.patch("/api/settings", { data: { features: before } });
+      sql("DELETE FROM emails_sent WHERE kind = 'weekly_recap'; DELETE FROM jobs WHERE type IN ('metrics','brand_finder') AND status = 'dispatched'");
+    }
   });
 
   test("they replied stops follow-ups; a won deal takes deliverables", async ({ page }) => {

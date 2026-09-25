@@ -239,8 +239,12 @@ function BrandDetail({ b, kitUrl, onChange, onBack }: { b: Card2; kitUrl: string
   useEffect(() => {
     if (window.innerWidth < 900) top.current?.scrollIntoView({ block: "start" });
   }, []);
-  // A reload (sent, replied, redrafted) brings the saved pitch back; take it.
-  const pitchSig = b.pitch ? `${b.pitch.id}|${b.pitch.status}|${b.pitch.next_followup_at}|${b.pitch.subject}|${b.pitch.body.length}` : "";
+  // A reload that changes the pitch itself (a new draft, sent, replied, a follow-up sent) brings
+  // the saved pitch back; take it. Her edits are NOT in this signature: every field she types is
+  // saved on blur and kept in `draft`, and the reload `draftPitch` starts can answer after her
+  // first edit with the pre-edit text, which used to overwrite it (25 Sep 2026). A redraft comes
+  // back through `draftPitch` itself, so it needs no reload to land.
+  const pitchSig = b.pitch ? `${b.pitch.id}|${b.pitch.status}|${b.pitch.next_followup_at}` : "";
   useEffect(() => setDraft(b.pitch), [pitchSig]); // eslint-disable-line react-hooks/exhaustive-deps
   const stage = b.deal?.stage ?? "found";
 

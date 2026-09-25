@@ -16,6 +16,12 @@ Worker (`wrangler secret put NAME`): `SESSION_SECRET`, `SECRETS_KEY` (32 bytes b
 `JOB_SHARED_SECRET`, `GITHUB_DISPATCH_TOKEN` (fine-grained PAT, contents:write on this repo),
 `RESEND_API_KEY`.
 
+Worker, optional (stats sign-in on Connections; without them the Instagram / YouTube buttons
+stay disabled with a fix guide): `META_APP_ID`, `META_APP_SECRET` (a Meta app with Instagram
+Login), `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` (a Google Cloud OAuth client, project "In
+production", YouTube Data + Analytics APIs on). Register these redirect URIs on each app:
+`<PUBLIC_BASE_URL>/api/oauth/meta/callback` and `<PUBLIC_BASE_URL>/api/oauth/google/callback`.
+
 GitHub Actions secrets: `JOB_SHARED_SECRET` (same value), `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`,
 `R2_SECRET_ACCESS_KEY` (an R2 API token scoped to the one bucket), `OPENROUTER_API_KEY`,
 `FIRECRAWL_API_KEY`.

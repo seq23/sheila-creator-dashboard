@@ -1,5 +1,6 @@
 // Monday lane: weekly recap email (optional), learning update, brand finder job, metrics job.
 import type { Env } from "../env";
+import { followupsDueLine } from "../domain/deals";
 import { runwayWeeks, weeklyNeed } from "../domain/runway";
 import { weekBounds } from "../domain/slotting";
 import { log } from "../lib/log";
@@ -29,13 +30,22 @@ export async function weekly(env: Env): Promise<void> {
   const thisWeek = weekBounds(new Date(), s.audience_timezone);
   const plannedN = (await env.DB.prepare("SELECT COUNT(*) AS n FROM posts WHERE status IN ('planned','in_buffer') AND scheduled_at >= ? AND scheduled_at < ?").bind(thisWeek.start, thisWeek.end).first<{ n: number }>())?.n ?? 0;
   const weeks = runwayWeeks(approved, weeklyNeed(s.weekly_caps));
+  // Brand-deal follow-ups she owes this week (or already owes): the same rows Home lists, over
+  // the coming seven days instead of the next two.
+  const { results: due } = await env.DB.prepare(
+    "SELECT b.name AS brand, p.next_followup_at AS dueAt FROM deals d JOIN brands b ON b.id = d.brand_id JOIN pitches p ON p.brand_id = d.brand_id WHERE d.stage IN ('sent','replied','negotiating') AND p.next_followup_at IS NOT NULL AND p.next_followup_at <= ? ORDER BY p.next_followup_at LIMIT 10",
+  )
+    .bind(new Date(Date.now() + 7 * 86400_000).toISOString())
+    .all<{ brand: string; dueAt: string }>();
+  const followups = followupsDueLine(due, s.audience_timezone);
   const lines = [
     `Last week: ${postedN} posts went out.`,
     top ? `Top clip: “${top.hook_text}”${top.views ? ` · ${top.views.toLocaleString()} views` : ""}.` : "No results are in yet for last week.",
     `Runway: ${Number.isFinite(weeks) ? weeks : "∞"} weeks of approved clips.`,
     `This week: ${plannedN} posts are scheduled.`,
+    ...(followups ? [followups] : []),
   ];
   const { html, text } = emailFrame("Your week at a glance", lines, { label: "Open the dashboard", url: env.PUBLIC_BASE_URL });
   await sendEmail(env, { kind: "weekly_recap", to: s.notify_emails, subject: "Weekly recap", html, text });
-  log.info("weekly.recap", { posted: postedN, planned: plannedN });
+  log.info("weekly.recap", { posted: postedN, planned: plannedN, followups_due: due.length });
 }

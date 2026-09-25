@@ -2,14 +2,10 @@
 // then she approves, rejects with a reason, deletes with a confirm, edits a caption, and finds the
 // hidden clips. The section 6 gate (locked profile + approved brief) is opened by writing to the
 // same local D1 the e2e server uses, and closed again afterwards so other specs see a fresh gate.
-import { execFileSync } from "node:child_process";
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { sql as d1 } from "./helpers";
 
 const SEED = "e2e-review-seed";
-
-function d1(sql: string) {
-  execFileSync("npx", ["wrangler", "d1", "execute", "sheila-creator-dashboard-db", "--local", "--command", sql], { stdio: "pipe", timeout: 60_000 });
-}
 
 test.beforeAll(() => {
   d1(
