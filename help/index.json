@@ -1,4 +1,21 @@
 {
+  "_contract": {
+    "guide_file": "help/guides/<slug>.md, one task, 3-8 steps, each '## ' heading is one step; '## Did this work?' closes it",
+    "frontmatter": {
+      "title": "required, plain words",
+      "group": "required: getting_started | everyday | brand_deals | fix_it (must match this index)",
+      "screen": "required: a key of SCREEN_ROUTES in app/lib/markdown.ts (home, dump, review, calendar, brain, research, stats, voice, settings, connect, deals, help, login)",
+      "last_checked": "required: YYYY-MM-DD the steps were last walked",
+      "target": "optional: CSS or Playwright selector (e.g. role=button[name=\"Dump\"]) the screenshot job circles on every step",
+      "fix": "optional: slug of the fix-it guide that 'No, show me a fix' opens; without it, No emails the helper"
+    },
+    "per_step_comments": {
+      "<!-- target: selector -->": "circle this element for this step (overrides frontmatter target)",
+      "<!-- route: /path -->": "open this route for this step (default: the guide's screen); 'external' = an outside site the builder captures by hand, the job skips it",
+      "<!-- click: selector -->": "click this first (e.g. open a card), then take the shot"
+    },
+    "images": "![Step n](/help/screenshots/<slug>-<n>.png); the job writes <slug>-<n>.png (desktop 1280x820) and <slug>-<n>-phone.png (390x844) from tests/e2e/help-screenshots.spec.ts with demo data only"
+  },
   "groups": [
     { "key": "getting_started", "title": "Getting started" },
     { "key": "everyday", "title": "Everyday" },

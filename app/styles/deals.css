@@ -1,0 +1,250 @@
+/* Brand deals screen (section 12b). Tokens only; shared components untouched. */
+.linkish {
+  min-height: var(--touch);
+  padding: 0 6px;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+}
+.linkish:hover {
+  color: var(--rose);
+}
+.deals-tabs,
+.pitch-parts {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 4px 0 14px;
+}
+.deals-tabs button,
+.pitch-parts button {
+  min-height: var(--touch);
+  padding: 0 16px;
+  border-radius: var(--pill);
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.pitch-parts button {
+  min-height: 38px;
+  font-size: 0.88rem;
+}
+.deals-tabs button.on,
+.pitch-parts button.on {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-text);
+}
+.stage-strip {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.stage {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-soft);
+}
+.stage strong {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  color: var(--text);
+}
+.stage.has {
+  border-color: var(--gold-soft);
+  background: var(--gold-faint);
+}
+@media (max-width: 700px) {
+  .stage-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.marketplace {
+  margin-bottom: 14px;
+}
+.marketplace.ok {
+  border-color: var(--success);
+  background: var(--success-soft);
+}
+.mk-checks {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.deals-split {
+  display: grid;
+  grid-template-columns: minmax(280px, 400px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.brand-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.finder-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.brand-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  padding: 14px;
+  text-align: left;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+.brand-card:hover {
+  border-color: var(--gold);
+}
+.brand-card.on {
+  border: 2px solid var(--gold);
+  box-shadow: var(--shadow-tiny);
+}
+.brand-card.hidden-brand {
+  opacity: 0.6;
+}
+.brand-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.brand-logo {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  background: var(--gold-faint);
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+.brand-name {
+  flex: 1;
+  font-weight: 700;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.brand-why {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+.switch-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--touch);
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+.brand-detail {
+  min-width: 0;
+}
+.detail {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.detail-head h2 {
+  margin: 0;
+}
+.detail .links {
+  gap: 14px;
+}
+.back-btn {
+  display: none;
+  align-self: flex-start;
+}
+.why {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-size: 0.94rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.select.inline {
+  width: auto;
+  max-width: 100%;
+  min-height: 36px;
+  padding: 4px 10px;
+  display: inline-block;
+}
+.pitch-text {
+  min-height: 240px;
+  font-size: 0.98rem;
+  line-height: 1.55;
+}
+.send-row .grow {
+  flex: 1;
+}
+.tracker {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.tracker-head {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.deliverables h3 {
+  margin: 4px 0 8px;
+}
+.deliverable-add .input,
+.deliverable-add .select {
+  width: auto;
+  flex: 1 1 140px;
+}
+.kit-line {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 900px) {
+  .deals-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* phone: the list, or the one brand she opened */
+  .brand-list.has-current {
+    display: none;
+  }
+  .brand-detail:has(.pick-hint) {
+    display: none;
+  }
+  .back-btn {
+    display: inline-flex;
+  }
+  .send-row .btn {
+    flex: 1 1 auto;
+  }
+}

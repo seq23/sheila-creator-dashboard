@@ -1,0 +1,216 @@
+/* Help center + one guide (section 12c). Tokens only. */
+.help-search .input {
+  font-size: 1.05rem;
+  min-height: 52px;
+}
+.help-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px;
+}
+@media (max-width: 900px) {
+  .help-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.checklist {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+}
+.checklist li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  border-top: 1px solid var(--line);
+}
+.checklist li:first-child {
+  border-top: 0;
+}
+.checklist li a {
+  flex: 1;
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 600;
+}
+.checklist li.on a {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+.checklist .tick {
+  width: var(--touch);
+  height: var(--touch);
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 2px solid var(--grey);
+  background: transparent;
+  color: var(--text-muted);
+  font-weight: 700;
+  cursor: pointer;
+}
+.checklist li.on .tick {
+  border-color: var(--success);
+  background: var(--success);
+  color: var(--ivory);
+}
+.small {
+  font-size: 0.82rem;
+}
+.guide-row {
+  min-height: 48px;
+  text-decoration: none;
+  color: var(--text);
+}
+.fixit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+}
+.fixit-card {
+  display: flex;
+  align-items: center;
+  min-height: 56px;
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--text);
+}
+.reconnects {
+  margin-top: 10px;
+}
+.reconnects summary {
+  min-height: var(--touch);
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--text-soft);
+}
+.stuck {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
+.stuck .grow {
+  flex: 1;
+  min-width: 200px;
+}
+.stuck h3 {
+  margin: 0 0 4px;
+}
+
+/* ---------- one guide ---------- */
+.guide {
+  max-width: 820px;
+}
+.guide-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 600;
+  color: var(--text-soft);
+}
+.guide-progress .meter {
+  flex: 1;
+}
+.guide-shot {
+  position: relative;
+  margin: 14px 0;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+.guide-shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.guide-shot.placeholder {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 16 / 10;
+  text-align: center;
+  padding: 24px;
+  color: var(--text-muted);
+  background: repeating-linear-gradient(135deg, var(--surface), var(--surface) 12px, var(--gold-faint) 12px, var(--gold-faint) 24px);
+}
+@media (max-width: 900px) {
+  .guide-shot.placeholder {
+    aspect-ratio: 390 / 600;
+  }
+}
+.guide-step h2 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 1.35rem;
+}
+.guide-step p,
+.guide-step li {
+  font-size: 1.08rem;
+  line-height: 1.6;
+}
+.guide-step code {
+  font-family: var(--font-mono);
+  background: var(--gold-faint);
+  padding: 1px 6px;
+  border-radius: 6px;
+}
+.guide-nav {
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  margin-top: 16px;
+}
+.guide-nav .btn {
+  min-width: 120px;
+}
+.guide-done {
+  margin-top: 20px;
+}
+.guide-meta {
+  margin-top: 24px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+.guide-print-only {
+  display: none;
+}
+@media print {
+  .sidebar,
+  .tabbar,
+  .help-btn,
+  .toast-host,
+  .guide-nav,
+  .guide-done,
+  .guide-meta button,
+  .page-head .actions,
+  .guide-progress {
+    display: none !important;
+  }
+  .main {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  .guide-screen-only {
+    display: none !important;
+  }
+  .guide-print-only {
+    display: block;
+  }
+  .guide-print-only .guide-step {
+    break-inside: avoid;
+    margin-bottom: 18px;
+  }
+  .guide-shot {
+    max-width: 520px;
+  }
+}

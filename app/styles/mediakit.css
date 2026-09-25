@@ -1,0 +1,244 @@
+/* Media kit: the public phone-first page and her editor tab. Tokens only. */
+.kit-page {
+  min-height: 100vh;
+  background: var(--bg);
+  padding: 24px var(--gutter) 48px;
+}
+.kit {
+  width: min(640px, 100%);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 28px 22px;
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  border: 1px solid var(--gold-soft);
+  box-shadow: var(--shadow-soft);
+}
+.kit h1 {
+  margin: 0;
+  font-size: 2rem;
+}
+.kit h2 {
+  font-size: 1.15rem;
+  margin: 0 0 10px;
+}
+.kit-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.kit-photo {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid var(--gold);
+  flex-shrink: 0;
+  background: var(--surface-2);
+}
+.kit-photo.logo {
+  object-fit: contain;
+  padding: 10px;
+}
+.kit-photo.small {
+  width: 72px;
+  height: 72px;
+}
+.kit-photo.empty {
+  border-style: dashed;
+}
+.kit-script {
+  font-size: 1.7rem;
+  line-height: 1;
+}
+.kit-bio {
+  margin: 6px 0 0;
+  color: var(--text-soft);
+}
+.kit-themes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.kit-chip {
+  padding: 6px 14px;
+  border-radius: var(--pill);
+  border: 1px solid var(--gold);
+  background: var(--gold-faint);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+.kit-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.kit-stat {
+  padding: 12px 10px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  text-align: center;
+}
+.kit-stat-p {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-soft);
+}
+.kit-stat-f {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+.kit-stat-l,
+.kit-stat-v {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+.kit-audience,
+.kit-partners {
+  margin: 0;
+  line-height: 1.5;
+}
+.kit-clips {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.kit-clip {
+  margin: 0;
+}
+.kit-clip video {
+  width: 100%;
+  aspect-ratio: 9 / 16;
+  object-fit: cover;
+  border-radius: var(--radius);
+  background: var(--espresso);
+}
+.kit-clip figcaption {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+.kit-rates {
+  margin: 0;
+}
+.kit-rates div {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+}
+.kit-rates dd {
+  margin: 0;
+  font-weight: 600;
+}
+.kit-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.kit-missing {
+  text-align: center;
+}
+
+/* editor tab */
+.kit-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.kit-editor h3 {
+  margin: 0 0 10px;
+}
+.kit-editor .card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.kit-link {
+  flex-direction: row !important;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.kit-link .grow {
+  flex: 1;
+  min-width: 220px;
+  overflow-wrap: anywhere;
+}
+.kit-photo-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.kit-pick {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+  max-height: 360px;
+  overflow: auto;
+}
+.kit-pick-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--touch);
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.kit-pick-item.on {
+  border-color: var(--gold);
+  background: var(--gold-faint);
+}
+.kit-pick-thumb {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  background: var(--espresso);
+  color: var(--ivory);
+  overflow: hidden;
+}
+.kit-pick-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.kit-pick-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.kit-rate .input {
+  flex: 1 1 140px;
+  width: auto;
+}
+.kit-slug {
+  max-width: 320px;
+}
+@media (max-width: 500px) {
+  .kit {
+    padding: 22px 16px;
+  }
+  .kit-head {
+    flex-direction: column;
+    text-align: center;
+  }
+  .kit-stats {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+    gap: 6px;
+  }
+  .kit-stat-f {
+    font-size: 1.25rem;
+  }
+}
