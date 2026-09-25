@@ -103,10 +103,15 @@ export function Home() {
                 </ul>
               </Stat>
             </Card>
-            <Card to="/settings">
+            <Card to={data.health.length === 0 ? "/settings/connections" : "/settings"}>
               <div className="card-label">Health</div>
               {data.health.length === 0 ? (
-                <div className="hint">Nothing connected yet</div>
+                <>
+                  <div className="hint">Nothing connected yet</div>
+                  <strong className="home-go">
+                    Connect your accounts <Icon name="arrow" size="sm" />
+                  </strong>
+                </>
               ) : (
                 <ul className="home-health">
                   {foldHealth(data.health)

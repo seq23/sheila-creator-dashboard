@@ -118,7 +118,8 @@ function measure() {
   const primary = scope.querySelector("[data-primary]") ?? scope.querySelector(".btn:not(.quiet):not(.danger)");
   const pr = primary?.getBoundingClientRect();
   const tabbar = document.querySelector(".tabbar");
-  const tabTop = tabbar && getComputedStyle(tabbar).display !== "none" ? tabbar.getBoundingClientRect().top : vh;
+  // an open modal paints over the tab bar, so only the viewport bounds it
+  const tabTop = tabbar && getComputedStyle(tabbar).display !== "none" && !document.querySelector(".modal") ? tabbar.getBoundingClientRect().top : vh;
   return {
     overflowX: document.documentElement.scrollWidth - vw,
     smallTargets: small,
@@ -184,6 +185,8 @@ try {
       if (s.scrollTo) await page.locator(s.scrollTo).first().scrollIntoViewIfNeeded().catch(() => undefined);
       await page.waitForTimeout(250);
       const m = await page.evaluate(measure);
+      // a scrolled-to view (Health) is judged on the section it scrolls to, not the page head
+      if (s.scrollTo && m.primary) m.primary.aboveFold = null;
       metrics[`${s.name}@${vp.tag}`] = m;
       const png = path.join(TMP, `${s.name}-${vp.tag}.png`);
       // Full page for the page screens, viewport for overlays (tour, modal) and scroll targets.
@@ -208,7 +211,7 @@ const summary = {
   smallTargetCount: Object.values(metrics).reduce((n, m) => n + m.smallTargets.length, 0),
   unnamedButtons: Object.values(metrics).reduce((n, m) => n + m.unnamedButtons.length, 0),
   wrappedLabels: Object.values(metrics).reduce((n, m) => n + m.wrappedLabels.length, 0),
-  primaryBelowFold: Object.entries(metrics).filter(([, m]) => m.primary && !m.primary.aboveFold).map(([k]) => k),
+  primaryBelowFold: Object.entries(metrics).filter(([, m]) => m.primary && m.primary.aboveFold === false).map(([k]) => k),
   noPrimary: Object.entries(metrics).filter(([, m]) => !m.primary).map(([k]) => k),
   primaryUnmarked: Object.entries(metrics).filter(([, m]) => m.primary && !m.primary.marked).map(([k]) => k),
 };

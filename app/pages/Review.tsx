@@ -470,7 +470,7 @@ function EditModal({ clip, onSaved, onClose }: { clip: ReviewClip; onSaved: () =
       </fieldset>
       <Switch checked={paid} onChange={setPaid} label="Paid partnership" hint="Adds #ad to the end of the caption. When it posts, also switch on the app’s own paid-partnership label." />
       <div className="btn-row">
-        <button className="btn" disabled={saving} onClick={save}>
+        <button className="btn" data-primary disabled={saving} onClick={save}>
           {saving ? "Saving…" : "Save"}
         </button>
         <button className="btn quiet" onClick={onClose}>

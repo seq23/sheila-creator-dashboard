@@ -147,7 +147,7 @@ test.describe("brand deals", () => {
     const work = pub.getByRole("link", { name: "Work with me" });
     await expect(work).toHaveCount(2);
     for (const w of await work.all()) await expect(w).toHaveAttribute("href", /^mailto:partnerships@demo-creator\.example/);
-    await expect(work.first()).toHaveAttribute("data-primary", "");
+    await expect(work.first()).toHaveAttribute("data-primary", "true");
     await expect(work.first()).toBeInViewport();
     await expect(pub.locator("[data-primary]")).toHaveCount(1);
     await expect(pub.getByRole("img", { name: /logo|Sheila Bruce/ }).first()).toBeVisible();

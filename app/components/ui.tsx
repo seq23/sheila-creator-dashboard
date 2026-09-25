@@ -141,7 +141,7 @@ export function Empty({ title, children, cta, secondary, primary }: { title: str
       {cta || secondary ? (
         <div className="btn-row">
           {cta ? (
-            <Link className="btn" to={cta.to} data-primary={primary ? "" : undefined}>
+            <Link className="btn" to={cta.to} data-primary={primary || undefined}>
               {cta.label}
             </Link>
           ) : null}

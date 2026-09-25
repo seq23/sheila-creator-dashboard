@@ -118,6 +118,9 @@
   color: var(--text-muted);
 }
 .rs-cites a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--touch);
   color: var(--text-soft);
   overflow-wrap: anywhere;
 }

@@ -315,10 +315,20 @@
 .btn.kit-add-rate {
   align-self: flex-start;
 }
-/* on a phone, Save stays in reach while she scrolls the form (above the tab bar, clear of the ? button) */
+/* Save stays in reach while she scrolls the form: a small floating pill at the bottom-left on
+   desktop (clear of the ? button), a full-width bar above the tab bar on a phone. It is the last
+   thing in the form, so at the end of the page it sits in its own slot and covers nothing. */
 .kit-save {
   display: flex;
   align-self: flex-start;
+  position: sticky;
+  bottom: var(--space-sm);
+  z-index: var(--z-sticky);
+  padding: var(--space-2xs);
+  border-radius: var(--pill);
+  background: var(--glass);
+  border: 1px solid var(--gold-soft);
+  box-shadow: var(--shadow-soft);
 }
 @media (max-width: 900px) {
   .kit-save {
