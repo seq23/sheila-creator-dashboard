@@ -1,0 +1,169 @@
+{
+  "dump_id": "dmp_selftestnew",
+  "assets": [
+    {
+      "id": "ast_selftestwide",
+      "r2_key": "raw/dmp_selftestnew/ast_selftestwide",
+      "allowed_platforms": [
+        "tiktok",
+        "instagram",
+        "youtube"
+      ]
+    }
+  ],
+  "result": {
+    "clips": [
+      {
+        "id": "clp_ne6ettg8ilro9uyt",
+        "asset_id": "ast_selftestwide",
+        "start_s": 36.63,
+        "end_s": 60.01,
+        "recipe": "talking_head",
+        "hook_text": "Try it tomorrow, and tell me how it goes.",
+        "hook_alt": "Nobody tells you this part.",
+        "caption": "Try it tomorrow, and tell me how it goes. Follow for more real days",
+        "hashtags": [
+          "#morningroutines",
+          "#smallbusinesslife",
+          "#behindthescenes"
+        ],
+        "platforms": [
+          "tiktok",
+          "instagram",
+          "youtube"
+        ],
+        "score": 0.752,
+        "r2_key": "clips/dmp_selftestnew/clp_ne6ettg8ilro9uyt.mp4",
+        "cover_r2_key": "clips/dmp_selftestnew/clp_ne6ettg8ilro9uyt.jpg"
+      },
+      {
+        "id": "clp_kq1flfjxbljgzok5",
+        "asset_id": "ast_selftestwide",
+        "start_s": 9.2,
+        "end_s": 41.44,
+        "recipe": "talking_head",
+        "hook_text": "Nobody tells you how much that walk changes your\u2026",
+        "hook_alt": "The one thing I'd never skip.",
+        "caption": "Nobody tells you how much that walk changes your whole day. Follow for more real days",
+        "hashtags": [
+          "#morningroutines",
+          "#smallbusinesslife",
+          "#behindthescenes"
+        ],
+        "platforms": [
+          "tiktok",
+          "instagram",
+          "youtube"
+        ],
+        "score": 0.858,
+        "r2_key": "clips/dmp_selftestnew/clp_kq1flfjxbljgzok5.mp4",
+        "cover_r2_key": "clips/dmp_selftestnew/clp_kq1flfjxbljgzok5.jpg"
+      },
+      {
+        "id": "clp_gmgpurvl3td3fvge",
+        "asset_id": "ast_selftestwide",
+        "start_s": 43.67,
+        "end_s": 60.01,
+        "recipe": "hook_first",
+        "hook_text": "make coffee, I write three goals, and I go\u2026",
+        "hook_alt": "Nobody tells you this part.",
+        "caption": "Make coffee, I write three goals, and I go for a short walk. Follow for more real days",
+        "hashtags": [
+          "#morningroutines",
+          "#smallbusinesslife",
+          "#behindthescenes"
+        ],
+        "platforms": [
+          "tiktok",
+          "instagram",
+          "youtube"
+        ],
+        "score": 0.731,
+        "r2_key": "clips/dmp_selftestnew/clp_gmgpurvl3td3fvge.mp4",
+        "cover_r2_key": "clips/dmp_selftestnew/clp_gmgpurvl3td3fvge.jpg"
+      },
+      {
+        "id": "clp_8bnal6l0yl7qd2l0",
+        "asset_id": "ast_selftestwide",
+        "start_s": 4.86,
+        "end_s": 41.44,
+        "recipe": "hook_first",
+        "hook_text": "I make coffee, I write three goals, and I\u2026",
+        "hook_alt": "The one thing I'd never skip.",
+        "caption": "I make coffee, I write three goals, and I go for a short walk. Follow for more real days",
+        "hashtags": [
+          "#morningroutines",
+          "#smallbusinesslife",
+          "#behindthescenes"
+        ],
+        "platforms": [
+          "tiktok",
+          "instagram",
+          "youtube"
+        ],
+        "score": 0.821,
+        "r2_key": "clips/dmp_selftestnew/clp_8bnal6l0yl7qd2l0.mp4",
+        "cover_r2_key": "clips/dmp_selftestnew/clp_8bnal6l0yl7qd2l0.jpg"
+      },
+      {
+        "id": "clp_i8hxpdyjvx9z6ga2",
+        "asset_id": "ast_selftestwide",
+        "start_s": 14.63,
+        "end_s": 60.01,
+        "recipe": "story",
+        "hook_text": "I skipped it, and everything felt harder.",
+        "hook_alt": "Nobody tells you this part.",
+        "caption": "I skipped it, and everything felt harder. Follow for more real days",
+        "hashtags": [
+          "#morningroutines",
+          "#smallbusinesslife",
+          "#behindthescenes"
+        ],
+        "platforms": [
+          "tiktok",
+          "instagram",
+          "youtube"
+        ],
+        "score": 0.762,
+        "r2_key": "clips/dmp_selftestnew/clp_i8hxpdyjvx9z6ga2.mp4",
+        "cover_r2_key": "clips/dmp_selftestnew/clp_i8hxpdyjvx9z6ga2.jpg"
+      },
+      {
+        "id": "clp_lmzfgiddwnqm1ipp",
+        "asset_id": "ast_selftestwide",
+        "start_s": 25.0,
+        "end_s": 55.41,
+        "recipe": "montage",
+        "hook_text": "I write three goals, and I go for a\u2026",
+        "hook_alt": "The one thing I'd never skip.",
+        "caption": "I write three goals, and I go for a short walk. Follow for more real days",
+        "hashtags": [
+          "#morningroutines",
+          "#smallbusinesslife",
+          "#behindthescenes"
+        ],
+        "platforms": [
+          "tiktok",
+          "instagram",
+          "youtube"
+        ],
+        "score": 0.822,
+        "r2_key": "clips/dmp_selftestnew/clp_lmzfgiddwnqm1ipp.mp4",
+        "cover_r2_key": "clips/dmp_selftestnew/clp_lmzfgiddwnqm1ipp.jpg"
+      }
+    ],
+    "engine": {
+      "transcript": "faster-whisper",
+      "picker": "fallback",
+      "crop": "center",
+      "subtitles": "burned"
+    },
+    "assets": [
+      {
+        "id": "ast_selftestwide",
+        "duration_s": 60.01
+      }
+    ],
+    "skipped": []
+  }
+}

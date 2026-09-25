@@ -1,9 +1,349 @@
-// Hourly Buffer sync (section 10): load the next 7 days into Buffer, read back status,
-// retry failures twice, then flag on Home and email. OWNED BY: phase 6. Base stub.
+// Hourly Buffer sync (section 10 + 11):
+//   1. plan ahead: keep the next 4 weeks filled from the approved pool (idempotent), and pull
+//      anything whose clip is no longer approved off the calendar (nothing posts unapproved)
+//   2. check Buffer (key + channels) every few hours, or every hour while something is broken
+//   3. load planned posts inside the next 7 days into Buffer, never past 10 queued per channel
+//   4. read back posts whose time has come → posted / failed; re-create failures up to twice,
+//      then the "Posting problem" email and a red light for that channel
+//   5. health rows: Buffer, each channel, Clip cutting, Email (Resend), Job runner (GitHub)
+//   6. "Connection needs you" email once per flip from ok to broken
+// Every decision is a pure function in domain/sync.ts. Logs carry counts only.
 import type { Env } from "../env";
+import { fakeServices } from "../env";
+import { getSetting, parseJson, recordEvent, setHealth, setSetting } from "../lib/db";
+import { getConnectionSecret, markConnection, type Service } from "../lib/connections";
+import { mediaToken, nowIso } from "../lib/ids";
 import { log } from "../lib/log";
+import { planAhead } from "../routes/posts";
+import { readSettings } from "../routes/settings";
+import { getBuffer, type BufferChannel, type BufferClient } from "../services/buffer";
+import { emailFrame, sendEmail } from "../services/email";
+import { checkFirecrawl, checkHunter, checkOpenRouter, type KeyCheck } from "../services/keychecks";
+import {
+  bufferDueAt,
+  channelHealth,
+  choosePostsToLoad,
+  connectionFlips,
+  createFailureDecision,
+  dueForReadBack,
+  queueUsed,
+  readBackDecision,
+  shouldCheckBuffer,
+  type ConnState,
+} from "../domain/sync";
+import { BUFFER_MAX_RETRIES, BUFFER_QUEUE_LIMIT_PER_CHANNEL, PLATFORMS, PLATFORM_LABEL, type Platform } from "@shared/constants";
 
-export async function bufferSync(env: Env): Promise<void> {
-  void env;
-  log.info("buffer-sync.stub");
+export const CHANNEL_HEALTH_NAME: Record<Platform, string> = {
+  tiktok: "TikTok (via Buffer)",
+  instagram: "Instagram (via Buffer)",
+  youtube: "YouTube (via Buffer)",
+};
+
+/** Settings key holding each connection's state at the end of the last run (flip detection). */
+const STATES_KEY = "connection_states";
+
+interface BufferMeta {
+  channels?: BufferChannel[];
+  organization_id?: string;
+  checked_at?: string;
+  queue?: Partial<Record<Platform, number>>;
+}
+
+interface BufferState {
+  connected: boolean; // a key is stored
+  ok: boolean; // the key works (as of the last check)
+  error: string | null;
+  channels: Partial<Record<Platform, BufferChannel>>;
+  remoteQueue: Partial<Record<Platform, number>>;
+  checkedNow: boolean;
+}
+
+/** Count Buffer API calls so the run can log them (free plan budget: ~100 a day). */
+function counted(client: BufferClient, counter: { n: number }): BufferClient {
+  const wrap =
+    <A extends unknown[], R>(fn: (...a: A) => Promise<R>) =>
+    (...a: A) => {
+      counter.n++;
+      return fn(...a);
+    };
+  return {
+    checkKey: wrap(() => client.checkKey()),
+    createPost: wrap((i: Parameters<BufferClient["createPost"]>[0]) => client.createPost(i)),
+    getPost: wrap((id: string) => client.getPost(id)),
+    deletePost: wrap((id: string) => client.deletePost(id)),
+    queueCount: wrap((id: string) => client.queueCount(id)),
+  };
+}
+
+async function bufferState(env: Env, client: BufferClient, force: boolean): Promise<BufferState> {
+  const row = await env.DB.prepare("SELECT status, meta, last_error FROM connections WHERE service = 'buffer'").first<{ status: string; meta: string; last_error: string | null }>();
+  const key = await getConnectionSecret(env, "buffer");
+  const meta = parseJson<BufferMeta>(row?.meta, {});
+  const byPlatform = (list: BufferChannel[] | undefined) => Object.fromEntries((list ?? []).map((c) => [c.platform, c])) as Partial<Record<Platform, BufferChannel>>;
+  if (!key) return { connected: false, ok: false, error: null, channels: {}, remoteQueue: {}, checkedNow: false };
+
+  const cached = byPlatform(meta.channels);
+  // A channel she has not added yet is not "broken" (checking hourly for it would spend the API budget).
+  const broken = row?.status !== "ok" || PLATFORMS.some((p) => cached[p] && (!cached[p]!.connected || cached[p]!.paused));
+  if (!shouldCheckBuffer(meta.checked_at ?? null, nowIso(), broken, force)) {
+    return { connected: true, ok: row?.status === "ok", error: row?.last_error ?? null, channels: cached, remoteQueue: meta.queue ?? {}, checkedNow: false };
+  }
+  const r = await client.checkKey();
+  if (!r.ok) {
+    await markConnection(env, "buffer", "error", r.error, { checked_at: nowIso() });
+    return { connected: true, ok: false, error: r.error, channels: {}, remoteQueue: {}, checkedNow: true };
+  }
+  const channels = byPlatform(r.channels);
+  const remoteQueue: Partial<Record<Platform, number>> = {};
+  for (const p of PLATFORMS) {
+    const ch = channels[p];
+    if (!ch || !ch.connected) continue;
+    const n = await client.queueCount(ch.id);
+    if (n >= 0) remoteQueue[p] = n;
+  }
+  const patch: BufferMeta = { channels: r.channels, checked_at: nowIso(), queue: remoteQueue };
+  if (r.organizationId) patch.organization_id = r.organizationId;
+  await markConnection(env, "buffer", "ok", null, patch as Record<string, unknown>);
+  return { connected: true, ok: true, error: null, channels, remoteQueue, checkedNow: true };
+}
+
+async function alreadyEmailed(env: Env, kind: string, refId: string): Promise<boolean> {
+  return !!(await env.DB.prepare("SELECT id FROM emails_sent WHERE kind = ? AND ref_id = ? LIMIT 1").bind(kind, refId).first());
+}
+
+async function postingProblemEmail(env: Env, post: { id: string; platform: Platform; scheduled_at: string; hook_text: string; error: string | null }) {
+  const s = await readSettings(env);
+  const when = new Date(post.scheduled_at).toLocaleString("en-US", { timeZone: s.audience_timezone, weekday: "long", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  const label = PLATFORM_LABEL[post.platform];
+  const lines = [
+    `The ${label} post of “${post.hook_text || "your clip"}” (planned for ${when}) did not go out. We tried ${BUFFER_MAX_RETRIES + 1} times.`,
+    post.error ? `What Buffer said: ${post.error}` : "Buffer did not say why.",
+    `How to fix it: open Buffer, go to Channels, and check that ${label} says Connected. If it says Reconnect, press it and log in to ${label}.`,
+    "Then open the Calendar in your dashboard, find the red post and press Try again. Or press Take off to put the clip back in your pool.",
+  ];
+  const { html, text } = emailFrame("A post did not go out", lines, { label: "Show me how to fix it", url: `${env.PUBLIC_BASE_URL}/help/a-post-failed` });
+  await sendEmail(env, { kind: "posting_problem", to: s.notify_emails, subject: `Posting problem: a ${label} post did not go out`, html, text, refId: post.id });
+}
+
+const CONNECTION_COPY: Record<string, { title: string; steps: string[]; guide: string }> = {
+  Buffer: { title: "Buffer", steps: ["Open Buffer and go to Settings, then API.", "Create a new key and copy it.", "In your dashboard open Settings, Connect accounts, paste it under Buffer and press Check key."], guide: "reconnect-buffer" },
+  [CHANNEL_HEALTH_NAME.tiktok]: { title: "TikTok in Buffer", steps: ["Open Buffer and go to Channels.", "Next to TikTok press Reconnect.", "Log in to TikTok and press Allow."], guide: "reconnect-an-account" },
+  [CHANNEL_HEALTH_NAME.instagram]: { title: "Instagram in Buffer", steps: ["Open Buffer and go to Channels.", "Next to Instagram press Reconnect.", "Log in to Instagram and press Allow."], guide: "reconnect-an-account" },
+  [CHANNEL_HEALTH_NAME.youtube]: { title: "YouTube in Buffer", steps: ["Open Buffer and go to Channels.", "Next to YouTube press Reconnect.", "Log in to Google, pick your channel and press Allow."], guide: "reconnect-an-account" },
+  meta: { title: "Instagram stats", steps: ["In your dashboard open Settings, Connect accounts.", "Under Instagram stats press Reconnect.", "Log in to Instagram and pick your account."], guide: "reconnect-meta" },
+  google: { title: "YouTube stats", steps: ["In your dashboard open Settings, Connect accounts.", "Under YouTube stats press Reconnect.", "Log in to Google and pick your channel."], guide: "reconnect-google" },
+  tiktok: { title: "TikTok stats", steps: ["In your dashboard open Settings, Connect accounts.", "Under TikTok stats press Reconnect.", "Log in to TikTok and press Allow."], guide: "reconnect-tiktok" },
+  openrouter: { title: "The AI (OpenRouter)", steps: ["Open OpenRouter and go to Keys.", "Create a new key and copy it.", "In your dashboard open Settings, Connect accounts, paste it under OpenRouter and press Check key."], guide: "reconnect-openrouter" },
+  firecrawl: { title: "Web research (Firecrawl)", steps: ["Open Firecrawl and go to API Keys.", "Copy your key.", "In your dashboard open Settings, Connect accounts, paste it under Firecrawl and press Check key."], guide: "reconnect-firecrawl" },
+  hunter: { title: "Hunter", steps: ["Open Hunter and go to API.", "Copy your key.", "In your dashboard open Settings, Connect accounts, paste it under Hunter and press Check key."], guide: "reconnect-hunter" },
+};
+
+async function connectionNeedsYouEmail(env: Env, name: string) {
+  const copy = CONNECTION_COPY[name];
+  if (!copy) return;
+  const s = await readSettings(env);
+  const lines = [`${copy.title} stopped working, so the dashboard cannot use it until you reconnect it. Nothing is lost: posts wait safely.`, "Here is exactly what to do:", ...copy.steps.map((t, i) => `${i + 1}. ${t}`)];
+  const { html, text } = emailFrame(`${copy.title} needs you`, lines, { label: "Show me with pictures", url: `${env.PUBLIC_BASE_URL}/help/${copy.guide}` });
+  await sendEmail(env, { kind: "connection_needs_you", to: s.notify_emails, subject: `${copy.title} needs you: reconnect it`, html, text, refId: name });
+}
+
+// ---------------------------------------------------------------- the run
+
+export async function bufferSync(env: Env, opts: { force?: boolean } = {}): Promise<void> {
+  const counter = { n: 0 };
+  const client = counted(await getBuffer(env), counter);
+  const now = nowIso();
+
+  // 1. plan ahead + pull unapproved clips off the calendar
+  const plan = await planAhead(env, { respectHeld: true });
+  const { results: unapproved } = await env.DB.prepare(
+    "SELECT p.id, p.buffer_post_id FROM posts p JOIN clips c ON c.id = p.clip_id WHERE p.status IN ('planned','in_buffer') AND c.status != 'approved'",
+  ).all<{ id: string; buffer_post_id: string | null }>();
+  for (const p of unapproved) {
+    if (p.buffer_post_id) await client.deletePost(p.buffer_post_id);
+    await env.DB.prepare("UPDATE posts SET status = 'unscheduled', buffer_post_id = NULL WHERE id = ?").bind(p.id).run();
+  }
+
+  // 2. Buffer state
+  const buf = await bufferState(env, client, !!opts.force);
+  const ready = Object.fromEntries(PLATFORMS.map((p) => [p, buf.ok && !!buf.channels[p]?.connected && !buf.channels[p]?.paused])) as Record<Platform, boolean>;
+
+  // 3. load
+  const { results: inBufferRows } = await env.DB.prepare("SELECT platform, COUNT(*) AS n FROM posts WHERE status = 'in_buffer' GROUP BY platform").all<{ platform: Platform; n: number }>();
+  const local = Object.fromEntries(inBufferRows.map((r) => [r.platform, r.n])) as Partial<Record<Platform, number>>;
+  const used = queueUsed(local, buf.remoteQueue);
+  const { results: plannedRows } = await env.DB.prepare(
+    `SELECT p.id, p.platform, p.scheduled_at, p.retries, c.id AS clip_id, c.caption, c.hashtags, c.media_token, c.hook_text
+     FROM posts p JOIN clips c ON c.id = p.clip_id WHERE p.status = 'planned' AND c.status = 'approved'`,
+  ).all<{ id: string; platform: Platform; scheduled_at: string; retries: number; clip_id: string; caption: string; hashtags: string; media_token: string | null; hook_text: string }>();
+  const loadPlan = choosePostsToLoad(plannedRows, used, ready, now);
+  const byId = new Map(plannedRows.map((r) => [r.id, r]));
+  let loaded = 0;
+  let createFailed = 0;
+  for (const cand of loadPlan.load) {
+    const row = byId.get(cand.id)!;
+    let token = row.media_token;
+    if (!token) {
+      token = mediaToken();
+      await env.DB.prepare("UPDATE clips SET media_token = ? WHERE id = ? AND media_token IS NULL").bind(token, row.clip_id).run();
+      token = (await env.DB.prepare("SELECT media_token FROM clips WHERE id = ?").bind(row.clip_id).first<{ media_token: string }>())?.media_token ?? token;
+    }
+    const text = [row.caption, row.hashtags].filter((x) => x && x.trim()).join("\n\n");
+    const r = await client.createPost({ channelId: buf.channels[row.platform]!.id, text, mediaUrl: `${env.PUBLIC_BASE_URL}/media/${token}`, scheduledAt: bufferDueAt(row.scheduled_at, now) });
+    if (r.ok && r.id) {
+      await env.DB.prepare("UPDATE posts SET status = 'in_buffer', buffer_post_id = ?, error = NULL WHERE id = ?").bind(r.id, row.id).run();
+      loaded++;
+      continue;
+    }
+    createFailed++;
+    const d = createFailureDecision(row.retries, await alreadyEmailed(env, "posting_problem", row.id));
+    await env.DB.prepare("UPDATE posts SET status = ?, retries = ?, error = ? WHERE id = ?").bind(d.status, d.retries, r.error, row.id).run();
+    if (d.email) await postingProblemEmail(env, { id: row.id, platform: row.platform, scheduled_at: row.scheduled_at, hook_text: row.hook_text, error: r.error });
+  }
+
+  // 4. read back posts whose time has come
+  const { results: waiting } = await env.DB.prepare(
+    `SELECT p.id, p.platform, p.scheduled_at, p.retries, p.buffer_post_id, c.caption, c.hashtags, c.media_token, c.hook_text
+     FROM posts p JOIN clips c ON c.id = p.clip_id WHERE p.status = 'in_buffer'`,
+  ).all<{ id: string; platform: Platform; scheduled_at: string; retries: number; buffer_post_id: string | null; caption: string; hashtags: string; media_token: string | null; hook_text: string }>();
+  let posted = 0;
+  let retried = 0;
+  let failed = 0;
+  if (buf.ok) {
+    for (const p of dueForReadBack(waiting, now)) {
+      if (!p.buffer_post_id) {
+        await env.DB.prepare("UPDATE posts SET status = 'planned' WHERE id = ?").bind(p.id).run();
+        continue;
+      }
+      const st = await client.getPost(p.buffer_post_id);
+      const d = readBackDecision(st.status, st.url, p.retries, await alreadyEmailed(env, "posting_problem", p.id));
+      if (d.next === "in_buffer") continue;
+      if (d.next === "posted") {
+        await env.DB.prepare("UPDATE posts SET status = 'posted', url = ?, posted_at = ?, error = NULL WHERE id = ?").bind(d.url, nowIso(), p.id).run();
+        posted++;
+        continue;
+      }
+      await client.deletePost(p.buffer_post_id); // clear the errored copy out of her Buffer
+      if (d.next === "retry") {
+        retried++;
+        const ch = buf.channels[p.platform];
+        const again = ready[p.platform] && ch && p.media_token ? await client.createPost({ channelId: ch.id, text: [p.caption, p.hashtags].filter((x) => x && x.trim()).join("\n\n"), mediaUrl: `${env.PUBLIC_BASE_URL}/media/${p.media_token}`, scheduledAt: bufferDueAt(p.scheduled_at, now) }) : null;
+        if (again?.ok && again.id) await env.DB.prepare("UPDATE posts SET buffer_post_id = ?, retries = ?, error = ? WHERE id = ?").bind(again.id, d.retries, st.error, p.id).run();
+        else await env.DB.prepare("UPDATE posts SET status = 'planned', buffer_post_id = NULL, retries = ?, error = ? WHERE id = ?").bind(d.retries, again?.error ?? st.error, p.id).run();
+        continue;
+      }
+      failed++;
+      await env.DB.prepare("UPDATE posts SET status = 'failed', buffer_post_id = NULL, error = ? WHERE id = ?").bind(st.error ?? "The post did not go out.", p.id).run();
+      await recordEvent(env.DB, "post.failed", p.id, { platform: p.platform });
+      if (d.email) await postingProblemEmail(env, { id: p.id, platform: p.platform, scheduled_at: p.scheduled_at, hook_text: p.hook_text, error: st.error });
+    }
+  }
+
+  // 5 + 6. health rows and "Connection needs you"
+  const waitingSafely = loadPlan.waitingDisconnected;
+  await writeHealth(env, buf, waitingSafely);
+
+  log.info("buffer-sync.done", {
+    planned: plan.added,
+    pulled_unapproved: unapproved.length,
+    loaded,
+    create_failed: createFailed,
+    waiting_no_room: loadPlan.waitingNoRoom,
+    waiting_disconnected: waitingSafely,
+    posted,
+    retried,
+    failed,
+    buffer_checked: buf.checkedNow,
+    buffer_requests: counter.n,
+  });
+}
+
+/** Health rows + flip emails. Shared by the hourly run, the daily lane and "Check everything now". */
+async function writeHealth(env: Env, buf: BufferState, waitingSafely: number): Promise<void> {
+  const states: Record<string, ConnState> = {};
+
+  // Buffer
+  if (!buf.connected) {
+    await setHealth(env.DB, "Buffer", "yellow", waitingSafely ? `Not connected yet · ${waitingSafely} posts waiting safely` : "Not connected yet", "connect-buffer");
+    states.Buffer = "off";
+  } else if (!buf.ok) {
+    await setHealth(env.DB, "Buffer", "red", `${buf.error ?? "Buffer stopped answering"} · posts wait safely`, "reconnect-buffer");
+    states.Buffer = "bad";
+  } else {
+    const { results } = await env.DB.prepare("SELECT platform, COUNT(*) AS n FROM posts WHERE status = 'in_buffer' GROUP BY platform").all<{ platform: Platform; n: number }>();
+    const used = queueUsed(Object.fromEntries(results.map((r) => [r.platform, r.n])), buf.remoteQueue);
+    const most = Math.max(0, ...PLATFORMS.filter((p) => buf.channels[p]).map((p) => used[p]));
+    await setHealth(env.DB, "Buffer", "green", `OK · ${most} of ${BUFFER_QUEUE_LIMIT_PER_CHANNEL} queue slots used`, null);
+    states.Buffer = "ok";
+  }
+
+  // each channel (only meaningful while Buffer itself works)
+  for (const p of PLATFORMS) {
+    const name = CHANNEL_HEALTH_NAME[p];
+    if (!buf.ok) {
+      await setHealth(env.DB, name, "grey", buf.connected ? "Waiting for Buffer to work again" : "Connect Buffer first", buf.connected ? "reconnect-buffer" : "connect-buffer");
+      states[name] = "off";
+      continue;
+    }
+    const failedN = (await env.DB.prepare("SELECT COUNT(*) AS n FROM posts WHERE status = 'failed' AND platform = ?").bind(p).first<{ n: number }>())?.n ?? 0;
+    const last = (await env.DB.prepare("SELECT MAX(posted_at) AS t FROM posts WHERE status = 'posted' AND platform = ?").bind(p).first<{ t: string | null }>())?.t ?? null;
+    const ch = buf.channels[p];
+    const h = channelHealth(PLATFORM_LABEL[p], ch ? { connected: ch.connected, paused: ch.paused, handle: ch.handle } : null, failedN, last);
+    await setHealth(env.DB, name, h.light, h.note, h.fix);
+    states[name] = h.state;
+  }
+
+  await serviceHealthRows(env);
+
+  // stats + key connections from the connections table (written by Connect and the stats phase)
+  const { results: conns } = await env.DB.prepare("SELECT service, status FROM connections WHERE service NOT IN ('buffer','resend','github')").all<{ service: Service; status: string }>();
+  for (const c of conns) states[c.service] = c.status === "ok" ? "ok" : c.status === "error" ? "bad" : "off";
+
+  const prev = await getSetting<Record<string, ConnState>>(env.DB, STATES_KEY, {});
+  const flips = connectionFlips(prev, states);
+  for (const name of flips) await connectionNeedsYouEmail(env, name);
+  await setSetting(env.DB, STATES_KEY, states);
+  if (flips.length) log.info("health.flips", { count: flips.length });
+}
+
+/** Clip cutting, Email (Resend) and Job runner (GitHub) lights. Also written by the daily lane. */
+export async function serviceHealthRows(env: Env): Promise<void> {
+  const fake = fakeServices(env);
+  if (!fake && !env.RESEND_API_KEY) await setHealth(env.DB, "Email (Resend)", "red", "Email is not set up, so alerts cannot reach you", "connect-resend");
+  else await setHealth(env.DB, "Email (Resend)", "green", fake ? "Test mode · emails are recorded, not sent" : "Ready to send", null);
+
+  if (!fake && !env.GITHUB_DISPATCH_TOKEN) await setHealth(env.DB, "Job runner (GitHub)", "red", "The job token is missing, so clips cannot be cut", "connect-github");
+  else await setHealth(env.DB, "Job runner (GitHub)", "green", fake ? "Test mode · jobs are simulated" : "Ready", null);
+
+  const last = await env.DB.prepare("SELECT status, finished_at, created_at FROM jobs WHERE type = 'cut' AND status IN ('done','failed') ORDER BY COALESCE(finished_at, created_at) DESC LIMIT 1").first<{ status: string; finished_at: string | null; created_at: string }>();
+  const running = (await env.DB.prepare("SELECT COUNT(*) AS n FROM jobs WHERE type = 'cut' AND status IN ('queued','dispatched','running')").first<{ n: number }>())?.n ?? 0;
+  const when = (last?.finished_at ?? last?.created_at ?? "").slice(0, 10);
+  const busy = running ? ` · ${running} cutting now` : "";
+  if (!last) await setHealth(env.DB, "Clip cutting", "grey", running ? `First cut running${busy}` : "No clips cut yet", null);
+  else if (last.status === "done") await setHealth(env.DB, "Clip cutting", "green", `Last job OK · ${when}${busy}`, null);
+  else await setHealth(env.DB, "Clip cutting", "red", `Last cut failed · ${when}${busy}`, "clips-look-wrong");
+}
+
+/**
+ * "Check everything now" (Settings): re-check Buffer and every pasted key right away, then
+ * rewrite the health rows. Posting is not touched.
+ */
+export async function recheckEverything(env: Env): Promise<void> {
+  const client = await getBuffer(env);
+  const buf = await bufferState(env, client, true);
+  const checks: [Service, (env: Env, key: string) => Promise<KeyCheck>][] = [
+    ["openrouter", checkOpenRouter],
+    ["firecrawl", checkFirecrawl],
+    ["hunter", checkHunter],
+  ];
+  for (const [service, check] of checks) {
+    const key = await getConnectionSecret(env, service);
+    if (!key) continue;
+    const r = await check(env, key);
+    await markConnection(env, service, r.ok ? "ok" : "error", r.error, r.meta);
+    await setHealth(env.DB, service, r.ok ? "green" : "red", r.ok ? "Connected" : (r.error ?? "Needs you"), r.ok ? null : `reconnect-${service}`);
+  }
+  const waiting = (await env.DB.prepare("SELECT COUNT(*) AS n FROM posts WHERE status = 'planned' AND scheduled_at < ?").bind(new Date(Date.now() + 7 * 86400_000).toISOString()).first<{ n: number }>())?.n ?? 0;
+  await writeHealth(env, buf, buf.ok ? 0 : waiting);
+  log.info("health.recheck", { buffer_ok: buf.ok });
 }

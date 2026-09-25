@@ -12,7 +12,7 @@ test.describe("login", () => {
 
   test("a code from the email logs her in", async ({ page }) => {
     await page.goto("/");
-    await page.getByLabel("Your email").fill("seq.taylor@gmail.com");
+    await page.getByLabel("Your email").fill("asheilabruceaffair@gmail.com");
     await page.getByRole("button", { name: "Email me a code" }).click();
     const code = await page.locator(".notice strong").textContent();
     await page.getByLabel("The code from your email").fill(code!.trim());

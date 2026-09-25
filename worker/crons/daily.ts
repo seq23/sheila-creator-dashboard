@@ -6,12 +6,15 @@ import { setHealth } from "../lib/db";
 import { log } from "../lib/log";
 import { readSettings } from "../routes/settings";
 import { emailFrame, sendEmail } from "../services/email";
+import { serviceHealthRows } from "./buffer-sync";
 import { CLIP_RETENTION_AFTER_POST_DAYS, RAW_RETENTION_DAYS, REJECTED_RETENTION_DAYS, TIME_TO_DUMP_REPEAT_DAYS } from "@shared/constants";
 
 export async function dailyMaintenance(env: Env): Promise<void> {
   await supplyMonitor(env);
   await retention(env);
   await storageLight(env);
+  // Email + job runner + clip cutting lights exist from the first day, before any hourly run.
+  await serviceHealthRows(env);
 }
 
 async function supplyMonitor(env: Env) {
