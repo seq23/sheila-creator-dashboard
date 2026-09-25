@@ -24,5 +24,12 @@ npx wrangler deploy --var FAKE_SERVICES:0 --var PUBLIC_BASE_URL:"$PUBLIC_BASE_UR
 echo "==> smoke"
 code="$(curl -s -o /dev/null -w '%{http_code}' "$PUBLIC_BASE_URL/healthz")"
 [ "$code" = "200" ] || { echo "healthz returned $code"; exit 1; }
-curl -s "$PUBLIC_BASE_URL/healthz"; echo
+body="$(curl -s "$PUBLIC_BASE_URL/healthz")"
+echo "$body"
+# The production Worker must say it is production and real (a staging config shipped here, or
+# fakes left on, would pass a bare 200).
+case "$body" in
+  *'"fake":false'*'"env":"production"'*) ;;
+  *) echo "healthz did not report {fake:false, env:production}"; exit 1 ;;
+esac
 echo "deployed: $PUBLIC_BASE_URL"

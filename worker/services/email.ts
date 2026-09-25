@@ -6,7 +6,7 @@ import { fakeServices } from "../env";
 import { newId } from "../lib/ids";
 import { log } from "../lib/log";
 
-export type EmailKind = "time_to_dump" | "clips_ready" | "posting_problem" | "connection_needs_you" | "weekly_recap" | "login_code";
+export type EmailKind = "time_to_dump" | "clips_ready" | "posting_problem" | "connection_needs_you" | "weekly_recap" | "login_code" | "brief_ready";
 
 export interface OutgoingEmail {
   kind: EmailKind;

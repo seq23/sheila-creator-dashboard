@@ -9,6 +9,8 @@ export interface Env {
   PUBLIC_BASE_URL: string;
   GITHUB_REPO: string;
   AUDIENCE_TIMEZONE: string;
+  /** "production" | "staging" | "dev" (wrangler.jsonc vars, .dev.vars). Missing reads as production. */
+  ENV_NAME?: string;
 
   // secrets
   SESSION_SECRET: string;
@@ -38,3 +40,7 @@ export type Vars = {
 };
 
 export const fakeServices = (env: Env): boolean => env.FAKE_SERVICES === "1";
+
+/** Which deployment this is; a job dispatch carries it so Actions picks the right bucket and secret. */
+export const envName = (env: Pick<Env, "ENV_NAME">): "production" | "staging" | "dev" =>
+  env.ENV_NAME === "staging" ? "staging" : env.ENV_NAME === "dev" ? "dev" : "production";

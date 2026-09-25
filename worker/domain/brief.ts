@@ -162,3 +162,145 @@ export function briefCounts(body: BriefBody, sources: BriefSource[]) {
     sources: sources.filter((s) => s.id !== WEB_SKIPPED_SOURCE_ID).length,
   };
 }
+
+// ---------------------------------------------------------------------------------------------
+// Section 6 brief crons: "After that it refreshes monthly and adjusts weekly from her results."
+// The owner's rule: nothing waits on the owner. The monthly refresh never stops for approval: it
+// makes a new draft and emails her, and the approved brief stays live (the cutter keeps reading
+// it) until she approves the new one. The weekly adjustment edits only the her-data claims it
+// owns on the live brief, never its approval and never a web or upload claim.
+
+/** Source id the weekly adjustment owns: claims citing it are rewritten every week. */
+export const WEEKLY_SOURCE_ID = "her_week";
+export const WEEKLY_SOURCE: BriefSource = { id: WEEKLY_SOURCE_ID, url: null, title: "Your results from the last 7 days (updated every Monday)", kind: "her_data" };
+/** A monthly refresh that could not start retries on the next daily runs, up to this day of the month. */
+export const MONTHLY_REFRESH_LAST_DAY = 3;
+/** Fewer videos than this in a week and the weekly claim is marked uncertain. */
+export const WEEKLY_SOLID_MIN_VIDEOS = 3;
+
+export interface MonthlyRefreshInput {
+  now: Date;
+  hasApproved: boolean;
+  profileLocked: boolean;
+  /** OpenRouter connected (or fakes on): the research job has a model to write with. */
+  aiReady: boolean;
+  /** Research jobs, any age; only this month's count. */
+  researchJobs: { status: string; created_at: string }[];
+}
+
+export interface MonthlyRefreshDecision {
+  run: boolean;
+  /** Health note, plain words. */
+  note: string;
+  light: "green" | "yellow";
+  fix_guide: string | null;
+}
+
+const monthStartIso = (now: Date) => new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+const nextMonthLabel = (now: Date) => new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)).toLocaleDateString("en-US", { day: "numeric", month: "short", timeZone: "UTC" });
+
+/**
+ * Should the daily lane start this month's brief refresh now? Runs on the 1st (UTC), retrying
+ * on the 2nd and 3rd if nothing started. Never asks for approval: an approved brief is the
+ * precondition, not something it waits on. A missing AI key is a named stop (yellow + guide).
+ */
+export function monthlyRefreshDecision(i: MonthlyRefreshInput): MonthlyRefreshDecision {
+  const next = `Next refresh on ${nextMonthLabel(i.now)}.`;
+  if (i.now.getUTCDate() > MONTHLY_REFRESH_LAST_DAY) return { run: false, note: next, light: "green", fix_guide: null };
+  if (!i.hasApproved) return { run: false, note: "No approved brief yet: the first one is made on Research. Monthly refreshes start after it.", light: "green", fix_guide: null };
+  if (!i.profileLocked) return { run: false, note: "The monthly refresh needs a locked Brand Profile.", light: "yellow", fix_guide: "upload-brand-docs" };
+  if (!i.aiReady) return { run: false, note: "The monthly refresh could not start: connect the AI (OpenRouter). Your approved brief stays live.", light: "yellow", fix_guide: "connect-openrouter" };
+  const since = monthStartIso(i.now);
+  const thisMonth = i.researchJobs.filter((j) => j.created_at >= since);
+  if (thisMonth.some((j) => j.status !== "failed")) return { run: false, note: `This month's draft is made or on its way. ${next}`, light: "green", fix_guide: null };
+  return { run: true, note: "Monthly refresh started: a new draft is on its way. Your approved brief stays live until you approve it.", light: "green", fix_guide: null };
+}
+
+/**
+ * Which draft (if any) needs the "New brief draft ready" email: the newest draft, newer than the
+ * approved brief, not emailed before. Only when an approved brief exists: that is a refresh, and
+ * the email tells her the approved one stays live. `notifiedRefs` are emails_sent.ref_id values.
+ */
+export function draftNoticeDue(i: { draftVersion: number | null; approvedVersion: number | null; notifiedRefs: string[] }): string | null {
+  if (i.draftVersion === null || i.approvedVersion === null) return null;
+  if (i.draftVersion <= i.approvedVersion) return null;
+  const ref = briefNoticeRef(i.draftVersion);
+  return i.notifiedRefs.includes(ref) ? null : ref;
+}
+export const briefNoticeRef = (version: number) => `brief_v${version}`;
+
+export interface WeekObservation {
+  platform: Platform;
+  posted_at: string;
+  views: number;
+}
+
+export interface WeekSummary {
+  platform: Platform;
+  videos: number;
+  avg_views: number;
+}
+
+/** Her videos posted in the 7 days before `now`, per platform (platforms with none are left out). */
+export function summarizeWeek(obs: WeekObservation[], now: Date): WeekSummary[] {
+  const end = now.getTime();
+  const start = end - 7 * 86_400_000;
+  const out: WeekSummary[] = [];
+  for (const p of PLATFORMS) {
+    const mine = obs.filter((o) => {
+      const t = Date.parse(o.posted_at);
+      return o.platform === p && Number.isFinite(t) && t >= start && t < end;
+    });
+    if (!mine.length) continue;
+    out.push({ platform: p, videos: mine.length, avg_views: Math.round(mine.reduce((a, o) => a + (o.views || 0), 0) / mine.length) });
+  }
+  return out;
+}
+
+const PLATFORM_NAME: Record<Platform, string> = { tiktok: "TikTok", instagram: "Instagram", youtube: "YouTube" };
+
+/** The her-data claim the weekly adjustment writes for one platform. */
+export function weeklyClaim(s: WeekSummary): Claim {
+  const views = s.avg_views.toLocaleString("en-US");
+  const text = `Last 7 days on ${PLATFORM_NAME[s.platform]}: ${s.videos} video${s.videos === 1 ? "" : "s"}, ${views} views on average.`;
+  return { text, source_ids: [WEEKLY_SOURCE_ID], basis: "her_data", confidence: s.videos >= WEEKLY_SOLID_MIN_VIDEOS ? "solid" : "uncertain" };
+}
+
+export interface LiveBrief {
+  version: number;
+  status: "draft" | "approved" | "superseded";
+  approved_at: string | null;
+  adjusted_at: string | null;
+  body: BriefBody;
+  sources: BriefSource[];
+}
+
+const ownsClaim = (c: Claim) => c.basis === "her_data" && c.source_ids.includes(WEEKLY_SOURCE_ID);
+
+/**
+ * The weekly adjustment, pure. Rewrites only the her-data claims that cite WEEKLY_SOURCE_ID
+ * (in the audience snapshot), from the last 7 days of her results. Every other claim, web and
+ * upload claims above all, is returned untouched, and status / approved_at are copied from the
+ * input: this function cannot approve, un-approve or supersede a brief. `adjusted_at` moves to
+ * `now` only when something changed.
+ */
+export function adjustBrief(brief: LiveBrief, week: WeekSummary[], now: Date): { brief: LiveBrief; changed: boolean } {
+  const kept = brief.body.audience.filter((c) => !ownsClaim(c));
+  const fresh = week.filter((s) => s.videos > 0).map(weeklyClaim);
+  const audience = [...kept, ...fresh];
+  const others = brief.sources.filter((s) => s.id !== WEEKLY_SOURCE_ID);
+  const sources = fresh.length ? [...others, WEEKLY_SOURCE] : others;
+  const body: BriefBody = { ...brief.body, audience };
+  const changed = JSON.stringify(body) !== JSON.stringify(brief.body) || JSON.stringify(sources) !== JSON.stringify(brief.sources);
+  return {
+    changed,
+    brief: {
+      version: brief.version,
+      status: brief.status,
+      approved_at: brief.approved_at,
+      adjusted_at: changed ? now.toISOString() : brief.adjusted_at,
+      body: changed ? body : brief.body,
+      sources: changed ? sources : brief.sources,
+    },
+  };
+}
