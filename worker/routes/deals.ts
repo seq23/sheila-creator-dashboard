@@ -23,7 +23,7 @@ import { parseJson, recordEvent } from "../lib/db";
 import { fail, readJson } from "../lib/http";
 import { newId, nowIso } from "../lib/ids";
 import { log } from "../lib/log";
-import { listConnections } from "../lib/connections";
+import { getConnectionSecret, listConnections } from "../lib/connections";
 import { canMove, nextFollowup } from "../domain/deals";
 import { afterFollowupSent, brandKey, contactProblem, sortContacts, validSentAt, type ContactKind } from "../domain/brandfit";
 import { tiktokOneEligibility, views30d } from "../domain/marketplace";
@@ -517,6 +517,7 @@ deals.post("/finder/run", async (c) => {
     .first<{ id: string }>();
   if (running) return fail(c, 409, "The brand finder is already looking. New brands show up here when it finishes.", "send-a-pitch");
   if (!(await lockedProfile(c.env))) return fail(c, 409, "Lock your Brand Profile first, so the finder knows what fits you.", "upload-brand-docs");
+  if (!c.get("fake") && !(await getConnectionSecret(c.env, "firecrawl"))) return fail(c, 409, "Connect web research (Firecrawl) first. The finder searches the web with it.", "connect-firecrawl");
   const r = await dispatchJob(c.env, "brand_finder", null);
   if (!r.dispatched) return fail(c, 502, r.error ?? "The brand finder could not start.", "reconnect-github");
   await recordEvent(c.env.DB, "brand_finder.started", r.jobId, {}, c.get("user").email);

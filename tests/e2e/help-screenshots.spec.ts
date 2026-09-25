@@ -64,12 +64,12 @@ for (const g of guides) {
       if (route === "external") continue;
       await p.goto(route);
       await p.locator("main h1, .kit h1, .login-card h1").first().waitFor({ timeout: 10_000 });
-      await p.waitForLoadState("networkidle").catch(() => undefined);
+      await settled(p);
       if (step.click) {
         const c = p.locator(step.click).first();
-        if (await c.isVisible().catch(() => false)) {
+        if (await c.isVisible({ timeout: 3000 }).catch(() => false)) {
           await c.click();
-          await p.waitForLoadState("networkidle").catch(() => undefined);
+          await settled(p);
         }
       }
       const target = await findTarget(p, step.target);
@@ -85,6 +85,12 @@ for (const g of guides) {
     const external = g.parsed.steps.filter((s) => s.route === "external").length;
     expect(shots + external, `${g.slug}: no screenshot taken`).toBe(g.parsed.steps.filter((s) => s.image).length);
   });
+}
+
+/** Loading placeholders gone, fonts in: the screen as she would see it. */
+async function settled(p: Page) {
+  await p.locator(".skeleton").first().waitFor({ state: "detached", timeout: 5000 }).catch(() => undefined);
+  await p.evaluate(() => document.fonts.ready.then(() => undefined));
 }
 
 /** The step's target if it is on screen, else the page heading, so every shot has a callout. */

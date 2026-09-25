@@ -2,7 +2,7 @@
 // page it was found on, pitch drafts she edits and sends herself (Open in Gmail / Copy / Open
 // form; the dashboard never sends), the deal tracker with follow-ups, deliverables on won deals,
 // TikTok One eligibility, and her media kit (second tab).
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import type { BrandCard, PitchView } from "@shared/types";
 import { DEAL_STAGES, PLATFORMS, PLATFORM_LABEL, type DealStage, type Platform } from "@shared/constants";
@@ -234,6 +234,11 @@ function BrandDetail({ b, kitUrl, onChange, onBack }: { b: Card2; kitUrl: string
   const [sending, setSending] = useState(false);
   const [addContact, setAddContact] = useState(false);
   const contact = b.contacts.find((x) => x.id === contactId) ?? b.contacts[0] ?? null;
+  const top = useRef<HTMLDivElement>(null);
+  // Phone: the list gives way to the brand she opened; bring it into view.
+  useEffect(() => {
+    if (window.innerWidth < 900) top.current?.scrollIntoView({ block: "start" });
+  }, []);
   // A reload (sent, replied, redrafted) brings the saved pitch back; take it.
   const pitchSig = b.pitch ? `${b.pitch.id}|${b.pitch.status}|${b.pitch.next_followup_at}|${b.pitch.subject}|${b.pitch.body.length}` : "";
   useEffect(() => setDraft(b.pitch), [pitchSig]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -300,6 +305,7 @@ function BrandDetail({ b, kitUrl, onChange, onBack }: { b: Card2; kitUrl: string
 
   return (
     <Card accent className="detail">
+      <div ref={top} />
       <button type="button" className="btn quiet small back-btn" onClick={onBack}>
         ‹ All brands
       </button>
@@ -326,9 +332,13 @@ function BrandDetail({ b, kitUrl, onChange, onBack }: { b: Card2; kitUrl: string
 
       <div className="why">
         <div>
-          <strong>Why it fits:</strong> {b.fit_reasons.join("; ") || "You added it."}
-          {b.why_now ? ` ${b.why_now}.` : ""}
+          <strong>Why it fits:</strong> {b.fit_reasons.length ? `${b.fit_reasons.map((r) => r.replace(/\.$/, "")).join("; ")}.` : "You added it."}
         </div>
+        {b.why_now ? (
+          <div>
+            <strong>Why now:</strong> {b.why_now.replace(/\.$/, "")}.
+          </div>
+        ) : null}
         {b.contacts.length ? (
           <div className="contact-line">
             <strong>Contact:</strong>{" "}

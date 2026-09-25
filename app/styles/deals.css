@@ -230,6 +230,11 @@
 .kit-line {
   overflow-wrap: anywhere;
 }
+@media (max-width: 700px) {
+  .mk-checks {
+    display: none;
+  }
+}
 @media (max-width: 900px) {
   .deals-split {
     grid-template-columns: minmax(0, 1fr);

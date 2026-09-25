@@ -1,5 +1,8 @@
-# Help screenshots (section 12c): Playwright walks each guide with demo data and saves
-# phone + desktop images with numbered callouts. Runs on every release and on demand.
+# Help screenshots (section 12c): Playwright walks every guide in help/index.json with demo data
+# (tests/e2e/seed-demo.sql, never her real content), draws the numbered callouts, and saves
+# phone + desktop images to help/screenshots/. Runs on every release and on demand; when the
+# pictures changed it opens a pull request, so the next deploy ships guides that match the
+# screens. The images are bundled into the app at build time (app/lib/guides.ts).
 name: job-help_screenshots
 
 on:
@@ -9,9 +12,18 @@ on:
     types: [published]
   workflow_dispatch:
 
+concurrency:
+  group: job-help_screenshots
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   run:
     runs-on: ubuntu-latest
+    # ~3 min of shots on a normal run; 20 min is a fault detector, never a budget.
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -22,12 +34,35 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run build
-      - run: npm run help:screenshots
+      - name: Capture (fake services, demo data)
+        run: npm run help:screenshots
         env:
           SESSION_SECRET: ci-session-secret
           SECRETS_KEY: 3Azr0CP6a687IwEqn9ZTM7gF9VgieHdcyXDvKd9Yo24=
           JOB_SHARED_SECRET: ci-job-secret
+      - name: Rule 0 — the run must have produced pictures
+        run: |
+          n=$(ls help/screenshots/*.png 2>/dev/null | wc -l)
+          echo "screenshots: $n"
+          test "$n" -gt 0
       - uses: actions/upload-artifact@v4
         with:
           name: help-screenshots
           path: help/screenshots
+          retention-days: 14
+      - name: Open a pull request when the pictures changed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git add help/screenshots
+          if git diff --cached --quiet; then
+            echo "Screenshots unchanged."
+            exit 0
+          fi
+          branch="help-screenshots/${{ github.run_id }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git commit -q -m "Help screenshots refreshed (run ${{ github.run_id }})"
+          git push -q origin "$branch"
+          gh pr create --title "Help screenshots refreshed" --body "Made by job-help_screenshots from demo data (tests/e2e/seed-demo.sql). Merging ships the new pictures with the next deploy." --head "$branch" --base "${{ github.event.repository.default_branch }}"
