@@ -58,4 +58,4 @@ assigned in the brief that adds it) · `package.json` deps (union merge only).
 ## Deploy
 
 `land <pr>` (from `~/bin`) or `npm run deploy:production`. Never bare `wrangler deploy`.
-Production URL: https://sheila-creator-dashboard.sltaylor.workers.dev (until her domain).
+Production URL: https://sheila-creator-dashboard.seq-taylor.workers.dev (until her domain).

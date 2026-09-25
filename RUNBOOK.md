@@ -4,7 +4,7 @@
 
 | Thing | Where |
 | --- | --- |
-| Production | https://sheila-creator-dashboard.sltaylor.workers.dev (Cloudflare account SL Taylor, `8d147e242033699dd37c6f5a451f48d2`) |
+| Production | https://sheila-creator-dashboard.seq-taylor.workers.dev (Cloudflare account SL Taylor, `8d147e242033699dd37c6f5a451f48d2`) |
 | D1 | `sheila-creator-dashboard-db` (id in `wrangler.jsonc`) |
 | R2 | `sheila-creator-dashboard-files` |
 | Repo | https://github.com/seq23/sheila-creator-dashboard (public) |
