@@ -47,7 +47,8 @@ jobs:
           path: ~/.cache/huggingface
           key: whisper-${{ env.WHISPER_MODEL }}-v1
       - name: System tools
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg > /dev/null
+        # libgles2 + libegl1: MediaPipe's Linux wheel loads GLES/EGL even for CPU face detection
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg libgles2 libegl1 > /dev/null
       - run: pip install -q -r jobs/requirements.txt
       - name: Run
         run: python3 jobs/cut.py
@@ -84,7 +85,7 @@ jobs:
         with:
           path: ~/.cache/huggingface
           key: whisper-${{ env.WHISPER_MODEL }}-v1
-      - name: System tools (ffmpeg with libass; espeak-ng for a spoken sample)
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg espeak-ng > /dev/null
+      - name: System tools (ffmpeg with libass; GLES/EGL for MediaPipe; espeak-ng for a spoken sample)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg libgles2 libegl1 espeak-ng > /dev/null
       - name: Pipeline self-test (synthetic footage, no secrets)
         run: python3 jobs/selftest_cut.py --require-heavy

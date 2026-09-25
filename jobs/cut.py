@@ -558,7 +558,8 @@ def face_detector(available: bool) -> Any:
         opts = vision.FaceDetectorOptions(base_options=BaseOptions(model_asset_path=str(FACE_MODEL)), min_detection_confidence=0.5)
         _DETECTOR = (mp, vision.FaceDetector.create_from_options(opts))
     except Exception as e:  # noqa: BLE001
-        log("face.detector.unavailable", err=type(e).__name__, where=_stage)
+        missing = re.search(r"lib[\w.+-]+\.so[\d.]*", str(e))  # a system library name, never content
+        log("face.detector.unavailable", err=type(e).__name__, where=_stage, lib=missing.group(0) if missing else None)
         _DETECTOR = False
     return _DETECTOR
 
