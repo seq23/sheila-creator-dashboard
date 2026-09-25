@@ -25,7 +25,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-from common import WORK, Job, log, r2_client, r2_download, run
+from common import WORK, Job, download_input, log, run
 
 MIN_DOC_CHARS = 20
 # pypdf warns on odd files; its messages stay out of the public log (section 13).
@@ -186,21 +186,19 @@ def main(job: Job, spec: dict[str, Any]) -> dict[str, Any]:
     work.mkdir(parents=True, exist_ok=True)
     results: list[dict[str, Any]] = []
     texts: list[str] = []
-    bucket = os.environ.get("R2_BUCKET", "")
-    s3 = r2_client() if docs or spec.get("done_text_keys") else None
 
     for i, d in enumerate(docs):
         job.progress("reading", i, len(docs))
         local = work / d["id"]
         try:
-            r2_download(d["r2_key"], local)
+            download_input(d["r2_key"], local)
         except Exception:  # noqa: BLE001
             results.append({"id": d["id"], "status": "unreadable", "char_count": 0, "reason": "missing"})
             log("extract.doc", ok=False, reason="missing")
             continue
         try:
             text, ocr = extract_text(local, d.get("mime_type", ""), d.get("ext", ""), min_cpp)
-            s3.put_object(Bucket=bucket, Key=d["text_key"], Body=text.encode("utf-8"), ContentType="text/plain; charset=utf-8")
+            job.write_output_bytes(text.encode("utf-8"), d["text_key"], "text/plain; charset=utf-8")
             results.append({"id": d["id"], "status": "done", "char_count": len(text), "ocr": ocr})
             texts.append(text)
             log("extract.doc", ok=True, chars=len(text), ocr=ocr)
@@ -218,8 +216,7 @@ def main(job: Job, spec: dict[str, Any]) -> dict[str, Any]:
     if spec.get("draft_profile") and spec.get("llm"):
         for key in spec.get("done_text_keys") or []:
             try:
-                obj = s3.get_object(Bucket=bucket, Key=key)
-                texts.append(obj["Body"].read().decode("utf-8", errors="replace"))
+                texts.append(job.read_input_bytes(key).decode("utf-8", errors="replace"))
             except Exception:  # noqa: BLE001
                 log("extract.profile.text_missing")
         if texts:

@@ -1,7 +1,9 @@
 // Staging is production's twin (wrangler.jsonc env.staging), and every job dispatch says which
 // deployment started it so Actions picks that deployment's bucket and shared secret.
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { dispatchBody } from "@worker/services/github";
 import { envName } from "@worker/env";
@@ -72,7 +74,42 @@ describe("envs-match validator", () => {
     const bad = "on:\n  repository_dispatch:\n    types: [x]\n        env:\n          WORKER_URL: ${{ github.event.client_payload.worker_url }}\n          JOB_SHARED_SECRET: ${{ secrets.JOB_SHARED_SECRET }}\n          R2_BUCKET: p-files\n";
     const r = checkWorkflow("job-x.yml", bad, buckets);
     expect(r.skip).toBe(false);
-    expect(r.problems.length).toBe(3);
+    expect(r.problems).toEqual([
+      "job-x.yml: JOB_SHARED_SECRET must pick secrets.JOB_SHARED_SECRET_STAGING when client_payload.env is 'staging'",
+      "job-x.yml: JOB_ENV must come from client_payload.env",
+      "job-x.yml: a job workflow must not name a bucket; storage goes through the Worker at WORKER_URL",
+    ]);
+  });
+
+  it("fails a job workflow that names either bucket even without R2_BUCKET (storage goes through the Worker)", () => {
+    const buckets = { production: "p-files", staging: "s-files" };
+    const ok =
+      "on:\n  repository_dispatch:\n    types: [x]\n        env:\n          WORKER_URL: ${{ github.event.client_payload.worker_url }}\n          JOB_ENV: ${{ github.event.client_payload.env == 'staging' && 'staging' || 'production' }}\n          JOB_SHARED_SECRET: ${{ github.event.client_payload.env == 'staging' && secrets.JOB_SHARED_SECRET_STAGING || secrets.JOB_SHARED_SECRET }}\n";
+    expect(checkWorkflow("job-x.yml", ok, buckets).problems).toEqual([]);
+    expect(checkWorkflow("job-x.yml", ok + "          BUCKET: s-files\n", buckets).problems).toEqual(["job-x.yml: a job workflow must not name a bucket; storage goes through the Worker at WORKER_URL"]);
+  });
+
+  it("staging logs in at the West Peek Resend owner's address; production stays Sheila's", () => {
+    const c = cfg();
+    expect(c.env.staging.vars.OWNER_EMAIL).toBe("sequoia@westpeek.ventures");
+    expect(c.vars.OWNER_EMAIL).toBe("asheilabruceaffair@gmail.com");
+  });
+});
+
+describe("local dev says dev", () => {
+  it("tests/e2e/serve.sh rewrites .dev.vars so ENV_NAME is dev, whatever it said before, and healthz reads it as dev", () => {
+    const sh = readFileSync(path.join(root, "tests/e2e/serve.sh"), "utf8");
+    const line = sh.split("\n").find((l) => l.includes('echo "ENV_NAME=dev"'));
+    expect(line).toBeTruthy();
+    const dir = mkdtempSync(path.join(tmpdir(), "scd-devvars-"));
+    for (const before of ["SESSION_SECRET=x\nENV_NAME=production\n", "SESSION_SECRET=x\n"]) {
+      writeFileSync(path.join(dir, ".dev.vars"), before);
+      execFileSync("bash", ["-c", `set -euo pipefail; ${line}`], { cwd: dir });
+      const vars = readFileSync(path.join(dir, ".dev.vars"), "utf8").split("\n").filter(Boolean);
+      expect(vars).toEqual(["SESSION_SECRET=x", "ENV_NAME=dev"]);
+      const envVal = vars.find((v) => v.startsWith("ENV_NAME="))!.split("=")[1];
+      expect(envName({ ENV_NAME: envVal })).toBe("dev");
+    }
   });
 });
 
@@ -83,5 +120,19 @@ describe("the owner's rules are read by code, not only written down", () => {
     const ledger = readFileSync(path.join(root, "docs", "PHASE-LEDGER.md"), "utf8");
     const row = ledger.split("\n").find((l) => l.startsWith("| Section 6 brief crons"));
     expect(row).toContain("Nothing waits on the owner: the monthly refresh does not stop for approval, it emails and the approved brief stays live.");
+  });
+
+  it("staging has no named stops left, and no doc tells anyone to make R2 keys for jobs", () => {
+    const ledger = readFileSync(path.join(root, "docs", "PHASE-LEDGER.md"), "utf8");
+    const row = ledger.split("\n").find((l) => l.startsWith("| Staging |"));
+    expect(row).toContain("Named stops: none.");
+    const runbook = readFileSync(path.join(root, "RUNBOOK.md"), "utf8");
+    const stops = runbook.split("### Staging: named stops")[1]?.split("\n### ")[0] ?? "";
+    expect(stops).toMatch(/^\s*None\./);
+    for (const doc of ["RUNBOOK.md", "README.md", "CLAUDE.md"]) {
+      const text = readFileSync(path.join(root, doc), "utf8");
+      expect(text, doc).not.toMatch(/R2_ACCESS_KEY_ID|R2_SECRET_ACCESS_KEY|R2 API token/);
+    }
+    expect(runbook).toContain("### Staging: reading a login code without a mailbox");
   });
 });

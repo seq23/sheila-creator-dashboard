@@ -15,7 +15,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from common import WORK, Job, log, r2_download, r2_upload, run
+from common import WORK, Job, download_input, log, run, upload_output
 
 CHATTERBOX = "chatterbox-tts>=0.1.2,<0.2"  # speed and quality on the Actions CPU runner: not yet proven
 
@@ -56,7 +56,7 @@ def main(job: Job, spec: dict[str, Any]) -> dict[str, Any]:
     loaded = False
     if spec.get("model_exists"):
         try:
-            r2_download(model_key, conds_path)
+            download_input(model_key, conds_path)
             from chatterbox.tts import Conditionals  # noqa: E402
 
             model.conds = Conditionals.load(conds_path, map_location="cpu")
@@ -64,11 +64,11 @@ def main(job: Job, spec: dict[str, Any]) -> dict[str, Any]:
         except Exception:  # noqa: BLE001  a stale or missing model is rebuilt from the sample
             log("voice.model.rebuild")
     if not loaded:
-        raw = r2_download(str(spec["sample_key"]), work / "sample.bin")
+        raw = download_input(str(spec["sample_key"]), work / "sample.bin")
         sample = to_wav(raw, work / "sample.wav")
         model.prepare_conditionals(str(sample))
         model.conds.save(conds_path)
-        r2_upload(conds_path, model_key, "application/octet-stream")
+        upload_output(conds_path, model_key, "application/octet-stream")
     log("voice.ready", reused=loaded)
 
     job.progress("speaking", 2, 4)
@@ -88,7 +88,7 @@ def main(job: Job, spec: dict[str, Any]) -> dict[str, Any]:
     out_mp3 = work / "narration.mp3"
     subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(out_wav), "-codec:a", "libmp3lame", "-q:a", "3", str(out_mp3)], check=True)
     key = str(spec["output_key"])
-    r2_upload(out_mp3, key, "audio/mpeg")
+    upload_output(out_mp3, key, "audio/mpeg")
     log("voice.done", seconds=round(seconds, 1), bytes=out_mp3.stat().st_size)
     return {"r2_key": key, "duration_s": round(seconds, 1), "bytes": out_mp3.stat().st_size, "model_key": model_key}
 

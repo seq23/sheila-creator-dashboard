@@ -6,7 +6,8 @@
 // Wrangler does not inherit vars / d1_databases / r2_buckets into an env, so staging must
 // restate them; a var or binding production has and staging lacks is a difference too.
 // Then every job workflow that runs against a deployed Worker must map the dispatch payload's
-// `env` to the right shared secret and bucket, with bucket names equal to wrangler.jsonc's.
+// `env` to the right shared secret, call back the Worker that started it, and name no bucket
+// (storage goes through that Worker).
 // Items: the compared config keys + vars + bindings, plus every job workflow checked.
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
@@ -133,11 +134,11 @@ export function checkWorkflow(name, yml, buckets) {
     problems.push(`${name}: JOB_SHARED_SECRET must pick secrets.JOB_SHARED_SECRET_STAGING when client_payload.env is 'staging'`);
   if (!/JOB_ENV:\s*\$\{\{\s*github\.event\.client_payload\.env == 'staging'/.test(yml)) problems.push(`${name}: JOB_ENV must come from client_payload.env`);
   if (!/WORKER_URL:\s*\$\{\{\s*github\.event\.client_payload\.worker_url\s*\}\}/.test(yml)) problems.push(`${name}: WORKER_URL must be the payload's worker_url (the deployment that started it)`);
-  const bucket = yml.match(/R2_BUCKET:\s*(.+)/)?.[1];
-  if (bucket !== undefined) {
-    const want = `\${{ github.event.client_payload.env == 'staging' && '${buckets.staging}' || '${buckets.production}' }}`;
-    if (bucket.trim() !== want) problems.push(`${name}: R2_BUCKET must be ${want}`);
-  }
+  // Storage goes through the Worker that started the job (WORKER_URL), which holds the right
+  // bucket binding. A job workflow naming a bucket could reach the other deployment's files.
+  const bucketNames = [buckets.production, buckets.staging].filter(Boolean);
+  if (/R2_BUCKET\s*:/.test(yml) || bucketNames.some((b) => yml.includes(b)))
+    problems.push(`${name}: a job workflow must not name a bucket; storage goes through the Worker at WORKER_URL`);
   return { skip: false, problems };
 }
 

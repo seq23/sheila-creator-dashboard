@@ -16,7 +16,7 @@ and what only a person can check.
 | App + API + crons | One Cloudflare Worker: React/Vite as static assets, Hono API under `/api`, three cron lanes |
 | Login | Email one-time code (Resend), no passwords; owner + optional helper |
 | Data | D1 (`migrations/`), R2 (`raw/`, `clips/`, `brain/`, `voice/`, `kit/`) |
-| Heavy jobs | GitHub Actions, started only by the Worker (`repository_dispatch`, signed), `jobs/*.py` |
+| Heavy jobs | GitHub Actions, started only by the Worker (`repository_dispatch`, signed), `jobs/*.py`; files in and out only through the Worker (signed), never with storage keys |
 | AI / search / posting / email | OpenRouter free models · Firecrawl · Buffer API · Resend |
 
 Every outside service has a stand-in behind `FAKE_SERVICES=1` (the default in
@@ -58,7 +58,7 @@ Never a bare `wrangler deploy` (stale client, fake services).
 with throwaway accounts while Sheila's production stays untouched:
 `npm run deploy:staging` → https://sheila-creator-dashboard-staging.seq-taylor.workers.dev.
 `npm run validate:envs` keeps it production's twin. RUNBOOK "Staging" has what is real, the
-named stops and the Phase 0 live checklist.
+named stops (none) and the Phase 0 live checklist.
 
 ## Phase ledger
 
@@ -74,7 +74,10 @@ Anyone can read this code and the Actions logs, so (section 13 of the plan):
 - Her data lives only in her Cloudflare account (D1, R2). Keys live only in `wrangler secret`
   and GitHub Secrets; per-service keys she pastes are AES-GCM encrypted in D1.
 - Jobs start only from the Worker with a signed, time-limited payload; job → Worker calls are
-  signed the same way. Upload links are session-bound; clip links are long random tokens that
+  signed the same way. Jobs hold no storage keys: they stream inputs from the Worker
+  (`GET /api/jobs/:id/input/<key>`) and write outputs through its chunked upload, limited to
+  their own folders (`worker/lib/jobStorage.ts`); the validator `jobs-no-direct-storage` fails
+  if a job or workflow mentions an S3 client, an R2 credential or an S3 endpoint. Upload links are session-bound; clip links are long random tokens that
   expire 30 days after posting.
 
 ## Validators

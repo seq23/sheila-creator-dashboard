@@ -16,8 +16,9 @@ export interface DispatchResult {
 
 /**
  * The repository_dispatch body. `env` tells the workflow which deployment started the job, so
- * it picks that deployment's R2 bucket and shared secret (JOB_SHARED_SECRET_STAGING for
- * staging); `worker_url` is where the job fetches its spec and calls back. Pure, unit-tested.
+ * it picks that deployment's shared secret (JOB_SHARED_SECRET_STAGING for staging);
+ * `worker_url` is where the job fetches its spec and inputs, writes its outputs and calls back.
+ * Pure, unit-tested.
  */
 export function dispatchBody(env: Pick<Env, "ENV_NAME" | "PUBLIC_BASE_URL">, type: JobType, p: { jobId: string; nonce: string; ts: number | string; sig: string }) {
   return { event_type: type, client_payload: { job_id: p.jobId, nonce: p.nonce, ts: p.ts, sig: p.sig, worker_url: env.PUBLIC_BASE_URL, env: envName(env) === "staging" ? "staging" : "production" } };

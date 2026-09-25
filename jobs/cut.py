@@ -1,7 +1,7 @@
 """Cut a dump into vertical clips (BUILD_PLAN.md section 8). OWNED BY: phase 4.
 
 Pipeline per dump (every stage reports progress; logs carry counts only):
-  1. download each uploaded video from R2
+  1. download each uploaded video (streamed from R2 through the Worker, signed)
   2. normalize: constant 30 fps, yuv420p, long side <= 1920, 48 kHz stereo audio (silent track
      added when a video has none)
   3. transcribe with faster-whisper (word timestamps, CPU); "none" when it is not installed
@@ -38,7 +38,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import WORK, Job, log, r2_download, r2_upload, run  # noqa: E402
+from common import WORK, Job, download_input, log, run, upload_output  # noqa: E402
 
 OUT_W, OUT_H = 1080, 1920
 FPS = 30
@@ -861,7 +861,7 @@ def main(job: Job, spec: dict[str, Any]) -> dict[str, Any]:
     log("cut.tools", whisper=heavy["whisper"], mediapipe=heavy["mediapipe"], libass=ffmpeg_has_filter("subtitles"))
     try:
         # NoUsableMoments reaches the Worker by its class name; plainFailure() words it for her.
-        return cut_dump(spec, work, r2_download, r2_upload, job.progress, heavy)
+        return cut_dump(spec, work, download_input, upload_output, job.progress, heavy)
     finally:
         shutil.rmtree(work, ignore_errors=True)
 

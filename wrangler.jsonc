@@ -83,7 +83,8 @@
       },
       "vars": {
         "APP_NAME": "Sheila Studio",
-        "OWNER_EMAIL": "seq.taylor@gmail.com",
+        // The West Peek Resend key delivers only to its account owner's address, so staging logs in there.
+        "OWNER_EMAIL": "sequoia@westpeek.ventures",
         "FAKE_SERVICES": "0",
         "PUBLIC_BASE_URL": "https://sheila-creator-dashboard-staging.seq-taylor.workers.dev",
         "GITHUB_REPO": "seq23/sheila-creator-dashboard",

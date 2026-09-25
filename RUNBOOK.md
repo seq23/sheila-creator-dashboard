@@ -13,8 +13,18 @@
 ## Secrets
 
 Worker (`wrangler secret put NAME`): `SESSION_SECRET`, `SECRETS_KEY` (32 bytes base64),
-`JOB_SHARED_SECRET`, `GITHUB_DISPATCH_TOKEN` (fine-grained PAT, contents:write on this repo),
-`RESEND_API_KEY`.
+`JOB_SHARED_SECRET`, `GITHUB_DISPATCH_TOKEN`, `RESEND_API_KEY`.
+
+`GITHUB_DISPATCH_TOKEN` (production and staging) is Sequoia's own GitHub token, the one the
+`gh` CLI on her Mac is logged in with (account seq23, scopes `repo` + `workflow`), set with
+`gh auth token | npx wrangler secret put GITHUB_DISPATCH_TOKEN [--env staging]` so it never
+appears on screen. It only needs to fire `repository_dispatch` on this repo. To swap in a
+narrower token at any time: github.com → Settings → Developer settings → Fine-grained tokens →
+Generate; Resource owner seq23, Only select repositories → `seq23/sheila-creator-dashboard`,
+Repository permissions → Contents: Read and write (Metadata: Read comes with it); copy it, run
+`pbpaste | npx wrangler secret put GITHUB_DISPATCH_TOKEN` and
+`pbpaste | npx wrangler secret put GITHUB_DISPATCH_TOKEN --env staging`, then press "Check
+everything now" on Settings (the `Job runner (GitHub)` light) or start any job to confirm a 204.
 
 Worker, optional (stats sign-in on Connections; without them the Instagram / YouTube buttons
 stay disabled with a fix guide): `META_APP_ID`, `META_APP_SECRET` (a Meta app with Instagram
@@ -22,9 +32,13 @@ Login), `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` (a Google Cloud OAuth client,
 production", YouTube Data + Analytics APIs on). Register these redirect URIs on each app:
 `<PUBLIC_BASE_URL>/api/oauth/meta/callback` and `<PUBLIC_BASE_URL>/api/oauth/google/callback`.
 
-GitHub Actions secrets: `JOB_SHARED_SECRET` (same value), `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`,
-`R2_SECRET_ACCESS_KEY` (an R2 API token scoped to the one bucket), `OPENROUTER_API_KEY`,
-`FIRECRAWL_API_KEY`.
+GitHub Actions secrets: `JOB_SHARED_SECRET` (same value), `JOB_SHARED_SECRET_STAGING`,
+`OPENROUTER_API_KEY`, `FIRECRAWL_API_KEY`. No storage keys: jobs read and write files only
+through the Worker that started them (`jobs/common.py` `download_input` / `upload_output` →
+`GET /api/jobs/:id/input/<key>` and `/api/jobs/:id/output/{start,parts/:n,complete,abort}`,
+signed with the job secret, 10 MB parts, each job type limited to its own folders by
+`worker/lib/jobStorage.ts`). `npm run validate` fails if a job or workflow mentions an S3
+client, an R2 credential or an S3 endpoint (`jobs-no-direct-storage`).
 
 Per-user keys (Buffer, OpenRouter, Firecrawl, Hunter) are pasted on Settings → Connections and
 stored AES-GCM encrypted in D1 `connections.secret_enc`.
@@ -71,7 +85,7 @@ Sheila's production is never touched by it.
 | Config | `wrangler.jsonc` `env.staging`; `npm run validate:envs` fails on any drift from production except name, D1/R2 and the vars OWNER_EMAIL, PUBLIC_BASE_URL, ENV_NAME, FAKE_SERVICES |
 | D1 | `sheila-creator-dashboard-db-staging` (`c8e9e2c9-0c30-48c5-9c93-acf66a26979c`) |
 | R2 | `sheila-creator-dashboard-files-staging` |
-| Login | `seq.taylor@gmail.com` (OWNER_EMAIL) |
+| Login | `sequoia@westpeek.ventures` (OWNER_EMAIL). The West Peek Resend key delivers only to its account owner's address, and she reads that mailbox. |
 | Deploy | `npm run deploy:staging` (twin check → build → remote migrations → deploy → healthz must say `env: staging`). After every `land`, run it from `main` so both match. |
 
 ```bash
@@ -81,9 +95,10 @@ npx wrangler tail sheila-creator-dashboard-staging --format pretty
 
 Secrets (`wrangler secret put <NAME> --env staging`, value on stdin): `SESSION_SECRET`,
 `SECRETS_KEY`, `JOB_SHARED_SECRET` (fresh, staging-only), `RESEND_API_KEY` (the West Peek Resend
-key, vault `resend-app-18f24eb6`). GitHub secret `JOB_SHARED_SECRET_STAGING` holds the same job
-secret; every `job-*.yml` picks it (and the staging bucket) when the dispatch payload says
-`env: staging`.
+key, vault `resend-app-18f24eb6`), `GITHUB_DISPATCH_TOKEN` (see Secrets above). GitHub secret
+`JOB_SHARED_SECRET_STAGING` holds the same job secret; every `job-*.yml` picks it when the
+dispatch payload says `env: staging`, and the job reaches files only through the staging
+Worker (`worker_url` in the payload), so it can only ever touch the staging bucket.
 
 ### What is real on staging
 
@@ -91,28 +106,40 @@ secret; every `job-*.yml` picks it (and the staging bucket) when the dispatch pa
 | --- | --- |
 | Worker, D1, R2, crons | Real, all migrations applied |
 | Buffer | Real: connected with vault `buffer-access-token` (one TikTok channel, `@iamcindymercer`; that Buffer account's Twitter channel is ignored). **That is a live TikTok account, not a throwaway**: before the Buffer post test, swap in the throwaway Buffer account on Connect (Disconnect, paste its key). |
-| Email (Resend) | Key live, sending refused: see named stops. The health light says so (red, `connect-resend`). |
-| OpenRouter, Firecrawl, Hunter, Instagram/YouTube stats | Not connected by design (Sheila's Hunter key stays hers). Connect shows "Not connected" with a guide; research and the brand finder refuse with the connect guide. |
-| Jobs (cut, extract, research, metrics, brand finder, voice) | Blocked: see named stops. Health: `Job runner (GitHub)` red, `connect-github`. |
+| Email (Resend) | Real: the West Peek Resend key sends from `onboarding@resend.dev` to its own account owner, `sequoia@westpeek.ventures`, which is staging's OWNER_EMAIL. Login codes and every staging email land there. Production's OWNER_EMAIL and sender are unchanged. |
+| Jobs (cut, extract, research, metrics, brand finder, voice) | Real: dispatch with `GITHUB_DISPATCH_TOKEN`; the job fetches its spec and files from the staging Worker and writes its outputs back through it (no storage keys anywhere). |
+| OpenRouter, Firecrawl, Hunter, Instagram/YouTube stats | Not connected by design (Sheila's Hunter key stays hers). Connect shows "Not connected" with a guide; research and the brand finder refuse with the connect guide. The cut job falls back to its deterministic moment picker without OpenRouter. |
 
 ### Staging: named stops
 
-Each is a secret or account only the owner holds; everything else is built.
+None. Everything staging needs is set: email goes to the Resend owner's address, the dispatch
+token is Sequoia's own GitHub token, and jobs need no storage keys.
 
-1. **Staging email.** Resend answered 403 `validation_error`: "You can only send testing emails
-   to your own email address … verify a domain at resend.com/domains, and change the `from`
-   address to an email using this domain." The West Peek Resend account delivers only to its
-   own address from `onboarding@resend.dev`. Fix: verify a domain for this app in the West Peek
-   Resend account (or paste a Resend key from an account whose owner address is
-   `seq.taylor@gmail.com`: `wrangler secret put RESEND_API_KEY --env staging`). Until then login
-   codes cannot reach `seq.taylor@gmail.com`; the login form says the code could not be sent.
-2. **Job dispatch token.** `GITHUB_DISPATCH_TOKEN` for staging: the vault PAT
-   `github-cloud-1ab31c45` answered 403 on `POST /repos/seq23/sheila-creator-dashboard/dispatches`
-   (fine-grained, metadata read only). Needs a fine-grained PAT with Contents: write on this
-   repo: `wrangler secret put GITHUB_DISPATCH_TOKEN --env staging` (and the same for production).
-3. **R2 job credentials.** `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` (GitHub secrets): no R2
-   S3 token is in the vault. Needs an R2 API token with Object Read & Write on both
-   `sheila-creator-dashboard-files` and `-files-staging`.
+### Staging: reading a login code without a mailbox
+
+Resend keeps each email it sends, so an agent reads the code from Resend's API instead of an
+inbox. One command asks staging for a code and prints it:
+
+```bash
+node scripts/staging-login-code.mjs --request   # {"email_id":"…","last_event":"delivered","code":"123456"}
+```
+
+What it does, step by step (the same calls by hand):
+
+```bash
+# 1. ask for a code through the real login form's endpoint
+curl -s -X POST https://sheila-creator-dashboard-staging.seq-taylor.workers.dev/api/auth/request \
+  -H 'content-type: application/json' -d '{"email":"sequoia@westpeek.ventures"}'
+# 2. the Resend id of that email
+npx wrangler d1 execute sheila-creator-dashboard-db-staging --remote --env staging --json \
+  --command "SELECT provider_id FROM emails_sent WHERE kind='login_code' ORDER BY sent_at DESC LIMIT 1"
+# 3. the email itself; its "text" says "Your login code is NNNNNN." and "last_event" is sent/delivered
+RESEND_API_KEY="$(security find-generic-password -s repo-operator-credential-resend-app-18f24eb6 -w)" \
+  sh -c 'curl -s https://api.resend.com/emails/<provider_id> -H "Authorization: Bearer $RESEND_API_KEY"'
+# 4. trade the code for a session cookie
+curl -s -c cookies.txt -X POST https://sheila-creator-dashboard-staging.seq-taylor.workers.dev/api/auth/verify \
+  -H 'content-type: application/json' -d '{"email":"sequoia@westpeek.ventures","code":"NNNNNN"}'
+```
 
 ### Phase 0 live checklist (staging)
 
@@ -121,14 +148,14 @@ check that proves it.
 
 | # | Step in the staging app | Proven by |
 | --- | --- | --- |
-| 1 | Log in with `seq.taylor@gmail.com` and the emailed code (needs stop 1) | `emails_sent` row `login_code` with a `provider_id`; health `Email (Resend)` green "Ready to send" |
+| 1 | Log in with `sequoia@westpeek.ventures` and the emailed code (or `node scripts/staging-login-code.mjs --request`) | `emails_sent` row `login_code` with a `provider_id`; health `Email (Resend)` green "Ready to send" |
 | 2 | Connect → Buffer: paste the throwaway Buffer account's key; add TikTok, Instagram, YouTube channels in Buffer | health `Buffer` green and one green `<Platform> (via Buffer)` light per channel |
-| 3 | Dump a neutral test clip from the phone (needs stops 2 + 3) | `jobs` row `type='cut'` `status='done'`; health `Clip cutting` green; clips appear in Review |
+| 3 | Dump a neutral test clip from the phone | `jobs` row `type='cut'` `status='done'`; health `Clip cutting` green; clips appear in Review |
 | 4 | Approve one clip, put it on the Calendar for the next hour: a real Buffer post | `posts.status='posted'` with a `url`; the post is on the throwaway accounts (then delete it there) |
 | 5 | Client Brain: upload a real scanned PDF | `jobs` row `type='extract'` `status='done'`; the draft profile shows the PDF's text (OCR) |
 | 6 | Connect → Instagram and YouTube sign-in (needs a Meta app with Instagram Login and a Google project "In production"; set `META_APP_ID`/`META_APP_SECRET`/`GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` with `--env staging`) | health `Instagram stats` / `YouTube stats` green; `account_stats` rows with `source='api'` |
 | 7 | Stats → upload a real TikTok Studio CSV export | `platform_videos` rows `platform='tiktok'` `source='import'`; health `TikTok stats` green |
-| 8 | Research → Refresh research, then Approve (needs OpenRouter connected + stops 2 + 3) | `jobs` row `type='research'` `status='done'`; `research_briefs` row `status='approved'` |
+| 8 | Research → Refresh research, then Approve (needs OpenRouter connected) | `jobs` row `type='research'` `status='done'`; `research_briefs` row `status='approved'` |
 | 9 | Settings → Voice on, record a sample, narrate a clip (Chatterbox on the Actions CPU) | `jobs` row `type='voice'` `status='done'`; health `Voice` green |
 | 10 | Deals → Find brands now with Firecrawl + OpenRouter connected, on real brand sites | `jobs` row `type='brand_finder'` `status='done'`; `brands` rows with a public contact; health `Brand finder` green |
 | 11 | Wait for the 1st of the month (or run the daily lane): the monthly brief refresh | health `Monthly brief refresh` green "started"; `emails_sent` row `brief_ready`; the approved brief is still `approved` |
