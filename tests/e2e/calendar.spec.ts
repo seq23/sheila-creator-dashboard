@@ -3,18 +3,11 @@
 // fill → 22 posts at launch caps, moves refused over the cap, take off, the hourly cron
 // (wrangler dev's /cdn-cgi/handler/scheduled) loading Buffer, posts going out, a failing post
 // retried twice then emailed, a channel disconnecting once → one email, and the screens.
-import { execFileSync } from "node:child_process";
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { sql } from "./helpers";
 
-const ROOT = process.cwd(); // Playwright runs from the repo root, where wrangler dev keeps its local D1
 const TZ = "America/New_York";
 const HOUR = 3600_000;
-
-function sql<T = Record<string, unknown>>(command: string): T[] {
-  const out = execFileSync("npx", ["wrangler", "d1", "execute", "sheila-creator-dashboard-db", "--local", "--json", "--command", command], { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
-  const parsed = JSON.parse(out) as { results: T[] }[];
-  return parsed[parsed.length - 1]?.results ?? [];
-}
 
 const token = (prefix: string, i: number) => `${prefix}${String(i).padStart(4, "0")}`.padEnd(40, "x");
 const localDate = (iso: string) => new Intl.DateTimeFormat("en-CA", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(iso));
