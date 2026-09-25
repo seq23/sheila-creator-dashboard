@@ -68,3 +68,11 @@ settings.patch("/", requireOwner, async (c) => {
 });
 
 settings.get("/health", async (c) => c.json(await listHealth(c.env.DB)));
+
+/** "Check everything now": re-check Buffer and every pasted key, rewrite the lights, return them. */
+settings.post("/health/recheck", async (c) => {
+  const { recheckEverything } = await import("../crons/buffer-sync");
+  await recheckEverything(c.env);
+  await recordEvent(c.env.DB, "health.recheck", null, {}, c.get("user").email);
+  return c.json(await listHealth(c.env.DB));
+});

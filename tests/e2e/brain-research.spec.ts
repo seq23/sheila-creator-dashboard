@@ -5,6 +5,7 @@
 //   Stats: fake Instagram sign-in, TikTok export import, sync, the expired-token failure shape
 import { randomBytes } from "node:crypto";
 import { expect, test, type APIRequestContext } from "@playwright/test";
+import { sql } from "./helpers";
 
 const MD = `# A Sheila Bruce Affair — notes\nLuxury yacht days, galas and wellness talks for Black women over 50 in Sarasota.\nGoal: fill every event and land brand partners that fit.\n`;
 
@@ -30,9 +31,13 @@ async function dumpWithVideo(api: APIRequestContext): Promise<string> {
   return id;
 }
 
-// The smoke spec expects the gate closed on "Brand Profile"; leave the profile unlocked after each run.
+// Leave the gate as the other specs expect to find it: the smoke spec wants Dump refused on
+// "Brand Profile" (profile unlocked), and the calendar spec wants launch posting slots, which
+// only holds while no brief is approved. There is no un-approve route (approval is a one-way
+// action for her), so the brief this spec approved is removed from the local D1 directly.
 test.afterEach(async ({ page }) => {
   await page.request.post("/api/brain/profile/unlock");
+  sql("DELETE FROM research_briefs");
 });
 
 test("brain → research → the cutting gate opens only after lock + approve", async ({ page }) => {

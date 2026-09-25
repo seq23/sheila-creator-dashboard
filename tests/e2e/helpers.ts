@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import type { Page } from "@playwright/test";
 
 /** Log in through the real one-time-code flow; fake services return the code in the response. */
@@ -7,4 +8,17 @@ export async function login(page: Page, email = "asheilabruceaffair@gmail.com") 
   if (!dev_code) throw new Error("fake services did not return a login code");
   const v = await page.request.post("/api/auth/verify", { data: { email, code: dev_code } });
   if (!v.ok()) throw new Error(`verify failed: ${v.status()}`);
+}
+
+/**
+ * Run SQL against the local D1 that `wrangler dev` serves the suite from. Specs use it to seed
+ * what another phase's screen would have produced, and to put back what they changed: every spec
+ * leaves the database as it found it, because the next spec's assertions start from the base
+ * state (no approved brief → launch posting slots; no locked profile → the Dump gate is closed).
+ */
+export function sql<T = Record<string, unknown>>(command: string): T[] {
+  // Playwright runs from the repo root, where wrangler dev keeps its local D1.
+  const out = execFileSync("npx", ["wrangler", "d1", "execute", "sheila-creator-dashboard-db", "--local", "--json", "--command", command], { cwd: process.cwd(), encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  const parsed = JSON.parse(out) as { results: T[] }[];
+  return parsed[parsed.length - 1]?.results ?? [];
 }

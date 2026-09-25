@@ -7,19 +7,37 @@ last_checked: 2026-09-25
 
 ## What happened
 
-Something needs your attention. This guide walks you through the fix, one step at a time.
+The web research key stopped working, so the research brief cannot search the web.
 
 ## Step 1
 
 ![Step 1](/help/screenshots/reconnect-firecrawl-1.png)
 
-Open the **Reconnect web research** screen from the menu.
+Open **Firecrawl** (firecrawl.dev) and log in.
 
 ## Step 2
 
 ![Step 2](/help/screenshots/reconnect-firecrawl-2.png)
 
-Follow the on-screen prompt. Every screen has one obvious next action.
+Tap **API Keys** on the left.
+
+## Step 3
+
+![Step 3](/help/screenshots/reconnect-firecrawl-3.png)
+
+Copy your key. If you have used all your free credits, the reset date is shown there.
+
+## Step 4
+
+![Step 4](/help/screenshots/reconnect-firecrawl-4.png)
+
+In the dashboard open **Settings**, then **Connect accounts**.
+
+## Step 5
+
+![Step 5](/help/screenshots/reconnect-firecrawl-5.png)
+
+Under **Firecrawl**, paste the key and tap **Check key**.
 
 ## Did this work?
 
