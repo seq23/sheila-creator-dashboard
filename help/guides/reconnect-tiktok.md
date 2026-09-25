@@ -7,19 +7,31 @@ last_checked: 2026-09-25
 
 ## What happened
 
-Something needs your attention. This guide walks you through the fix, one step at a time.
+TikTok stats stopped syncing. Posting to TikTok goes through Buffer and is not affected.
 
 ## Step 1
 
 ![Step 1](/help/screenshots/reconnect-tiktok-1.png)
 
-Open the **Reconnect TikTok stats** screen from the menu.
+In the dashboard open **Settings**, then **Connect accounts**.
 
 ## Step 2
 
 ![Step 2](/help/screenshots/reconnect-tiktok-2.png)
 
-Follow the on-screen prompt. Every screen has one obvious next action.
+Under **Stats · for research**, find **TikTok** and tap **Reconnect**.
+
+## Step 3
+
+![Step 3](/help/screenshots/reconnect-tiktok-3.png)
+
+Log in to TikTok on its own page and tap **Allow**.
+
+## Step 4
+
+![Step 4](/help/screenshots/reconnect-tiktok-4.png)
+
+If there is no Reconnect button, tap **Upload TikTok export** instead and follow that guide.
 
 ## Did this work?
 

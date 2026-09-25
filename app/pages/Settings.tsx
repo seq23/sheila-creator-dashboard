@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import type { HealthItem, SettingsShape } from "@shared/types";
-import { get, patch } from "../lib/api";
+import { get, patch, post } from "../lib/api";
 import { ago } from "../lib/format";
 import { Card, Dot, HelpButton, PageHead, Skeleton, Stepper, Switch, useLoad, useToast } from "../components/ui";
 import { useApp } from "../state";
@@ -102,38 +102,7 @@ export function Settings() {
         </Card>
       </section>
 
-      <section className="section">
-        <div className="section-head">
-          <h2>Connections + health</h2>
-          <Link to="/settings/connections" className="btn dark small">
-            Connect accounts
-          </Link>
-        </div>
-        <Card className="flat">
-          {health.data && health.data.length > 0 ? (
-            <div className="list">
-              {health.data.map((h) => (
-                <div key={h.name} className="list-row">
-                  <Dot light={h.light} />
-                  <div className="grow">
-                    <div className="title">{h.name}</div>
-                    <div className="meta">
-                      {h.note} · checked {ago(h.checked_at)}
-                    </div>
-                  </div>
-                  {h.fix_guide && h.light !== "green" ? (
-                    <Link className="btn quiet small" to={`/help/${h.fix_guide}`}>
-                      Fix
-                    </Link>
-                  ) : null}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="hint">Nothing connected yet. Start with Buffer.</div>
-          )}
-        </Card>
-      </section>
+      <HealthSection health={health.data} onChange={(rows) => health.setData(rows)} />
 
       <section className="section">
         <h2>Features</h2>
@@ -188,5 +157,88 @@ export function Settings() {
       </section>
       <HelpButton guide="change-posts-per-week" />
     </div>
+  );
+}
+
+// ---------- Health (section 11): every light, plain names, a How to fix link on anything not green.
+// Rows written by Connect under the bare service name are shown with a plain name, and hidden
+// when the hourly check writes a fuller row for the same thing.
+const SERVICE_NAMES: Record<string, { label: string; supersededBy?: string }> = {
+  buffer: { label: "Buffer", supersededBy: "Buffer" },
+  resend: { label: "Email (Resend)", supersededBy: "Email (Resend)" },
+  github: { label: "Job runner (GitHub)", supersededBy: "Job runner (GitHub)" },
+  openrouter: { label: "AI (OpenRouter)" },
+  firecrawl: { label: "Web research (Firecrawl)" },
+  hunter: { label: "Hunter (brand contacts)" },
+  meta: { label: "Instagram stats" },
+  google: { label: "YouTube stats" },
+  tiktok: { label: "TikTok stats" },
+};
+const LIGHT_ORDER: Record<HealthItem["light"], number> = { red: 0, yellow: 1, grey: 2, green: 3 };
+
+function HealthSection({ health, onChange }: { health: HealthItem[] | null; onChange: (rows: HealthItem[]) => void }) {
+  const toast = useToast();
+  const [checking, setChecking] = useState(false);
+  const names = new Set((health ?? []).map((h) => h.name));
+  const rows = (health ?? [])
+    .filter((h) => {
+      const s = SERVICE_NAMES[h.name];
+      return !(s?.supersededBy && s.supersededBy !== h.name && names.has(s.supersededBy));
+    })
+    .map((h) => ({ ...h, label: SERVICE_NAMES[h.name]?.label ?? h.name }))
+    .sort((a, b) => LIGHT_ORDER[a.light] - LIGHT_ORDER[b.light] || a.label.localeCompare(b.label));
+  const bad = rows.filter((r) => r.light === "red").length;
+
+  async function recheck() {
+    setChecking(true);
+    try {
+      onChange(await post<HealthItem[]>("/api/settings/health/recheck"));
+      toast.ok("Checked everything.");
+    } catch (e) {
+      toast.bad(e);
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  return (
+    <section className="section" aria-label="Connections and health">
+      <div className="section-head">
+        <h2>Connections + health</h2>
+        <div className="row wrap">
+          <button className="btn quiet small" onClick={recheck} disabled={checking}>
+            {checking ? "Checking…" : "Check everything now"}
+          </button>
+          <Link to="/settings/connections" className="btn dark small">
+            Connect accounts
+          </Link>
+        </div>
+      </div>
+      {bad ? <div className="hint">{bad === 1 ? "One thing needs you." : `${bad} things need you.`} Each red light has a How to fix link.</div> : null}
+      <Card className="flat">
+        {rows.length > 0 ? (
+          <div className="list">
+            {rows.map((h) => (
+              <div key={h.name} className="list-row" data-health={h.name}>
+                <Dot light={h.light} />
+                <div className="grow">
+                  <div className="title">{h.label}</div>
+                  <div className="meta">
+                    {h.note} · checked {ago(h.checked_at)}
+                  </div>
+                </div>
+                {h.fix_guide && h.light !== "green" ? (
+                  <Link className="btn quiet small" to={`/help/${h.fix_guide}`}>
+                    How to fix
+                  </Link>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="hint">Nothing connected yet. Start with Buffer, then press Check everything now.</div>
+        )}
+      </Card>
+    </section>
   );
 }
