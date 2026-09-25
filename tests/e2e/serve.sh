@@ -14,4 +14,6 @@ if [ ! -f .dev.vars ]; then
 fi
 rm -rf .wrangler/state/v3/d1 .wrangler/state/v3/r2
 npx wrangler d1 migrations apply sheila-creator-dashboard-db --local >/dev/null
-exec npx wrangler dev --port 8787 --ip 127.0.0.1 --var FAKE_SERVICES:1
+PORT="${E2E_PORT:-8787}"
+# Several worktrees run this suite side by side: each gets its own port and inspector port.
+exec npx wrangler dev --port "$PORT" --ip 127.0.0.1 --inspector-port "$((PORT + 1000))" --var FAKE_SERVICES:1
