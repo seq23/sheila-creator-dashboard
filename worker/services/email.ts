@@ -4,6 +4,7 @@
 import type { Env } from "../env";
 import { fakeServices } from "../env";
 import { newId } from "../lib/ids";
+import { setHealth } from "../lib/db";
 import { log } from "../lib/log";
 
 export type EmailKind = "time_to_dump" | "clips_ready" | "posting_problem" | "connection_needs_you" | "weekly_recap" | "login_code" | "brief_ready";
@@ -32,9 +33,21 @@ async function sendReal(env: Env, mail: OutgoingEmail): Promise<EmailResult> {
     headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
     body: JSON.stringify({ from: FROM_DEFAULT, to: mail.to, subject: mail.subject, html: mail.html, text: mail.text }),
   });
-  if (!res.ok) return { ok: false, providerId: null, error: `Resend answered ${res.status}` };
+  if (!res.ok) return { ok: false, providerId: null, error: resendRefusal(res.status, await res.text().catch(() => "")) };
   const data = (await res.json()) as { id?: string };
   return { ok: true, providerId: data.id ?? null, error: null };
+}
+
+/**
+ * Resend's refusal in plain words. The common one on a new account: test mode delivers only to
+ * the Resend account's own address until a sending domain is verified and used as `from`.
+ * Never echoes Resend's message (it names the account's address).
+ */
+export function resendRefusal(status: number, body: string): string {
+  if (status === 401) return "Resend says this key is not valid.";
+  if (status === 403 && /only send testing emails|verify a domain/i.test(body)) return "Resend is in test mode: it only delivers to the Resend account's own address until a sending domain is verified.";
+  if (status === 429) return "Resend says we sent too many emails; it will work again shortly.";
+  return `Resend answered ${status}`;
 }
 
 export async function sendEmail(env: Env, mail: OutgoingEmail): Promise<EmailResult> {
@@ -45,6 +58,12 @@ export async function sendEmail(env: Env, mail: OutgoingEmail): Promise<EmailRes
       .run();
   }
   log.info("email.send", { kind: mail.kind, recipients: mail.to.length, ok: result.ok });
+  // A refused send turns the Email light red with the reason, so the health board never says
+  // "Ready to send" while nothing arrives. The next good send turns it green again.
+  if (!fakeServices(env)) {
+    if (!result.ok) await setHealth(env.DB, "Email (Resend)", "red", `The last email was not delivered: ${result.error ?? "Resend did not answer"}`, "connect-resend");
+    else await setHealth(env.DB, "Email (Resend)", "green", "Ready to send", null);
+  }
   return result;
 }
 

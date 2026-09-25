@@ -54,6 +54,12 @@ npm run deploy:production        # what land runs: build → D1 migrations → w
 
 Never a bare `wrangler deploy` (stale client, fake services).
 
+**Staging** is the owner's fully real twin (own Worker, D1, R2; FAKE_SERVICES=0) for testing
+with throwaway accounts while Sheila's production stays untouched:
+`npm run deploy:staging` → https://sheila-creator-dashboard-staging.seq-taylor.workers.dev.
+`npm run validate:envs` keeps it production's twin. RUNBOOK "Staging" has what is real, the
+named stops and the Phase 0 live checklist.
+
 ## Phase ledger
 
 See `docs/PHASE-LEDGER.md` for what each phase delivered, what is proven by automated tests
