@@ -146,6 +146,11 @@
   color: inherit;
   text-align: left;
   cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+.cal-post-main:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
 }
 .cal-post-main img,
 .cal-cover {

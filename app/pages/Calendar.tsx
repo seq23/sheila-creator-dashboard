@@ -311,7 +311,15 @@ function PostCard({ p, tz, onOpen }: { p: PostRow; tz: string; onOpen: () => voi
       }}
       data-post={p.id}
     >
-      <button className="cal-post-main" onClick={onOpen} aria-label={`${SHORT[p.platform]} at ${timeIn(p.scheduled_at, tz)}: ${p.hook_text || "clip"}. ${STATUS_TEXT[p.status]}. Open actions.`}>
+      {/* a div, not a <button>: Firefox will not start a drag from inside a button */}
+      <div
+        className="cal-post-main"
+        role="button"
+        tabIndex={0}
+        onClick={onOpen}
+        onKeyDown={(e) => (e.key === "Enter" || e.key === " " ? (e.preventDefault(), onOpen()) : undefined)}
+        aria-label={`${SHORT[p.platform]} at ${timeIn(p.scheduled_at, tz)}: ${p.hook_text || "clip"}. ${STATUS_TEXT[p.status]}. Open actions.`}
+      >
         {p.cover_url ? <img src={p.cover_url} alt="" loading="lazy" /> : <span className="cal-cover" aria-hidden="true" />}
         <span className="cal-post-text">
           <span className="cal-post-top">
@@ -321,7 +329,7 @@ function PostCard({ p, tz, onOpen }: { p: PostRow; tz: string; onOpen: () => voi
           <span className="cal-hook">{p.hook_text || "Untitled clip"}</span>
           <span className={`cal-status ${p.status}`}>{STATUS_TEXT[p.status]}</span>
         </span>
-      </button>
+      </div>
       {p.status === "failed" ? (
         <Link className="cal-fix" to="/help/a-post-failed">
           How to fix
