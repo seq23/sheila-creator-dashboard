@@ -4,6 +4,7 @@ import { defineConfig, devices } from "@playwright/test";
 // once and shares the session; `phone` (390×844, the priority for Dump and Review) and
 // `desktop` run every spec. The help-screenshots spec reuses the same server.
 const STORAGE = "test-results/.auth/owner.json";
+const PORT = Number(process.env.E2E_PORT ?? 8787); // E2E_PORT lets parallel worktrees each run the suite
 
 export default defineConfig({
   testDir: "tests/e2e",
@@ -13,15 +14,16 @@ export default defineConfig({
   workers: 1,
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
   use: {
-    baseURL: "http://127.0.0.1:8787",
+    baseURL: `http://127.0.0.1:${PORT}`,
     trace: "retain-on-failure",
   },
   webServer: {
     command: "bash tests/e2e/serve.sh",
-    url: "http://127.0.0.1:8787/healthz",
+    url: `http://127.0.0.1:${PORT}/healthz`,
     reuseExistingServer: false, // serve.sh resets the local database; a running server would hold the old one
     timeout: 120_000,
     env: {
+      E2E_PORT: String(PORT),
       SESSION_SECRET: process.env.SESSION_SECRET ?? "dev-session-secret",
       SECRETS_KEY: process.env.SECRETS_KEY ?? "YcLVEjArFviauClfN6thsYumeyr3wqfUT9D2VnMNTm0=",
       JOB_SHARED_SECRET: process.env.JOB_SHARED_SECRET ?? "dev-job-shared-secret",
