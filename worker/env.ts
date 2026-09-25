@@ -16,6 +16,13 @@ export interface Env {
   JOB_SHARED_SECRET: string;
   GITHUB_DISPATCH_TOKEN?: string;
   RESEND_API_KEY?: string;
+  // Stats OAuth (phase 3). Optional: without them the Connect row says the stats app is not
+  // set up yet and links the guide. Each is the vendor's own app credential, set once by the
+  // builder with `wrangler secret put`; her tokens are stored encrypted in D1, not here.
+  META_APP_ID?: string;
+  META_APP_SECRET?: string;
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
 }
 
 export interface SessionUser {
