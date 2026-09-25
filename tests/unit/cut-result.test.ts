@@ -1,12 +1,12 @@
 // The cut job's result is the contract between jobs/cut.py and the Worker. The fixture is a real
 // run of the Python pipeline (jobs/selftest_cut.py --write-fixture), so if either side drifts
 // this file fails.
-import { readFileSync } from "node:fs";
+import fixtureJson from "./fixtures/cut-result.sample.json";
 import { describe, expect, it } from "vitest";
 import { allowedPlatformsFor, CutResultError, MAX_CLIPS_PER_DUMP, normalizeHashtags, parseCutResult, plainFailure, targetClips, type CutResultClip } from "@worker/jobs/cut";
 import { PLATFORMS, QUALITY_BAR, type Platform } from "@shared/constants";
 
-const fixture = JSON.parse(readFileSync(new URL("./fixtures/cut-result.sample.json", import.meta.url), "utf8")) as {
+const fixture = fixtureJson as unknown as {
   dump_id: string;
   assets: { id: string; r2_key: string; allowed_platforms: Platform[] }[];
   result: { clips: CutResultClip[]; engine: Record<string, string>; assets: { id: string; duration_s: number }[] };

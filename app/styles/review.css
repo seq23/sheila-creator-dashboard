@@ -1,0 +1,272 @@
+/* Review (phase 5). Tokens only (tokens.css); shared components are not restyled here. */
+.review-tabs {
+  display: flex;
+  gap: 6px;
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+}
+.review-tab {
+  min-height: var(--touch);
+  padding: 0 16px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  font-weight: 600;
+  color: var(--text-soft);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+.review-tab.on {
+  color: var(--text);
+  border-bottom-color: var(--gold);
+}
+.review-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.review-filters .select {
+  width: auto;
+  min-width: 150px;
+  flex: 0 1 auto;
+}
+.review-group {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.review-group-head {
+  font-size: 1.15rem;
+}
+.review-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+.clip-card {
+  background: var(--surface);
+  border: 1px solid var(--gold-soft);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-tiny);
+  min-width: 0;
+}
+.clip-card.selected {
+  border: 2px solid var(--gold);
+}
+.clip-card.is-hidden {
+  opacity: 0.85;
+}
+.clip-media {
+  position: relative;
+  aspect-ratio: 9 / 16;
+  max-height: 460px;
+  background: var(--espresso);
+}
+.clip-media video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: var(--espresso);
+}
+.clip-gone {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  color: var(--ivory);
+}
+.clip-select {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: var(--touch);
+  height: var(--touch);
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(255, 250, 241, 0.9);
+  cursor: pointer;
+}
+.clip-select input {
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  accent-color: var(--espresso);
+  cursor: pointer;
+}
+.clip-body {
+  padding: 14px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.clip-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.clip-hook {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.1rem;
+  line-height: 1.25;
+}
+.clip-caption {
+  font-size: 0.92rem;
+  color: var(--text-soft);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.clip-tags {
+  overflow-wrap: anywhere;
+}
+.clip-platforms {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.plat {
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: var(--pill);
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: line-through;
+}
+.plat.on {
+  background: var(--gold-faint);
+  border-color: var(--gold);
+  color: var(--text);
+  text-decoration: none;
+}
+.plat:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+.clip-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 4px;
+}
+.clip-actions .btn {
+  width: 100%;
+}
+.clip-links {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.linkish {
+  background: none;
+  border: 0;
+  padding: 0 2px;
+  min-height: var(--touch);
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-soft);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.danger-text {
+  color: var(--danger);
+}
+.select-bar {
+  position: sticky;
+  bottom: 16px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: var(--espresso);
+  color: var(--ivory);
+  border: 1px solid var(--gold);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  box-shadow: var(--shadow);
+}
+.select-bar .btn.quiet {
+  color: var(--ivory);
+  border-color: var(--gold-soft);
+}
+.reason-list {
+  display: grid;
+  gap: 8px;
+}
+.btn.hook-swap {
+  align-self: flex-start;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  text-align: left;
+  height: auto;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+.edit-platforms {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+.edit-platforms legend {
+  margin-bottom: 6px;
+}
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--touch);
+  cursor: pointer;
+}
+.check input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--espresso);
+}
+
+@media (max-width: 900px) {
+  .review-grid {
+    grid-template-columns: 1fr;
+  }
+  .clip-media {
+    max-height: 56vh;
+  }
+  .clip-actions .btn {
+    min-height: 52px;
+  }
+  .select-bar {
+    bottom: calc(var(--tabbar-h) + 12px + env(safe-area-inset-bottom));
+  }
+  .review-filters .select {
+    flex: 1 1 140px;
+  }
+}
+
+/* The shared .modal has no height limit, so a tall form runs off a phone screen and its Save button
+   can't be reached. Scoped to Review here; the same two lines belong on .modal in global.css. */
+.review-page .modal {
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+}
