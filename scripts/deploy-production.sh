@@ -22,9 +22,15 @@ echo "==> deploy worker"
 npx wrangler deploy --var FAKE_SERVICES:0 --var PUBLIC_BASE_URL:"$PUBLIC_BASE_URL"
 
 echo "==> smoke"
-code="$(curl -s -o /dev/null -w '%{http_code}' "$PUBLIC_BASE_URL/healthz")"
-[ "$code" = "200" ] || { echo "healthz returned $code"; exit 1; }
-body="$(curl -s "$PUBLIC_BASE_URL/healthz")"
+# The edge can serve the previous version for a few seconds after a deploy (25 Sep 2026: the
+# first read after #9 returned the old body without "env"), so read until the new version
+# answers, up to ~40 s, then judge.
+body=""
+for i in 1 2 3 4 5 6 7 8; do
+  body="$(curl -s "$PUBLIC_BASE_URL/healthz" || true)"
+  case "$body" in *'"env":"production"'*) break ;; esac
+  sleep 5
+done
 echo "$body"
 # The production Worker must say it is production and real (a staging config shipped here, or
 # fakes left on, would pass a bare 200).
