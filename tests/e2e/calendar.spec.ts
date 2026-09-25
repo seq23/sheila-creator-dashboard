@@ -35,9 +35,9 @@ async function tick(request: APIRequestContext) {
   await expect.poll(async () => { const r = await lastRun(); return r && r.checked_at !== before ? r.light : "waiting"; }, { timeout: 20_000 }).toBe("green");
 }
 
-async function reset(page: Page) {
-  // Pull anything the previous project left in the fake Buffer, then clear the calendar.
-  for (const r of sql<{ id: string }>("SELECT id FROM posts WHERE status = 'in_buffer'")) await page.request.post(`/api/posts/${r.id}/unschedule`);
+/** Pull anything left in the fake Buffer, then clear the calendar and everything this spec seeds. */
+async function clearCalendar(request: APIRequestContext) {
+  for (const r of sql<{ id: string }>("SELECT id FROM posts WHERE status = 'in_buffer'")) await request.post(`/api/posts/${r.id}/unschedule`);
   sql(
     [
       "DELETE FROM posts",
@@ -49,12 +49,24 @@ async function reset(page: Page) {
       "DELETE FROM health WHERE name LIKE '%(via Buffer)' OR name = 'Buffer'",
     ].join("; "),
   );
+}
+
+async function reset(page: Page) {
+  await clearCalendar(page.request);
   expect((await page.request.patch("/api/settings", { data: { weekly_caps: { tiktok: 10, instagram: 7, youtube: 5 } } })).ok()).toBe(true);
   await page.request.post("/api/connections/buffer/disconnect");
   expect((await page.request.post("/api/connections/buffer/key", { data: { key: "good-key-e2e-000" } })).ok()).toBe(true);
 }
 
 test.describe.configure({ mode: "serial" });
+
+// Leave the database as this spec found it. The posts it drives through the fake Buffer read
+// back as `posted`, and the deals spec counts posted TikTok posts for marketplace eligibility.
+test.afterAll(async ({ playwright }, info) => {
+  const ctx = await playwright.request.newContext({ baseURL: info.project.use.baseURL, storageState: "test-results/.auth/owner.json" });
+  await clearCalendar(ctx);
+  await ctx.dispose();
+});
 
 test.describe("calendar and the hourly Buffer sync", () => {
   test("with no approved clips the Calendar says so and points to Review", async ({ page }) => {

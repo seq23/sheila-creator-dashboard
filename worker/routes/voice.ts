@@ -1,9 +1,204 @@
-// Voice narration (section 12), hidden until switched on. OWNED BY: phase 11. Base stub.
-import { Hono } from "hono";
+// Voice narration (section 12). Hidden until she switches it on in Settings; every change here
+// refuses while it is off. Only the owner login can create, replace or delete the voice.
+//   GET    /api/voice                     state + narrations
+//   POST   /api/voice/sample              record the uploaded sample (uploads kind "voice_sample") + consent
+//   DELETE /api/voice/sample              delete the sample and the voice model (one button)
+//   POST   /api/voice/draft               draft a script from the locked Brand Profile
+//   POST   /api/voice/narrations          script → queue the voice job
+//   PATCH  /api/voice/narrations/:id      attach to a clip (or detach)
+//   DELETE /api/voice/narrations/:id
+//   GET    /api/voice/narrations/:id/audio   stream the file (logged-in only, never public)
+import { Hono, type Context, type Next } from "hono";
 import type { Env, Vars } from "../env";
-import { requireUser } from "../lib/auth";
+import { requireOwner, requireUser } from "../lib/auth";
+import { getSetting, recordEvent } from "../lib/db";
+import { fail, readJson } from "../lib/http";
+import { newId, nowIso } from "../lib/ids";
+import { log } from "../lib/log";
+import { dispatchJob } from "../services/github";
+import { getLlm } from "../services/openrouter";
+import { KIT_NAME, lockedProfile, themeList } from "./mediakit";
+import type { Features } from "@shared/types";
 
 export const voice = new Hono<{ Bindings: Env; Variables: Vars }>();
 voice.use("*", requireUser);
 
-voice.get("/", async (c) => c.json({ enabled: false, hasSample: false, narrations: [] }));
+export const CONSENT_LINE = "This is my voice and I authorize its use in this dashboard.";
+const MAX_SAMPLE_BYTES = 50 * 1024 * 1024;
+const MAX_SCRIPT = 1500;
+
+type C = Context<{ Bindings: Env; Variables: Vars }>;
+
+async function featureOn(env: Env): Promise<boolean> {
+  const f = await getSetting<Features>(env.DB, "features", { voice: false, deeper_research: false, weekly_recap: true, help_ask: false });
+  return !!f.voice;
+}
+
+async function requireVoiceOn(c: C, next: Next) {
+  if (!(await featureOn(c.env))) return fail(c, 409, "Voice narration is off. Turn it on in Settings first.", "record-your-voice");
+  await next();
+}
+
+interface VoiceDb {
+  sample_r2_key: string | null;
+  consent_at: string | null;
+  consent_text: string | null;
+  model_r2_key: string | null;
+  enabled: number;
+  updated_at: string | null;
+}
+
+async function voiceRow(env: Env): Promise<VoiceDb> {
+  return (
+    (await env.DB.prepare("SELECT sample_r2_key, consent_at, consent_text, model_r2_key, enabled, updated_at FROM voice WHERE id = 1").first<VoiceDb>()) ?? {
+      sample_r2_key: null,
+      consent_at: null,
+      consent_text: null,
+      model_r2_key: null,
+      enabled: 0,
+      updated_at: null,
+    }
+  );
+}
+
+voice.get("/", async (c) => {
+  const v = await voiceRow(c.env);
+  const { results } = await c.env.DB.prepare("SELECT id, script, status, clip_id, created_at FROM narrations ORDER BY created_at DESC LIMIT 30").all<{
+    id: string;
+    script: string;
+    status: "queued" | "generating" | "ready" | "failed";
+    clip_id: string | null;
+    created_at: string;
+  }>();
+  return c.json({
+    enabled: await featureOn(c.env),
+    hasSample: !!v.sample_r2_key && !!v.consent_at,
+    consent_at: v.consent_at,
+    consent_line: CONSENT_LINE,
+    hasModel: !!v.model_r2_key,
+    owner: c.get("user").role === "owner",
+    narrations: results.map((n) => ({ ...n, audio_url: n.status === "ready" ? `/api/voice/narrations/${n.id}/audio` : null })),
+  });
+});
+
+voice.post("/sample", requireVoiceOn, requireOwner, async (c) => {
+  const body = await readJson<{ upload_id?: string; consent?: boolean; consent_text?: string }>(c);
+  if (!body?.consent) return fail(c, 422, "Tick the consent box first: it confirms this is your own voice.", "record-your-voice");
+  const uploadId = body.upload_id ?? "";
+  if (!/^upl_[a-z0-9]{6,40}$/.test(uploadId)) return fail(c, 400, "That upload is not a voice sample.", "record-your-voice");
+  const key = `voice/sample/${uploadId}`;
+  const head = await c.env.FILES.head(key);
+  if (!head) return fail(c, 404, "The recording did not finish uploading. Try again.", "record-your-voice");
+  const type = head.httpMetadata?.contentType ?? "";
+  if (!type.startsWith("audio/") && !type.startsWith("video/")) {
+    await c.env.FILES.delete(key);
+    return fail(c, 422, "That file is not a recording. Record here, or pick an audio file.", "record-your-voice");
+  }
+  if (head.size > MAX_SAMPLE_BYTES) {
+    await c.env.FILES.delete(key);
+    return fail(c, 413, "That recording is too long. 10 to 30 seconds is plenty.", "record-your-voice");
+  }
+  const old = await voiceRow(c.env);
+  if (old.sample_r2_key && old.sample_r2_key !== key) await c.env.FILES.delete(old.sample_r2_key);
+  if (old.model_r2_key) await c.env.FILES.delete(old.model_r2_key); // a new voice means a new model
+  const consentText = (body.consent_text ?? CONSENT_LINE).trim().slice(0, 300) || CONSENT_LINE;
+  const at = nowIso();
+  await c.env.DB.prepare("UPDATE voice SET sample_r2_key = ?, consent_at = ?, consent_text = ?, model_r2_key = NULL, enabled = 1, updated_at = ? WHERE id = 1").bind(key, at, consentText, at).run();
+  await recordEvent(c.env.DB, "voice.sample.saved", null, { bytes: head.size, replaced: !!old.sample_r2_key }, c.get("user").email);
+  log.info("voice.sample.saved", { bytes: head.size });
+  return c.json({ ok: true, consent_at: at });
+});
+
+voice.delete("/sample", requireOwner, async (c) => {
+  const v = await voiceRow(c.env);
+  if (v.sample_r2_key) await c.env.FILES.delete(v.sample_r2_key);
+  if (v.model_r2_key) await c.env.FILES.delete(v.model_r2_key);
+  await c.env.DB.prepare("UPDATE voice SET sample_r2_key = NULL, consent_at = NULL, consent_text = NULL, model_r2_key = NULL, enabled = 0, updated_at = ? WHERE id = 1").bind(nowIso()).run();
+  await recordEvent(c.env.DB, "voice.deleted", null, { sample: !!v.sample_r2_key, model: !!v.model_r2_key }, c.get("user").email);
+  log.info("voice.deleted");
+  return c.json({ ok: true });
+});
+
+/** A short narration script in her voice from the locked profile. */
+voice.post("/draft", requireVoiceOn, async (c) => {
+  const body = await readJson<{ topic?: string }>(c);
+  const profile = await lockedProfile(c.env);
+  if (!profile) return fail(c, 409, "Lock your Brand Profile first, so the script sounds like you.", "upload-brand-docs");
+  const topic = (body?.topic ?? "").trim().slice(0, 200) || themeList(profile.themes)[0] || "what I'm working on this week";
+  const first = KIT_NAME.split(" ")[0];
+  const starter = `Hi, it's ${first}. Today is all about ${topic.toLowerCase()}. Here's the one thing I always do first, and why it makes everything easier. Watch to the end, then tell me in the comments how you do it.`;
+  if (c.get("fake")) return c.json({ script: starter, note: null });
+  const llm = await getLlm(c.env);
+  const r = await llm.complete({
+    system: `You write short voice-over scripts (20–40 seconds spoken, under 90 words) for the creator ${KIT_NAME}. Her voice: ${profile.voice || "warm and direct"}. Do: ${profile.do_dont || ""}. Never mention: ${profile.off_limits || "nothing listed"}. Plain spoken sentences, one call to action from: ${profile.ctas || "follow for more"}. Reply with the script only.`,
+    user: `Topic: ${topic}`,
+    maxTokens: 300,
+  });
+  const text = r.ok ? r.text.trim().replace(/^["“]|["”]$/g, "") : "";
+  if (!text) return c.json({ script: starter, note: "The free AI model is busy, so this is a starter script. Edit it, or try again in a minute." });
+  return c.json({ script: text.slice(0, MAX_SCRIPT), note: null });
+});
+
+voice.post("/narrations", requireVoiceOn, async (c) => {
+  const body = await readJson<{ script?: string }>(c);
+  const script = (body?.script ?? "").trim();
+  if (script.length < 10) return fail(c, 422, "Write a sentence or two first, or tap Draft with AI.", "record-your-voice");
+  if (script.length > MAX_SCRIPT) return fail(c, 422, "Keep the script under about 2 minutes (1,500 characters).", "record-your-voice");
+  const v = await voiceRow(c.env);
+  if (!v.sample_r2_key || !v.consent_at) return fail(c, 409, "Record your voice sample first (step 1).", "record-your-voice");
+  const id = newId("nar");
+  await c.env.DB.prepare("INSERT INTO narrations (id, script, status) VALUES (?, ?, 'queued')").bind(id, script).run();
+  const r = await dispatchJob(c.env, "voice", id);
+  if (!r.dispatched) {
+    await c.env.DB.prepare("UPDATE narrations SET status = 'failed' WHERE id = ?").bind(id).run();
+    return fail(c, 502, r.error ?? "The narration could not start.", "reconnect-github");
+  }
+  await recordEvent(c.env.DB, "voice.narration.queued", id, { chars: script.length }, c.get("user").email);
+  return c.json({ id, jobId: r.jobId });
+});
+
+voice.patch("/narrations/:id", requireVoiceOn, async (c) => {
+  const body = await readJson<{ clip_id?: string | null }>(c);
+  const clipId = body?.clip_id ?? null;
+  if (clipId) {
+    const ok = await c.env.DB.prepare("SELECT id FROM clips WHERE id = ? AND status IN ('draft','approved')").bind(clipId).first();
+    if (!ok) return fail(c, 422, "That clip is not available.", "record-your-voice");
+  }
+  const r = await c.env.DB.prepare("UPDATE narrations SET clip_id = ? WHERE id = ? AND status = 'ready'").bind(clipId, c.req.param("id")).run();
+  if (!r.meta.changes) return fail(c, 404, "That narration is not ready.");
+  await recordEvent(c.env.DB, clipId ? "voice.narration.attached" : "voice.narration.detached", c.req.param("id") ?? null, {}, c.get("user").email);
+  return c.json({ ok: true });
+});
+
+voice.delete("/narrations/:id", async (c) => {
+  const n = await c.env.DB.prepare("SELECT r2_key FROM narrations WHERE id = ?").bind(c.req.param("id")).first<{ r2_key: string | null }>();
+  if (!n) return fail(c, 404, "That narration is gone.");
+  if (n.r2_key) await c.env.FILES.delete(n.r2_key);
+  await c.env.DB.prepare("DELETE FROM narrations WHERE id = ?").bind(c.req.param("id")).run();
+  await recordEvent(c.env.DB, "voice.narration.deleted", c.req.param("id"), {}, c.get("user").email);
+  return c.json({ ok: true });
+});
+
+voice.get("/narrations/:id/audio", async (c) => {
+  const n = await c.env.DB.prepare("SELECT r2_key FROM narrations WHERE id = ? AND status = 'ready'").bind(c.req.param("id")).first<{ r2_key: string | null }>();
+  if (!n?.r2_key) return c.text("Not found", 404);
+  const range = c.req.header("range");
+  const obj = await c.env.FILES.get(n.r2_key, range ? { range: c.req.raw.headers } : undefined);
+  if (!obj) return c.text("Not found", 404);
+  const headers = new Headers();
+  obj.writeHttpMetadata(headers);
+  const type = headers.get("content-type") ?? (n.r2_key.endsWith(".wav") ? "audio/wav" : "audio/mpeg");
+  headers.set("content-type", type);
+  headers.set("accept-ranges", "bytes");
+  headers.set("cache-control", "private, no-store");
+  if (c.req.query("download") === "1") headers.set("content-disposition", `attachment; filename="narration-${c.req.param("id")}.${type.includes("wav") ? "wav" : "mp3"}"`);
+  if (range && obj.range && "offset" in obj.range) {
+    const start = obj.range.offset ?? 0;
+    const length = obj.range.length ?? obj.size - start;
+    headers.set("content-range", `bytes ${start}-${start + length - 1}/${obj.size}`);
+    headers.set("content-length", String(length));
+    return new Response(obj.body, { status: 206, headers });
+  }
+  headers.set("content-length", String(obj.size));
+  return new Response(obj.body, { status: 200, headers });
+});

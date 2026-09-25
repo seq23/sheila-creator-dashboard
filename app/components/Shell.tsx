@@ -3,6 +3,7 @@
 import { NavLink, Outlet } from "react-router-dom";
 import type { Me } from "@shared/types";
 import { useApp } from "../state";
+import { Tour } from "./Tour";
 
 const NAV: { to: string; label: string; icon: string; badge?: (s: ShellCounts) => string | number | undefined; feature?: keyof Me["features"] }[] = [
   { to: "/", label: "Home", icon: "⌂" },
@@ -63,6 +64,7 @@ export function Shell() {
       </aside>
       <main className="main" id="main">
         <Outlet />
+        <Tour />
       </main>
       <nav className="tabbar" aria-label="Main">
         {NAV.filter((n) => TABS.includes(n.to)).map((n) => (

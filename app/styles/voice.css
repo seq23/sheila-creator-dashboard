@@ -1,0 +1,71 @@
+/* Voice narration (section 12). Tokens only. */
+.voice .card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.voice h2 {
+  margin: 0;
+}
+.consent-line {
+  margin: 0;
+  padding: 12px 16px;
+  border-left: 4px solid var(--gold);
+  background: var(--gold-faint);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+}
+.rec-row {
+  gap: 14px;
+}
+.rec-btn {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 0;
+  background: var(--danger);
+  cursor: pointer;
+}
+.rec-btn span {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--ivory);
+}
+.rec-btn.on span {
+  border-radius: 4px;
+}
+.consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: var(--touch);
+}
+.consent input {
+  width: 22px;
+  height: 22px;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+.voice-audio {
+  width: 100%;
+  max-width: 420px;
+  margin-top: 6px;
+}
+.narration {
+  flex-wrap: wrap;
+}
+.attach-row {
+  width: 100%;
+  min-height: var(--touch);
+  text-align: left;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}

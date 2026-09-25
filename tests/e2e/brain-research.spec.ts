@@ -31,13 +31,15 @@ async function dumpWithVideo(api: APIRequestContext): Promise<string> {
   return id;
 }
 
-// Leave the gate as the other specs expect to find it: the smoke spec wants Dump refused on
-// "Brand Profile" (profile unlocked), and the calendar spec wants launch posting slots, which
-// only holds while no brief is approved. There is no un-approve route (approval is a one-way
-// action for her), so the brief this spec approved is removed from the local D1 directly.
+// Leave the database as the other specs expect to find it: the smoke spec wants Dump refused on
+// "Brand Profile" (profile unlocked); the calendar spec wants launch posting slots, which only
+// holds while no brief is approved; the deals spec computes marketplace eligibility from the
+// newest TikTok account_stats row, so the rows the import and the fake sync write here must go.
+// There is no un-approve route (approval is a one-way action for her), so the local D1 is
+// cleared directly.
 test.afterEach(async ({ page }) => {
   await page.request.post("/api/brain/profile/unlock");
-  sql("DELETE FROM research_briefs");
+  sql(["DELETE FROM research_briefs", "DELETE FROM account_stats", "DELETE FROM platform_videos", "DELETE FROM metrics", "DELETE FROM settings WHERE key IN ('learned_slots','learned_slots_at')"].join("; "));
 });
 
 test("brain → research → the cutting gate opens only after lock + approve", async ({ page }) => {
