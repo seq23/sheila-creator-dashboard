@@ -544,18 +544,21 @@ def face_detector(available: bool) -> Any:
     global _DETECTOR
     if _DETECTOR is not None or not available:
         return _DETECTOR
+    _stage = "import"
     try:
         import mediapipe as mp  # type: ignore
         from mediapipe.tasks.python import BaseOptions, vision  # type: ignore
 
+        _stage = "model"
         if not FACE_MODEL.exists():
             FACE_MODEL.parent.mkdir(parents=True, exist_ok=True)
             with urllib.request.urlopen(FACE_MODEL_URL, timeout=60) as res:
                 FACE_MODEL.write_bytes(res.read())
+        _stage = "create"
         opts = vision.FaceDetectorOptions(base_options=BaseOptions(model_asset_path=str(FACE_MODEL)), min_detection_confidence=0.5)
         _DETECTOR = (mp, vision.FaceDetector.create_from_options(opts))
-    except Exception:  # noqa: BLE001
-        log("face.detector.unavailable")
+    except Exception as e:  # noqa: BLE001
+        log("face.detector.unavailable", err=type(e).__name__, where=_stage)
         _DETECTOR = False
     return _DETECTOR
 
