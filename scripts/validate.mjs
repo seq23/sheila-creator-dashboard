@@ -13,6 +13,7 @@ import path from "node:path";
 export const REGISTER = {
   "envs-match": "staging is production's twin: a config drift or a job workflow without the env mapping sends staging jobs to Sheila's bucket and secret",
   "help-guides-exist": "every screen's ? button and every fix_guide slug must open a real guide (section 12c)",
+  "jobs-no-direct-storage": "a job holding storage keys needs an R2 token the owner cannot mint and a public repo can leak; jobs reach storage only through the Worker",
   "jobs-registered": "every job type in the schema must have a handler or dispatch silently does nothing",
   "no-content-in-logs": "public repo: a console.* outside worker/lib/log.ts can leak her content into Actions logs (section 13)",
   "no-secrets": "a key in the repo is public the moment it is pushed",

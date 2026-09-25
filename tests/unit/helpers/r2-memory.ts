@@ -1,0 +1,103 @@
+// An in-memory R2Bucket stand-in covering what the job storage routes use: get (with a Range
+// header), head, put, and multipart create / resume / uploadPart / complete / abort. Parts are
+// read from the request stream, so a test proves the route hands R2 the stream it received.
+type Stored = { bytes: Uint8Array; contentType: string | undefined };
+
+async function readAll(body: ReadableStream | ArrayBuffer | Uint8Array | string): Promise<Uint8Array> {
+  if (typeof body === "string") return new TextEncoder().encode(body);
+  if (body instanceof Uint8Array) return body;
+  if (body instanceof ArrayBuffer) return new Uint8Array(body);
+  const chunks: Uint8Array[] = [];
+  const reader = body.getReader();
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+  }
+  const out = new Uint8Array(chunks.reduce((n, c) => n + c.byteLength, 0));
+  let o = 0;
+  for (const c of chunks) {
+    out.set(c, o);
+    o += c.byteLength;
+  }
+  return out;
+}
+
+function parseRange(h: Headers | undefined, size: number): { offset: number; length: number } | undefined {
+  const v = h?.get("range");
+  const m = v?.match(/^bytes=(\d*)-(\d*)$/);
+  if (!m) return undefined;
+  if (m[1] === "") {
+    const n = Math.min(size, Number(m[2]));
+    return { offset: size - n, length: n };
+  }
+  const offset = Number(m[1]);
+  const end = m[2] === "" ? size - 1 : Math.min(size - 1, Number(m[2]));
+  return { offset, length: end - offset + 1 };
+}
+
+export function memoryR2() {
+  const objects = new Map<string, Stored>();
+  const uploads = new Map<string, { key: string; contentType?: string; parts: Map<number, Uint8Array> }>();
+  let seq = 0;
+
+  const objectFor = (key: string, s: Stored, range?: { offset: number; length: number }) => {
+    const bytes = range ? s.bytes.slice(range.offset, range.offset + range.length) : s.bytes;
+    return {
+      key,
+      size: s.bytes.byteLength,
+      httpEtag: `"etag-${key.length}-${s.bytes.byteLength}"`,
+      range,
+      body: new Response(bytes).body,
+      writeHttpMetadata(h: Headers) {
+        if (s.contentType) h.set("content-type", s.contentType);
+      },
+    };
+  };
+
+  const bucket = {
+    async get(key: string, opts?: { range?: Headers }) {
+      const s = objects.get(key);
+      if (!s) return null;
+      return objectFor(key, s, parseRange(opts?.range, s.bytes.byteLength));
+    },
+    async head(key: string) {
+      const s = objects.get(key);
+      return s ? { key, size: s.bytes.byteLength } : null;
+    },
+    async put(key: string, body: ReadableStream | ArrayBuffer | Uint8Array | string, opts?: { httpMetadata?: { contentType?: string } }) {
+      objects.set(key, { bytes: await readAll(body), contentType: opts?.httpMetadata?.contentType });
+      return { key };
+    },
+    async createMultipartUpload(key: string, opts?: { httpMetadata?: { contentType?: string } }) {
+      const uploadId = `up-${++seq}`;
+      uploads.set(uploadId, { key, contentType: opts?.httpMetadata?.contentType, parts: new Map() });
+      return { key, uploadId };
+    },
+    resumeMultipartUpload(key: string, uploadId: string) {
+      return {
+        key,
+        uploadId,
+        async uploadPart(n: number, body: ReadableStream) {
+          const u = uploads.get(uploadId);
+          if (!u || u.key !== key) throw new Error("NoSuchUpload");
+          u.parts.set(n, await readAll(body));
+          return { partNumber: n, etag: `p${n}` };
+        },
+        async complete(parts: { partNumber: number; etag: string }[]) {
+          const u = uploads.get(uploadId);
+          if (!u || u.key !== key) throw new Error("NoSuchUpload");
+          const pieces = parts.map((p) => u.parts.get(p.partNumber) ?? new Uint8Array());
+          const bytes = await readAll(new Blob(pieces).stream());
+          objects.set(key, { bytes, contentType: u.contentType });
+          uploads.delete(uploadId);
+          return { key, size: bytes.byteLength };
+        },
+        async abort() {
+          uploads.delete(uploadId);
+        },
+      };
+    },
+  };
+  return { FILES: bucket as unknown as R2Bucket, objects, uploads };
+}

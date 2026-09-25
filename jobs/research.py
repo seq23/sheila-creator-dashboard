@@ -26,7 +26,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-from common import WORK, Job, log, r2_download, run
+from common import WORK, Job, download_input, log, run
 from extract import Unreadable, extract_text, llm_json
 
 PLATFORMS = ("tiktok", "instagram", "youtube")
@@ -208,7 +208,7 @@ def main(job: Job, spec: dict[str, Any]) -> dict[str, Any]:
     for u in spec.get("uploads") or []:
         local = work / u["id"]
         try:
-            r2_download(u["r2_key"], local)
+            download_input(u["r2_key"], local)
             text, _ = extract_text(local, "", u.get("ext", ""))
             sources.append({"id": u["source_id"], "url": None, "title": u["title"][:200], "kind": "upload"})
             excerpts[u["source_id"]] = text[: EXCERPT * 3]

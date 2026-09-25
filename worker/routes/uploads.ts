@@ -89,31 +89,45 @@ uploads.put("/:id/parts/:n", async (c) => {
   const n = Number(c.req.param("n"));
   if (!key || !uploadId || !Number.isInteger(n) || n < 1 || n > 10_000) return fail(c, 400, "Bad part request.");
   if (!c.req.raw.body) return fail(c, 400, "Empty part.");
-  const mp = c.env.FILES.resumeMultipartUpload(key, uploadId);
+  const part = await putPart(c.env.FILES, key, uploadId, n, c.req.raw.body);
+  if (!part) return fail(c, 502, "That piece did not upload. It will retry.");
+  return c.json(part);
+});
+
+/**
+ * One multipart piece, streamed from the request into R2 (never buffered). Shared by the
+ * browser upload above and the job output upload in routes/jobs.ts, so both use one protocol.
+ */
+export async function putPart(files: R2Bucket, key: string, uploadId: string, n: number, body: ReadableStream): Promise<{ partNumber: number; etag: string } | null> {
   try {
-    const part = await mp.uploadPart(n, c.req.raw.body);
-    return c.json({ partNumber: part.partNumber, etag: part.etag });
+    const part = await files.resumeMultipartUpload(key, uploadId).uploadPart(n, body);
+    return { partNumber: part.partNumber, etag: part.etag };
   } catch (e) {
     log.warn("upload.part", { n, err: e instanceof Error ? e.name : "error" });
-    return fail(c, 502, "That piece did not upload. It will retry.");
+    return null;
   }
-});
+}
+
+/** Assemble the pieces. Returns the object size, or null when R2 refused. */
+export async function completeParts(files: R2Bucket, key: string, uploadId: string, parts: { partNumber: number; etag: string }[]): Promise<number | null> {
+  try {
+    const obj = await files.resumeMultipartUpload(key, uploadId).complete([...parts].sort((a, b) => a.partNumber - b.partNumber));
+    return obj.size;
+  } catch (e) {
+    log.warn("upload.complete", { err: e instanceof Error ? e.name : "error" });
+    return null;
+  }
+}
 
 /** Complete: R2 assembles the object; the row flips to uploaded. */
 uploads.post("/:id/complete", async (c) => {
   const body = await readJson<{ key: string; uploadId: string; parts: { partNumber: number; etag: string }[] }>(c);
   if (!body?.key || !body.uploadId || !Array.isArray(body.parts) || body.parts.length === 0) return fail(c, 400, "Missing upload parts.");
-  const mp = c.env.FILES.resumeMultipartUpload(body.key, body.uploadId);
-  try {
-    const obj = await mp.complete(body.parts.sort((a, b) => a.partNumber - b.partNumber));
-    const id = c.req.param("id");
-    await c.env.DB.prepare("UPDATE assets SET upload_status = 'uploaded', size_bytes = ?, upload_id = NULL WHERE id = ?").bind(obj.size, id).run();
-    log.info("upload.complete", { bytes: obj.size });
-    return c.json({ ok: true, size: obj.size });
-  } catch (e) {
-    log.warn("upload.complete", { err: e instanceof Error ? e.name : "error" });
-    return fail(c, 502, "The upload could not be finished. Try again; your finished pieces are kept.");
-  }
+  const size = await completeParts(c.env.FILES, body.key, body.uploadId, body.parts);
+  if (size === null) return fail(c, 502, "The upload could not be finished. Try again; your finished pieces are kept.");
+  await c.env.DB.prepare("UPDATE assets SET upload_status = 'uploaded', size_bytes = ?, upload_id = NULL WHERE id = ?").bind(size, c.req.param("id")).run();
+  log.info("upload.complete", { bytes: size });
+  return c.json({ ok: true, size });
 });
 
 uploads.post("/:id/abort", async (c) => {

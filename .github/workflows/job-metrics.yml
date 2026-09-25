@@ -37,7 +37,7 @@ jobs:
           WORKER_URL: ${{ github.event.client_payload.worker_url }}
           RUN_ID: ${{ github.run_id }}
           # Which deployment started this job (the Worker's ENV_NAME). It picks the shared secret and
-          # the bucket; envs-match.mjs pins both bucket names to wrangler.jsonc.
+          # the callback. Storage goes through that Worker; the job holds no storage keys.
           JOB_ENV: ${{ github.event.client_payload.env == 'staging' && 'staging' || 'production' }}
           JOB_SHARED_SECRET: ${{ github.event.client_payload.env == 'staging' && secrets.JOB_SHARED_SECRET_STAGING || secrets.JOB_SHARED_SECRET }}
 

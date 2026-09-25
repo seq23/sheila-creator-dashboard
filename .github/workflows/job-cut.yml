@@ -1,9 +1,9 @@
 # Cut a dump into clips (section 8). The `run` job is started ONLY by the Worker (repository_dispatch with a signed
-# payload); it fetches its spec from the Worker, works in the runner, uploads to R2, calls back.
+# payload); it fetches its spec and inputs from the Worker, works in the runner, writes clips back through the Worker, calls back.
 # Logs show step names, counts and pass/fail only (section 13).
 #
 # The `selftest` job runs the same pipeline on synthetic footage (jobs/selftest_cut.py) when the pipeline changes.
-# It uses no secrets and never talks to the Worker or R2, so running it on pull requests is safe.
+# It uses no secrets and never talks to the Worker, so running it on pull requests is safe.
 name: job-cut
 
 on:
@@ -60,13 +60,9 @@ jobs:
           WORKER_URL: ${{ github.event.client_payload.worker_url }}
           RUN_ID: ${{ github.run_id }}
           # Which deployment started this job (the Worker's ENV_NAME). It picks the shared secret and
-          # the bucket; envs-match.mjs pins both bucket names to wrangler.jsonc.
+          # the callback. Storage goes through that Worker; the job holds no storage keys.
           JOB_ENV: ${{ github.event.client_payload.env == 'staging' && 'staging' || 'production' }}
           JOB_SHARED_SECRET: ${{ github.event.client_payload.env == 'staging' && secrets.JOB_SHARED_SECRET_STAGING || secrets.JOB_SHARED_SECRET }}
-          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
-          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          R2_BUCKET: ${{ github.event.client_payload.env == 'staging' && 'sheila-creator-dashboard-files-staging' || 'sheila-creator-dashboard-files' }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
 

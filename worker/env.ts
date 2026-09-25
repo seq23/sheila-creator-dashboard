@@ -41,6 +41,6 @@ export type Vars = {
 
 export const fakeServices = (env: Env): boolean => env.FAKE_SERVICES === "1";
 
-/** Which deployment this is; a job dispatch carries it so Actions picks the right bucket and secret. */
+/** Which deployment this is; a job dispatch carries it so Actions picks the right Worker and secret. */
 export const envName = (env: Pick<Env, "ENV_NAME">): "production" | "staging" | "dev" =>
   env.ENV_NAME === "staging" ? "staging" : env.ENV_NAME === "dev" ? "dev" : "production";
