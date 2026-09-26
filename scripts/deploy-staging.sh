@@ -35,4 +35,6 @@ case "$body" in
   *'"ok":true'*'"fake":false'*'"env":"staging"'*) ;;
   *) echo "healthz did not report {ok:true, fake:false, env:staging}"; exit 1 ;;
 esac
+# Staging keeps the email-code login: /api/me needs a login and the login API answers.
+bash scripts/auth-mode-smoke.sh "$PUBLIC_BASE_URL" "$(node scripts/auth-mode.mjs staging)"
 echo "deployed: $PUBLIC_BASE_URL"

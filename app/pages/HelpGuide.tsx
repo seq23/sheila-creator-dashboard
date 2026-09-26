@@ -3,11 +3,12 @@
 // and "Did this work?" at the end. "No" opens the matching fix-it guide or a pre-filled email to
 // her helper. Print / PDF prints every step on paper.
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import type { SettingsShape } from "@shared/types";
 import { get, post } from "../lib/api";
 import { fmtDate } from "../lib/format";
-import { GROUPS, INDEX, guide, helperMail, lastScreen, shotUrl } from "../lib/guides";
+import { GROUPS, INDEX, guide, helperMail, isLoginGuide, lastScreen, shotUrl } from "../lib/guides";
+import { useApp } from "../state";
 import { SCREEN_ROUTES, type Block, type GuideStep, type Inline } from "../lib/markdown";
 import { Empty, HelpButton, Notice, PageHead, useLoad, useToast } from "../components/ui";
 import { Icon } from "../components/Icon";
@@ -25,7 +26,12 @@ export function HelpGuide() {
   const total = g?.steps.length ?? 0;
   const n = Math.min(Math.max(1, Number(params.get("step") ?? 1) || 1), Math.max(1, total));
 
+  const { me } = useApp();
+
   useEffect(() => setAnswer(null), [slug]);
+
+  // No login in open mode, so the "Log in" guide would describe a screen that never appears.
+  if (me?.authMode === "open" && entry && isLoginGuide(entry)) return <Navigate to="/help" replace />;
 
   if (!g) {
     return (

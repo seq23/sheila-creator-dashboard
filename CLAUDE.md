@@ -64,10 +64,14 @@ assigned in the brief that adds it) · `package.json` deps (union merge only).
 ## Deploy
 
 `land <pr>` (from `~/bin`) or `npm run deploy:production`. Never bare `wrangler deploy`.
-Production URL: https://sheila-creator-dashboard.seq-taylor.workers.dev (until her domain).
+Production URL: https://sheilastudio.seq-taylor.workers.dev (Worker `sheilastudio`, until her
+domain). Production has no login (`AUTH_MODE` "open"): with open mode anyone who has the URL
+is the owner; that is by her choice; switching back is `AUTH_MODE: "code"` and a deploy
+(`REQUIRED_AUTH_MODE` in `scripts/validators/envs-match.mjs` pins it). Staging, local and e2e
+keep the email code; `npm run e2e` proves code mode, `npm run e2e:open` open mode.
 
 Staging (the owner's real twin, her throwaway accounts): `npm run deploy:staging`, URL
 https://sheila-creator-dashboard-staging.seq-taylor.workers.dev. It is `env.staging` in
 `wrangler.jsonc`; `npm run validate:envs` fails if it drifts from production beyond its name,
-its D1/R2 and the vars OWNER_EMAIL, PUBLIC_BASE_URL, ENV_NAME, FAKE_SERVICES. After `land`,
+its D1/R2 and the vars OWNER_EMAIL, PUBLIC_BASE_URL, ENV_NAME, FAKE_SERVICES, AUTH_MODE. After `land`,
 run `npm run deploy:staging` from main so both match.

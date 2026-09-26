@@ -1,6 +1,8 @@
 import type { Context, Next } from "hono";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import type { Env, SessionUser, Vars } from "../env";
+import { authMode } from "../env";
+import type { Features, Me } from "@shared/types";
 import { signSession, verifySessionCookie } from "./crypto";
 import { getSetting } from "./db";
 import { newId, nowIso, addDays } from "./ids";
@@ -54,7 +56,13 @@ export async function destroySession(c: C): Promise<void> {
   deleteCookie(c, SESSION_COOKIE, { path: "/" });
 }
 
+/**
+ * Who is asking. In open mode (AUTH_MODE "open", production by the owner's choice) that is
+ * always the owner: the OWNER_EMAIL user, created on the first request, no cookie needed.
+ * In code mode it is whoever holds a live session cookie, or nobody.
+ */
 export async function userFromRequest(c: C): Promise<SessionUser | null> {
+  if (authMode(c.env) === "open") return ensureUser(c.env, c.env.OWNER_EMAIL, "owner");
   const cookie = getCookie(c, SESSION_COOKIE);
   const id = await verifySessionCookie(c.env.SESSION_SECRET, cookie);
   if (!id) return null;
@@ -83,4 +91,10 @@ export async function requireOwner(c: C, next: Next) {
   const user = c.get("user");
   if (!user || user.role !== "owner") return c.json({ error: "Only the owner can do this." }, 403);
   await next();
+}
+
+/** The signed-in person as the app sees them (GET /api/me, and /api/auth/me in code mode). */
+export async function meFor(env: Env, user: SessionUser): Promise<Me> {
+  const features = await getSetting<Features>(env.DB, "features", { voice: false, deeper_research: false, weekly_recap: true, help_ask: false });
+  return { id: user.id, email: user.email, role: user.role, appName: env.APP_NAME, features, authMode: authMode(env) };
 }

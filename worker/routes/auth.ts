@@ -1,18 +1,23 @@
 // Email one-time code login (section 13: "no passwords"). Only the owner email and the
 // optional helper can request a code. Codes: 6 digits, 10 minutes, 5 attempts.
+// In open mode (AUTH_MODE "open", production by the owner's choice) there is no login at all:
+// every /api/auth route is a 404 and lib/auth.ts treats every request as the owner.
 import { Hono } from "hono";
 import type { Env, Vars } from "../env";
-import { fakeServices } from "../env";
-import { allowedRole, createSession, destroySession, ensureUser, userFromRequest } from "../lib/auth";
+import { authMode, fakeServices } from "../env";
+import { allowedRole, createSession, destroySession, ensureUser, meFor, userFromRequest } from "../lib/auth";
 import { sha256Hex } from "../lib/crypto";
-import { getSetting } from "../lib/db";
 import { fail, isEmail, readJson } from "../lib/http";
 import { newId, nowIso } from "../lib/ids";
 import { log } from "../lib/log";
 import { emailFrame, sendEmail } from "../services/email";
-import type { Features, Me } from "@shared/types";
 
 export const auth = new Hono<{ Bindings: Env; Variables: Vars }>();
+
+auth.use("*", async (c, next) => {
+  if (authMode(c.env) === "open") return c.json({ error: "Not found." }, 404);
+  await next();
+});
 
 const CODE_TTL_MS = 10 * 60 * 1000;
 const MAX_ATTEMPTS = 5;
@@ -83,7 +88,5 @@ auth.post("/logout", async (c) => {
 auth.get("/me", async (c) => {
   const user = await userFromRequest(c);
   if (!user) return fail(c, 401, "Please log in.", "log-in");
-  const features = await getSetting<Features>(c.env.DB, "features", { voice: false, deeper_research: false, weekly_recap: true, help_ask: false });
-  const me: Me = { id: user.id, email: user.email, role: user.role, appName: c.env.APP_NAME, features };
-  return c.json(me);
+  return c.json(await meFor(c.env, user));
 });

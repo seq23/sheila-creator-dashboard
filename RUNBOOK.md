@@ -4,11 +4,17 @@
 
 | Thing | Where |
 | --- | --- |
-| Production | https://sheila-creator-dashboard.seq-taylor.workers.dev (Cloudflare account SL Taylor, `8d147e242033699dd37c6f5a451f48d2`) |
+| Production | https://sheilastudio.seq-taylor.workers.dev, Worker `sheilastudio` (renamed from `sheila-creator-dashboard` 26 Sep 2026; Cloudflare account SL Taylor, `8d147e242033699dd37c6f5a451f48d2`) |
+| Login | Production: none, `AUTH_MODE` "open" (every visitor is the owner, OWNER_EMAIL). Staging, local, e2e: the email code (`AUTH_MODE` "code") |
 | D1 | `sheila-creator-dashboard-db` (id in `wrangler.jsonc`) |
 | R2 | `sheila-creator-dashboard-files` |
 | Repo | https://github.com/seq23/sheila-creator-dashboard (public) |
-| Logs | Cloudflare dashboard → Workers → sheila-creator-dashboard → Logs (observability on) |
+| Logs | Cloudflare dashboard → Workers → sheilastudio → Logs (observability on) |
+
+**No login on production.** With open mode anyone who has the URL is the owner; that is by her choice; switching back is `AUTH_MODE: "code"` and a deploy. (`REQUIRED_AUTH_MODE` in
+`scripts/validators/envs-match.mjs` pins each deployment's mode, so change it there too; the
+deploy smoke `scripts/auth-mode-smoke.sh` then checks the new mode.) In open mode `/api/auth/*`
+is a 404, `/api/me` answers as the owner with no cookie, and the Help "Log in" guide is hidden.
 
 ## Secrets
 
@@ -53,7 +59,7 @@ npx wrangler d1 execute sheila-creator-dashboard-db --remote --command "SELECT s
 npx wrangler d1 execute sheila-creator-dashboard-db --remote --command "SELECT id, type, status, safe_error, created_at FROM jobs ORDER BY created_at DESC LIMIT 10"
 
 # tail logs
-npx wrangler tail sheila-creator-dashboard --format pretty
+npx wrangler tail sheilastudio --format pretty
 
 # re-run a job by hand (fake mode only, local)
 curl -X POST http://localhost:8787/api/jobs/<job_id>/run-fake -H 'Cookie: ss_session=…'
@@ -82,7 +88,7 @@ Sheila's production is never touched by it.
 | Thing | Where |
 | --- | --- |
 | URL | https://sheila-creator-dashboard-staging.seq-taylor.workers.dev (`/healthz` → `{"ok":true,"fake":false,"env":"staging"}`) |
-| Config | `wrangler.jsonc` `env.staging`; `npm run validate:envs` fails on any drift from production except name, D1/R2 and the vars OWNER_EMAIL, PUBLIC_BASE_URL, ENV_NAME, FAKE_SERVICES |
+| Config | `wrangler.jsonc` `env.staging`; `npm run validate:envs` fails on any drift from production except name, D1/R2 and the vars OWNER_EMAIL, PUBLIC_BASE_URL, ENV_NAME, FAKE_SERVICES, AUTH_MODE (staging keeps the email-code login) |
 | D1 | `sheila-creator-dashboard-db-staging` (`c8e9e2c9-0c30-48c5-9c93-acf66a26979c`) |
 | R2 | `sheila-creator-dashboard-files-staging` |
 | Login | `sequoia@westpeek.ventures` (OWNER_EMAIL). The West Peek Resend key delivers only to its account owner's address, and she reads that mailbox. |

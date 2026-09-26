@@ -19,6 +19,17 @@ export interface IndexGuide {
 export const GROUPS = index.groups as { key: IndexGuide["group"]; title: string }[];
 export const INDEX = index.guides as IndexGuide[];
 
+/**
+ * A guide about the login screen (index "screen": "login") means nothing when the deployment has
+ * no login (AUTH_MODE "open", production by the owner's choice), so open mode hides it.
+ */
+export const isLoginGuide = (g: Pick<IndexGuide, "screen">) => g.screen === "login";
+
+/** The guides this deployment shows: all of them, minus the login guides in open mode. */
+export function visibleGuides(mode: "open" | "code" | undefined): IndexGuide[] {
+  return mode === "open" ? INDEX.filter((g) => !isLoginGuide(g)) : INDEX;
+}
+
 const cache = new Map<string, ParsedGuide>();
 
 export function guide(slug: string): ParsedGuide | null {
@@ -42,11 +53,13 @@ export function shotUrl(path: string | null, phone = false): string | null {
 }
 
 /** Plain-text search over titles and step text. Every word must match. */
-export function searchGuides(q: string): IndexGuide[] {
+export function searchGuides(q: string, mode?: "open" | "code"): IndexGuide[] {
   const words = q.toLowerCase().split(/\s+/).filter(Boolean);
   if (!words.length) return [];
+  const visible = new Set(visibleGuides(mode).map((g) => g.slug));
   return allGuides()
     .filter(({ entry, parsed }) => {
+      if (!visible.has(entry.slug)) return false;
       const hay = `${entry.title.toLowerCase()} ${parsed?.text ?? ""}`;
       return words.every((w) => hay.includes(w));
     })
