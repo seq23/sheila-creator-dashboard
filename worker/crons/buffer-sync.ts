@@ -19,6 +19,7 @@ import { readSettings } from "../routes/settings";
 import { bufferRequests, getBuffer, type BufferChannel, type BufferClient } from "../services/buffer";
 import { emailFrame, sendEmail } from "../services/email";
 import { checkFirecrawl, checkHunter, checkOpenRouter, type KeyCheck } from "../services/keychecks";
+import { recheckElevenLabs } from "../lib/premiumVoice";
 import {
   bufferDueAt,
   channelHealth,
@@ -119,6 +120,7 @@ const CONNECTION_COPY: Record<string, { title: string; steps: string[]; guide: s
   openrouter: { title: "The AI (OpenRouter)", steps: ["Open OpenRouter and go to Keys.", "Create a new key and copy it.", "In your dashboard open Settings, Connect accounts, paste it under OpenRouter and press Check key."], guide: "reconnect-openrouter" },
   firecrawl: { title: "Web research (Firecrawl)", steps: ["Open Firecrawl and go to API Keys.", "Copy your key.", "In your dashboard open Settings, Connect accounts, paste it under Firecrawl and press Check key."], guide: "reconnect-firecrawl" },
   hunter: { title: "Hunter", steps: ["Open Hunter and go to API.", "Copy your key.", "In your dashboard open Settings, Connect accounts, paste it under Hunter and press Check key."], guide: "reconnect-hunter" },
+  elevenlabs: { title: "The premium voice (ElevenLabs)", steps: ["Open ElevenLabs, tap your profile, then API keys.", "Create a new key and copy it.", "In your dashboard open Settings, Connect accounts, paste it under ElevenLabs and press Check key. Until then your narrations use the built-in voice."], guide: "reconnect-elevenlabs" },
 };
 
 async function connectionNeedsYouEmail(env: Env, name: string) {
@@ -348,6 +350,7 @@ export async function recheckEverything(env: Env): Promise<void> {
     await markConnection(env, service, r.ok ? "ok" : "error", r.error, r.meta);
     await setHealth(env.DB, service, r.ok ? "green" : "red", r.ok ? "Connected" : (r.error ?? "Needs you"), r.ok ? null : `reconnect-${service}`);
   }
+  await recheckElevenLabs(env); // the same code as the daily lane: one "Voice · ElevenLabs" light
   const waiting = (await env.DB.prepare("SELECT COUNT(*) AS n FROM posts WHERE status = 'planned' AND scheduled_at < ?").bind(new Date(Date.now() + 7 * 86400_000).toISOString()).first<{ n: number }>())?.n ?? 0;
   await writeHealth(env, buf, buf.ok ? 0 : waiting);
   log.info("health.recheck", { buffer_ok: buf.ok });

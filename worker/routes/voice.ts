@@ -1,21 +1,28 @@
 // Voice narration (section 12). Hidden until she switches it on in Settings; every change here
 // refuses while it is off. Only the owner login can create, replace or delete the voice.
-//   GET    /api/voice                     state + narrations
+// Two engines (worker/domain/voiceEngine.ts): "built-in" (free, the Chatterbox job on the GitHub
+// runner, always kept as the fallback) and "elevenlabs" (premium, her own ElevenLabs account,
+// made here in the Worker in seconds). Every narration row records which one made it.
+//   GET    /api/voice                     state + which engine is active and why + narrations
+//   PATCH  /api/voice/engine              "Use premium voice when connected" on or off (owner)
 //   POST   /api/voice/sample              record the uploaded sample (uploads kind "voice_sample") + consent
-//   DELETE /api/voice/sample              delete the sample and the voice model (one button)
+//                                         (+ the premium clone when ElevenLabs is connected and allows it)
+//   DELETE /api/voice/sample              delete the sample and the voice model, and the premium clone (one button)
 //   POST   /api/voice/draft               draft a script from the locked Brand Profile
-//   POST   /api/voice/narrations          script → queue the voice job
+//   POST   /api/voice/narrations          script → premium now, or queue the built-in voice job
 //   PATCH  /api/voice/narrations/:id      attach to a clip (or detach)
 //   DELETE /api/voice/narrations/:id
 //   GET    /api/voice/narrations/:id/audio   stream the file (logged-in only, never public)
 import { Hono, type Context, type Next } from "hono";
 import type { Env, Vars } from "../env";
 import { requireOwner, requireUser } from "../lib/auth";
-import { getSetting, recordEvent } from "../lib/db";
+import { getSetting, recordEvent, setSetting } from "../lib/db";
 import { fail, readJson } from "../lib/http";
 import { newId, nowIso } from "../lib/ids";
 import { log } from "../lib/log";
 import { dispatchJob } from "../services/github";
+import { ENGINE_PREFERENCES, fallbackNotice, type ElevenFailure, type EnginePreference } from "../domain/voiceEngine";
+import { currentEngine, dropPremiumVoice, ENGINE_SETTING, ensurePremiumVoice, premiumNarrate } from "../lib/premiumVoice";
 import { getLlm } from "../services/openrouter";
 import { KIT_NAME, lockedProfile, themeList } from "./mediakit";
 import type { Features } from "@shared/types";
@@ -26,6 +33,8 @@ voice.use("*", requireUser);
 export const CONSENT_LINE = "This is my voice and I authorize its use in this dashboard.";
 const MAX_SAMPLE_BYTES = 50 * 1024 * 1024;
 const MAX_SCRIPT = 1500;
+/** A sample shorter than a minute makes a thin voice; about 3 minutes is best (the script on screen). */
+export const MIN_SAMPLE_SECONDS = 60;
 
 type C = Context<{ Bindings: Env; Variables: Vars }>;
 
@@ -63,14 +72,32 @@ async function voiceRow(env: Env): Promise<VoiceDb> {
 
 voice.get("/", async (c) => {
   const v = await voiceRow(c.env);
-  const { results } = await c.env.DB.prepare("SELECT id, script, status, clip_id, created_at FROM narrations ORDER BY created_at DESC LIMIT 30").all<{
+  const { results } = await c.env.DB.prepare("SELECT id, script, status, clip_id, engine, duration_s, created_at FROM narrations ORDER BY created_at DESC LIMIT 30").all<{
     id: string;
     script: string;
     status: "queued" | "generating" | "ready" | "failed";
     clip_id: string | null;
+    engine: "built-in" | "elevenlabs";
+    duration_s: number | null;
     created_at: string;
   }>();
+  const e = await currentEngine(c.env);
+  const plan = e.state.plan;
   return c.json({
+    engine: {
+      active: e.engine,
+      reason: e.reason,
+      why: e.why,
+      preference: e.state.preference,
+      connected: e.state.connection === "ok",
+      connection: e.state.connection ?? "missing",
+      can_clone: e.state.canClone,
+      premium_voice: e.state.hasPremiumVoice,
+      tier: plan?.tier ?? null,
+      characters_left: plan ? Math.max(0, plan.limit - plan.used) : null,
+      characters_limit: plan?.limit ?? null,
+    },
+    min_sample_seconds: MIN_SAMPLE_SECONDS,
     enabled: await featureOn(c.env),
     hasSample: !!v.sample_r2_key && !!v.consent_at,
     consent_at: v.consent_at,
@@ -81,9 +108,25 @@ voice.get("/", async (c) => {
   });
 });
 
+/** "Use premium voice when connected": premium_when_available (default) or built_in_only. */
+voice.patch("/engine", requireOwner, async (c) => {
+  const body = await readJson<{ preference?: string }>(c);
+  const pref = body?.preference as EnginePreference | undefined;
+  if (!pref || !ENGINE_PREFERENCES.includes(pref)) return fail(c, 422, "Pick premium or built-in.", "record-your-voice");
+  await setSetting(c.env.DB, ENGINE_SETTING, pref);
+  await recordEvent(c.env.DB, "voice.engine.preference", null, { preference: pref }, c.get("user").email);
+  if (pref === "premium_when_available") await ensurePremiumVoice(c.env);
+  const e = await currentEngine(c.env);
+  return c.json({ ok: true, active: e.engine, why: e.why });
+});
+
 voice.post("/sample", requireVoiceOn, requireOwner, async (c) => {
-  const body = await readJson<{ upload_id?: string; consent?: boolean; consent_text?: string }>(c);
+  const body = await readJson<{ upload_id?: string; consent?: boolean; consent_text?: string; duration_s?: number }>(c);
   if (!body?.consent) return fail(c, 422, "Tick the consent box first: it confirms this is your own voice.", "record-your-voice");
+  const seconds = Number(body.duration_s);
+  if (!Number.isFinite(seconds) || seconds < MIN_SAMPLE_SECONDS) {
+    return fail(c, 422, "That recording is under a minute. Record at least 1 minute; about 3 minutes (the whole script) gives the best voice.", "record-your-voice");
+  }
   const uploadId = body.upload_id ?? "";
   if (!/^upl_[a-z0-9]{6,40}$/.test(uploadId)) return fail(c, 400, "That upload is not a voice sample.", "record-your-voice");
   const key = `voice/sample/${uploadId}`;
@@ -99,18 +142,23 @@ voice.post("/sample", requireVoiceOn, requireOwner, async (c) => {
     return fail(c, 413, "That recording is too long. 10 to 30 seconds is plenty.", "record-your-voice");
   }
   const old = await voiceRow(c.env);
+  await dropPremiumVoice(c.env, "replaced"); // a new voice means a new premium clone too
   if (old.sample_r2_key && old.sample_r2_key !== key) await c.env.FILES.delete(old.sample_r2_key);
   if (old.model_r2_key) await c.env.FILES.delete(old.model_r2_key); // a new voice means a new model
   const consentText = (body.consent_text ?? CONSENT_LINE).trim().slice(0, 300) || CONSENT_LINE;
   const at = nowIso();
   await c.env.DB.prepare("UPDATE voice SET sample_r2_key = ?, consent_at = ?, consent_text = ?, model_r2_key = NULL, enabled = 1, updated_at = ? WHERE id = 1").bind(key, at, consentText, at).run();
   await recordEvent(c.env.DB, "voice.sample.saved", null, { bytes: head.size, replaced: !!old.sample_r2_key }, c.get("user").email);
-  log.info("voice.sample.saved", { bytes: head.size });
-  return c.json({ ok: true, consent_at: at });
+  log.info("voice.sample.saved", { bytes: head.size, seconds: Math.round(seconds) });
+  // The built-in voice is made on the first narration; the premium clone right now, if possible.
+  const premium = await ensurePremiumVoice(c.env);
+  const e = await currentEngine(c.env);
+  return c.json({ ok: true, consent_at: at, engine: e.engine, premium_voice: !!premium.voiceId, why: e.why });
 });
 
 voice.delete("/sample", requireOwner, async (c) => {
   const v = await voiceRow(c.env);
+  await dropPremiumVoice(c.env, "deleted"); // also deletes the clone from her ElevenLabs account
   if (v.sample_r2_key) await c.env.FILES.delete(v.sample_r2_key);
   if (v.model_r2_key) await c.env.FILES.delete(v.model_r2_key);
   await c.env.DB.prepare("UPDATE voice SET sample_r2_key = NULL, consent_at = NULL, consent_text = NULL, model_r2_key = NULL, enabled = 0, updated_at = ? WHERE id = 1").bind(nowIso()).run();
@@ -145,16 +193,33 @@ voice.post("/narrations", requireVoiceOn, async (c) => {
   if (script.length < 10) return fail(c, 422, "Write a sentence or two first, or tap Draft with AI.", "record-your-voice");
   if (script.length > MAX_SCRIPT) return fail(c, 422, "Keep the script under about 2 minutes (1,500 characters).", "record-your-voice");
   const v = await voiceRow(c.env);
-  if (!v.sample_r2_key || !v.consent_at) return fail(c, 409, "Record your voice sample first (step 1).", "record-your-voice");
+  if (!v.sample_r2_key || !v.consent_at) return fail(c, 409, "Save your voice first (steps 1 to 4 above).", "record-your-voice");
   const id = newId("nar");
-  await c.env.DB.prepare("INSERT INTO narrations (id, script, status) VALUES (?, ?, 'queued')").bind(id, script).run();
+  // Premium when she allows it, ElevenLabs is connected, her plan clones and the clone exists
+  // (made now if it should exist and does not). Anything else, or any premium failure: built-in.
+  const cloned = await ensurePremiumVoice(c.env);
+  const choice = await currentEngine(c.env);
+  let fellBack: ElevenFailure | null = cloned.failure;
+  if (choice.engine === "elevenlabs" && choice.state.voiceId) {
+    await c.env.DB.prepare("INSERT INTO narrations (id, script, status, engine) VALUES (?, ?, 'generating', 'elevenlabs')").bind(id, script).run();
+    const p = await premiumNarrate(c.env, id, script, choice.state.voiceId);
+    if (p.ok) {
+      await recordEvent(c.env.DB, "voice.narration.generated", id, { engine: "elevenlabs", chars: script.length, bytes: p.bytes, seconds: p.duration }, c.get("user").email);
+      log.info("voice.premium.narrated", { bytes: p.bytes, chars: script.length });
+      return c.json({ id, jobId: null, engine: "elevenlabs", notice: null });
+    }
+    fellBack = p.failure;
+    await c.env.DB.prepare("UPDATE narrations SET engine = 'built-in', status = 'queued' WHERE id = ?").bind(id).run();
+  } else {
+    await c.env.DB.prepare("INSERT INTO narrations (id, script, status, engine) VALUES (?, ?, 'queued', 'built-in')").bind(id, script).run();
+  }
   const r = await dispatchJob(c.env, "voice", id);
   if (!r.dispatched) {
     await c.env.DB.prepare("UPDATE narrations SET status = 'failed' WHERE id = ?").bind(id).run();
     return fail(c, 502, r.error ?? "The narration could not start.", "reconnect-github");
   }
-  await recordEvent(c.env.DB, "voice.narration.queued", id, { chars: script.length }, c.get("user").email);
-  return c.json({ id, jobId: r.jobId });
+  await recordEvent(c.env.DB, "voice.narration.queued", id, { engine: "built-in", chars: script.length, fallback: fellBack }, c.get("user").email);
+  return c.json({ id, jobId: r.jobId, engine: "built-in", notice: fellBack ? fallbackNotice(fellBack) : null });
 });
 
 voice.patch("/narrations/:id", requireVoiceOn, async (c) => {

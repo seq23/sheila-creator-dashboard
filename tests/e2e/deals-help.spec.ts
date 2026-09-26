@@ -178,8 +178,29 @@ test.describe("voice", () => {
 
     await setVoice(page.request, true);
     await page.goto("/voice");
-    await page.getByLabel("Upload a voice clip").setInputFiles({ name: "sample.wav", mimeType: "audio/wav", buffer: wav(1) });
+    // the five setup steps, the read-aloud script and the recorder are on the screen
+    for (let n = 1; n <= 5; n++) await expect(page.locator(`.voice-step[data-step="${n}"]`)).toBeVisible();
+    await expect(page.getByLabel("Script to read aloud")).toContainText("A Sheila Bruce Affair");
+    await page.getByRole("button", { name: "Bigger text" }).click();
+    await expect(page.locator(".voice-script.big")).toBeVisible();
+    await page.getByRole("button", { name: "Hide script" }).click();
+    await expect(page.getByLabel("Script to read aloud")).toHaveCount(0);
+    await page.getByRole("button", { name: "Show script" }).click();
+    await expect(page.getByRole("button", { name: "Record sample" })).toBeVisible();
+    await expect(page.getByLabel("Upload a voice clip")).toHaveAttribute("accept", /\.m4a.*\.mp3.*\.wav.*\.aac.*\.caf.*\.webm/);
+
+    // under a minute is not enough: a plain sentence, Save stays off even with consent ticked
     const save = page.getByRole("button", { name: "Save my voice" });
+    await page.getByLabel("Upload a voice clip").setInputFiles({ name: "short.wav", mimeType: "audio/wav", buffer: wav(20) });
+    await expect(page.getByTestId("sample-length")).toContainText("Your recording is 0:20. Record at least 1 minute");
+    await page.getByLabel(/This is my own voice and I consent/).check();
+    await expect(save).toBeDisabled();
+    const short = await page.request.post("/api/voice/sample", { data: { upload_id: "upl_abcdef12", consent: true, duration_s: 20 } });
+    expect(short.status()).toBe(422);
+
+    await page.getByLabel("Upload a voice clip").setInputFiles({ name: "sample.wav", mimeType: "audio/wav", buffer: wav(61) });
+    await expect(page.getByTestId("sample-length")).toContainText("Your recording is 1:01.");
+    await page.getByLabel(/This is my own voice and I consent/).uncheck();
     await expect(save).toBeDisabled(); // consent first
     await page.getByLabel(/This is my own voice and I consent/).check();
     await save.click();
@@ -192,6 +213,7 @@ test.describe("voice", () => {
     expect((await page.request.post(`/api/jobs/${jobId}/run-fake`, { data: {} })).ok()).toBe(true);
     await page.reload();
     await expect(page.getByLabel("Play narration")).toBeVisible();
+    await expect(page.locator(".narration").first().locator(".engine-tag")).toHaveText("Built-in");
     const audio = await page.request.get(`/api/voice/narrations/${id}/audio`);
     expect(audio.status()).toBe(200);
     expect(audio.headers()["content-type"]).toContain("audio/wav");
