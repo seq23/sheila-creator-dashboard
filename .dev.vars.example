@@ -8,3 +8,5 @@ JOB_SHARED_SECRET=dev-job-shared-secret
 # RESEND_API_KEY=
 # Which deployment this is; /healthz reports it. Production and staging set it in wrangler.jsonc.
 ENV_NAME=dev
+# How people get in: "code" (the email-code login) locally and in e2e; production is "open".
+AUTH_MODE=code

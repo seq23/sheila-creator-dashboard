@@ -6,7 +6,9 @@
 // moved Pages toward. Nothing about the plan's behaviour changes.
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "sheila-creator-dashboard",
+  // Production Worker: https://sheilastudio.seq-taylor.workers.dev (renamed 26 Sep 2026 from
+  // sheila-creator-dashboard at the owner's request; the D1 database and R2 bucket kept their names).
+  "name": "sheilastudio",
   "main": "worker/index.ts",
   "compatibility_date": "2026-09-01",
   "compatibility_flags": ["nodejs_compat"],
@@ -45,19 +47,27 @@
     // "1" swaps every outside service (Buffer, OpenRouter, Firecrawl, Resend, Hunter, GitHub,
     // Meta, Google) for a realistic stand-in. Production sets it to "0".
     "FAKE_SERVICES": "1",
+    // Local default. Production's URL (https://sheilastudio.seq-taylor.workers.dev) is set by
+    // scripts/deploy-production.sh with --var, so `wrangler dev` never mints Secure cookies on http.
     "PUBLIC_BASE_URL": "http://localhost:8787",
     "GITHUB_REPO": "seq23/sheila-creator-dashboard",
     "AUDIENCE_TIMEZONE": "America/New_York",
     // Which deployment this is: "production" here, "staging" in env.staging, "dev" in .dev.vars.
     // /healthz reports it and every job dispatch carries it, so a job reaches the right
     // Worker, bucket and shared secret.
-    "ENV_NAME": "production"
+    "ENV_NAME": "production",
+    // How people get in. "open": no login at all, every visitor is the owner (OWNER_EMAIL):
+    // the owner's choice for production, anyone with the URL is the owner. "code": the email
+    // one-time-code login (staging below; .dev.vars and tests/e2e/serve.sh for local and e2e).
+    // Switching production back: AUTH_MODE "code" here and REQUIRED_AUTH_MODE in
+    // scripts/validators/envs-match.mjs (which enforces both modes), then a deploy.
+    "AUTH_MODE": "open"
   },
   // STAGING: the owner's own fully real copy (FAKE_SERVICES=0) for testing with throwaway
   // accounts while Sheila's production stays untouched. Deploy with `npm run deploy:staging`.
   // scripts/validators/envs-match.mjs fails the build if staging differs from production in
   // anything except the name, the D1/R2 ids and names, and the vars OWNER_EMAIL,
-  // PUBLIC_BASE_URL, ENV_NAME and FAKE_SERVICES.
+  // PUBLIC_BASE_URL, ENV_NAME, FAKE_SERVICES and AUTH_MODE.
   "env": {
     "staging": {
       "name": "sheila-creator-dashboard-staging",
@@ -89,7 +99,9 @@
         "PUBLIC_BASE_URL": "https://sheila-creator-dashboard-staging.seq-taylor.workers.dev",
         "GITHUB_REPO": "seq23/sheila-creator-dashboard",
         "AUDIENCE_TIMEZONE": "America/New_York",
-        "ENV_NAME": "staging"
+        "ENV_NAME": "staging",
+        // Staging keeps the email-code login (the owner's instruction, 26 Sep 2026).
+        "AUTH_MODE": "code"
       }
     }
   }

@@ -63,10 +63,10 @@ describe("envs-match validator", () => {
     expect(problems.some((p: string) => p.includes("fully real"))).toBe(true);
   });
 
-  it("allows exactly the four var differences the twin rule names", () => {
+  it("allows exactly the five var differences the twin rule names", () => {
     const c = cfg();
     const diff = Object.keys(c.vars).filter((k) => c.vars[k] !== c.env.staging.vars[k]).sort();
-    expect(diff).toEqual(["ENV_NAME", "FAKE_SERVICES", "OWNER_EMAIL", "PUBLIC_BASE_URL"]);
+    expect(diff).toEqual(["AUTH_MODE", "ENV_NAME", "FAKE_SERVICES", "OWNER_EMAIL", "PUBLIC_BASE_URL"]);
   });
 
   it("fails a job workflow that hard-codes the production bucket or secret", () => {

@@ -21,6 +21,8 @@ export function Settings() {
   const [emails, setEmails] = useState("");
   const [helper, setHelper] = useState("");
   const owner = me?.role === "owner";
+  // Open mode has no login, so the helper is who "Email my helper" writes to, not a second login.
+  const openMode = me?.authMode === "open";
 
   useEffect(() => {
     if (s.data) {
@@ -170,8 +172,8 @@ export function Settings() {
             </Card>
             <Card>
               <div className="field">
-                <label htmlFor="helper">Helper login</label>
-                <div className="hint">A second person who can log in to help. You can remove them any time.</div>
+                <label htmlFor="helper">{openMode ? "Your helper" : "Helper login"}</label>
+                <div className="hint">{openMode ? "Who “Email my helper” writes to. You can remove them any time." : "A second person who can log in to help. You can remove them any time."}</div>
                 <div className="set-input-row">
                   <input id="helper" className="input" type="email" value={helper} onChange={(e) => setHelper(e.target.value)} disabled={!owner} placeholder="helper@example.com" />
                   <button className="btn quiet" disabled={!owner} onClick={() => save({ helper_email: helper.trim() || null })}>

@@ -5,6 +5,7 @@ import type { Env, Vars } from "./env";
 import { envName, fakeServices } from "./env";
 import { log, safeError } from "./lib/log";
 import { auth } from "./routes/auth";
+import { me } from "./routes/me";
 import { home } from "./routes/home";
 import { dumps } from "./routes/dumps";
 import { uploads } from "./routes/uploads";
@@ -40,6 +41,7 @@ app.get("/healthz", (c) => c.json({ ok: true, fake: fakeServices(c.env), env: en
 // ROUTE LEDGER (collision slot): every route module is mounted here, one line each.
 // scripts/validators/routes-mounted.mjs checks that every file in worker/routes is mounted.
 app.route("/api/auth", auth);
+app.route("/api/me", me);
 app.route("/api/home", home);
 app.route("/api/dumps", dumps);
 app.route("/api/uploads", uploads);

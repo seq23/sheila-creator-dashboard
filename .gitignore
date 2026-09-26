@@ -7,6 +7,7 @@ dist/
 !.env.example
 test-results/
 playwright-report/
+playwright-report-open/
 jobs/.venv/
 jobs/work/
 __pycache__/
