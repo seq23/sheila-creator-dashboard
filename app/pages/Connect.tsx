@@ -2,8 +2,11 @@
 // YouTube public numbers, Instagram numbers typed on Stats, TikTok export upload on Stats; the
 // Instagram and Google sign-ins via /api/oauth stay visible as optional extra detail), AI (OpenRouter), web research (Firecrawl),
 // Hunter (optional), Voice overs · ElevenLabs (premium, optional: her own ElevenLabs account; without it
-// the free built-in voice is used). Every connection has Connect / Check again / Disconnect, plus
-// Disconnect everything. She always logs in on the platform's own page.
+// the free built-in voice is used), Editing apps (docs/EDITORS.md: CapCut and InShot need no key,
+// she sends a clip from Review and uploads her edit back; Opus Clip, Vizard, Klap, Submagic and
+// Descript connect with her own key and are picked under Settings > Editing > Who edits). Every
+// connection has Connect / Check again / Disconnect, plus Disconnect everything. She always logs
+// in on the platform's own page.
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import type { ConnectionView } from "@shared/types";
@@ -14,12 +17,13 @@ import { Icon } from "../components/Icon";
 import "../styles/settings.css";
 import { useApp } from "../state";
 import { PLATFORM_LABEL, type Platform } from "@shared/constants";
+import { EDITORS as EDITOR_LIST, HANDOFF } from "@shared/editors";
 
 type Service = ConnectionView["service"];
 
 // `title` is the section-and-vendor name the key box is labelled with (guides and specs find the
 // box by it); `name` is the vendor alone, shown as the card title under the numbered step.
-const KEY_SERVICES: { service: Service; title: string; name: string; why: string; steps: string[]; guide: string; optional?: boolean }[] = [
+const KEY_SERVICES: { service: Service; title: string; name: string; why: string; steps: string[]; guide: string; optional?: boolean; editor?: boolean }[] = [
   { service: "buffer", title: "Posting · Buffer", name: "Buffer", why: "Buffer publishes your clips to TikTok, Instagram and YouTube.", steps: ["Open Buffer → Settings → API", "Click Create key, then copy it", "Paste it here"], guide: "connect-buffer" },
   { service: "openrouter", title: "AI · OpenRouter", name: "OpenRouter", why: "Writes captions, hooks, your Research Brief and pitch drafts. Free models by default.", steps: ["Open openrouter.ai → Keys", "Create key, copy it", "Paste it here"], guide: "connect-openrouter" },
   { service: "firecrawl", title: "Web research · Firecrawl", name: "Firecrawl", why: "Optional, faster web research for your Research Brief and brand finder. 1,000 free credits a month. Without it the dashboard searches the web for free.", steps: ["Open firecrawl.dev → API Keys", "Copy your key", "Paste it here"], guide: "connect-firecrawl" },
@@ -33,6 +37,8 @@ const KEY_SERVICES: { service: Service; title: string; name: string; why: string
     guide: "connect-elevenlabs",
     optional: true,
   },
+  // Connected editors (worker/domain/editors.ts is the one list; these rows show it).
+  ...EDITOR_LIST.map((e) => ({ service: e.id as Service, title: `Editor · ${e.name}`, name: e.name, why: e.why, steps: e.steps, guide: `connect-${e.id}`, optional: true, editor: true })),
 ];
 
 export function Connect() {
@@ -128,6 +134,33 @@ export function Connect() {
 
           <Section n={5} title="Voice overs · premium, optional">
             <KeyCard def={KEY_SERVICES[4]} conn={byService("elevenlabs")} owner={owner} primary={false} onChange={reload} />
+          </Section>
+
+          <Section n={6} title="Editing apps · optional">
+            <Card className="flat">
+              <div className="hint">The built-in editor makes every clip for free. Use your own apps on top whenever you like.</div>
+              <div className="list">
+                {(["capcut", "inshot"] as const).map((app) => (
+                  <div key={app} className="list-row" data-handoff={app}>
+                    <Dot light="green" />
+                    <div className="grow">
+                      <div className="title">{HANDOFF[app].name}</div>
+                      <div className="meta">{HANDOFF[app].row}</div>
+                    </div>
+                    <span className="pill ok">Ready</span>
+                    <Link className="btn quiet small" to="/help/edit-in-capcut">
+                      How
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            </Card>
+            <div className="hint">Editors with their own key: connect one, then pick it under Settings → Editing → Who edits. <Link to="/help/connect-an-editor">Which editor does what</Link></div>
+            <div className="grid cols-2">
+              {KEY_SERVICES.filter((d) => d.editor).map((d) => (
+                <KeyCard key={d.service} def={d} conn={byService(d.service)} owner={owner} primary={false} onChange={reload} />
+              ))}
+            </div>
           </Section>
 
           {owner ? (
@@ -240,6 +273,8 @@ function KeyCard({ def, conn, owner, primary, onChange }: { def: (typeof KEY_SER
         <div className="hint nums">
           {credits} of {(conn?.meta.credits_total as number | undefined) ?? "your"} credits left this month
         </div>
+      ) : def.editor && connected ? (
+        <div className="hint">{def.name}’s API doesn’t report credits; see them in your {def.name} account.</div>
       ) : null}
       {!connected ? (
         <>

@@ -1031,6 +1031,108 @@ def rerender_clip(spec: dict[str, Any], work: Path, download: Downloader, upload
     }
 
 
+# ---------------------------------------------------------------- another editor's videos
+
+IMPORT_MAX_BYTES = 1536 * 1024 * 1024
+
+
+def fetch_url(url: str, dest: Path) -> Path:
+    """Download a connected editor's finished video (an https link it gave us). Never logged."""
+    if not url.startswith("https://"):
+        raise NoUsableMoments("import link is not https")
+    got = 0
+    req = urllib.request.Request(url, headers={"User-Agent": "sheila-studio-import"})
+    with urllib.request.urlopen(req, timeout=300) as res, open(dest, "wb") as out:
+        while True:
+            chunk = res.read(1024 * 1024)
+            if not chunk:
+                break
+            got += len(chunk)
+            if got > IMPORT_MAX_BYTES:
+                raise NoUsableMoments("import too large")
+            out.write(chunk)
+    return dest
+
+
+def recipe_for_length(seconds: float) -> str:
+    """Mirror of worker/domain/editors.ts recipeForLength."""
+    return "talking_head" if seconds <= 45 else "hook_first" if seconds <= 60 else "story"
+
+
+def import_items(spec: dict[str, Any], work: Path, download: Downloader, upload: Uploader, progress: Progress, fetch: Callable[[str, Path], Path] = fetch_url) -> dict[str, Any]:
+    """Videos made by another editor (her own edit from CapCut / InShot, or a connected editor's
+    clips) become clips: each is measured with ffprobe, fitted to 1080x1920 without stretching
+    (a tall video is scaled, anything else sits whole over a blurred copy of itself), loudness to
+    -14 LUFS, a new cover. The Worker checks the answer (worker/jobs/cut_import.ts)."""
+    work.mkdir(parents=True, exist_ok=True)
+    items = spec.get("items") or []
+    if not items:
+        raise NoUsableMoments("nothing to import")
+    blank = L.Branding(logo=None)
+    done: list[dict[str, Any]] = []
+    for i, it in enumerate(items):
+        progress("Getting your videos", i, len(items))
+        src = work / f"import_{i}"
+        try:
+            if "url" in it["src"]:
+                fetch(str(it["src"]["url"]), src)
+            else:
+                download(str(it["src"]["key"]), src)
+            raw = probe(src)
+            if not raw["has_video"] or raw["duration"] <= 0:
+                log("cut.import.unreadable", n=i)
+                continue
+            norm = work / f"import_norm_{i}.mp4"
+            info = normalize(src, norm)
+        except (subprocess.CalledProcessError, OSError, NoUsableMoments):
+            log("cut.import.unreadable", n=i)
+            continue
+        finally:
+            src.unlink(missing_ok=True)
+        progress("Cutting clips", i, len(items))
+        tall = abs(info["width"] / max(1, info["height"]) - 9 / 16) <= 0.03 * 9 / 16
+        opts = L.look_options("clean", {"captions": "none", "hook": "none", "layout": "fill" if tall else "blur_fill", "end_card": False, "punch_in": False, "progress_bar": False, "crossfade": False, "grade": "none", "music": False})
+        seg = L.Seg(norm, 0.0, round(info["duration"], 3), info["width"], info["height"])
+        r = L.render_look(opts, [seg], [], "", blank, work, f"import_out_{i}")
+        progress("Saving clips", i, len(items))
+        upload(r.mp4, str(it["output_key"]), "video/mp4")
+        upload(r.cover, str(it["output_cover_key"]), "image/jpeg")
+        done.append({"item": it, "width": raw["width"], "height": raw["height"], "duration": round(r.duration, 2)})
+    progress("Saving clips", len(items), len(items))
+    log("cut.import.done", items=len(items), imported=len(done), replace=bool(spec.get("replace")))
+    if spec.get("replace"):
+        if not done:
+            raise NoUsableMoments("the edit could not be read")
+        d = done[0]
+        return {"replaced": {"clip_id": d["item"]["clip_id"], "r2_key": d["item"]["output_key"], "cover_r2_key": d["item"]["output_cover_key"], "width": d["width"], "height": d["height"], "duration_s": d["duration"]}}
+    if not done:
+        raise NoUsableMoments("nothing imported")
+    clips = []
+    for k, d in enumerate(done):
+        it = d["item"]
+        title = str(it.get("title") or "").strip()[:200]
+        clips.append({
+            "id": it["clip_id"],
+            "asset_id": it.get("asset_id") or "",
+            "start_s": 0.0,
+            "end_s": d["duration"],
+            "recipe": recipe_for_length(d["duration"]),
+            "hook_text": title or "A clip from your dump",
+            "hook_alt": None,
+            "caption": title,
+            "hashtags": [],
+            "platforms": it.get("platforms") or ["tiktok", "instagram", "youtube"],
+            "score": round(max(0.5, 0.8 - 0.04 * k), 3),
+            "r2_key": it["output_key"],
+            "cover_r2_key": it["output_cover_key"],
+            "look": None,
+            "parts": [[0.0, d["duration"]]],
+            "layout": None,
+        })
+    editor = str(spec.get("editor") or "editor")
+    return {"clips": clips, "engine": {"transcript": editor, "picker": editor, "crop": editor, "subtitles": editor}}
+
+
 def main(job: Job, spec: dict[str, Any]) -> dict[str, Any]:
     work = WORK / job.id
     heavy = ensure_heavy()
@@ -1039,6 +1141,8 @@ def main(job: Job, spec: dict[str, Any]) -> dict[str, Any]:
         # NoUsableMoments reaches the Worker by its class name; plainFailure() words it for her.
         if spec.get("mode") == "rerender":
             return rerender_clip(spec, work, download_input, upload_output, job.progress, heavy)
+        if spec.get("mode") == "import":
+            return import_items(spec, work, download_input, upload_output, job.progress)
         return cut_dump(spec, work, download_input, upload_output, job.progress, heavy)
     finally:
         shutil.rmtree(work, ignore_errors=True)

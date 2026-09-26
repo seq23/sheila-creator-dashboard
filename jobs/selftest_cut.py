@@ -22,6 +22,9 @@ burned where the Look says (pixels in the caption band differ from the same rend
 off, and do not when the Look has none), the hook at the top, the end card, grid cells where
 looks.json puts them (paper-coloured gutters, footage inside each cell), and every two Looks
 produce frames far apart by perceptual hash. A dump's clips must use several Looks.
+
+Import mode (another editor's videos): her tall edit replaces a clip, a connected editor's tall
+and landscape clips become clips; each is 1080x1920 without stretching, -14 LUFS, length kept.
 """
 from __future__ import annotations
 
@@ -395,6 +398,67 @@ def check_looks(tmp: Path, problems: list[str], write_thumbs: bool) -> None:
 LOOK_MIN_DISTANCE = 0.02  # share of one frame's hash bits that must differ between any two Looks
 
 
+# ---------------------------------------------------------------- another editor's videos (import mode)
+
+def check_import(tmp: Path, problems: list[str]) -> None:
+    """Her edit from CapCut (a tall video) replaces a clip; a connected editor's clips (one tall,
+    one landscape) become a dump's clips. Every output is 1080x1920 without stretching, loudness
+    near -14 LUFS, a cover, the length kept; the answer has the shape the Worker checks."""
+    work = tmp / "import"
+    work.mkdir(parents=True, exist_ok=True)
+    src = work / "src"
+    src.mkdir()
+    make_sample(src / "tall.mp4", 8, "720x1280", None)
+    make_sample(src / "wide.mp4", 12, "1280x720", None)
+    out = work / "r2"
+
+    def download(key: str, dest: Path) -> Path:
+        shutil.copy(src / key, dest)
+        return dest
+
+    def fetch(url: str, dest: Path) -> Path:
+        shutil.copy(src / url.rsplit("/", 1)[-1], dest)
+        return dest
+
+    def upload(path: Path, key: str, _ct: str) -> None:
+        dst = out / key
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy(path, dst)
+
+    job = FakeJob()
+    item = {"src": {"key": "tall.mp4"}, "clip_id": "clp_importhandbk", "asset_id": None, "title": None, "duration_s": None,
+            "output_key": "clips/dmp_imp/clp_importhandbk-v1.mp4", "output_cover_key": "clips/dmp_imp/clp_importhandbk-v1.jpg", "platforms": ["tiktok"]}
+    r = cut.import_items({"mode": "import", "replace": "clp_importhandbk", "editor": "capcut", "items": [item]}, work / "w1", download, upload, job.progress)
+    rep = r.get("replaced") or {}
+    if (rep.get("width"), rep.get("height")) != (720, 1280) or not 7.5 <= float(rep.get("duration_s") or 0) <= 8.5:
+        problems.append("import: her edit was not measured")
+    got = out / item["output_key"]
+    if not got.exists() or not (out / item["output_cover_key"]).exists():
+        problems.append("import: replacement not uploaded")
+    else:
+        info = cut.probe(got)
+        lufs = loudness(got)
+        if (info["width"], info["height"]) != (cut.OUT_W, cut.OUT_H) or lufs is None or not -17.5 <= lufs <= -10.5:
+            problems.append("import: replacement not 1080x1920 at -14 LUFS")
+    items = [
+        {"src": {"url": "https://editor.example/out/tall.mp4"}, "clip_id": "clp_importeditra", "asset_id": "ast_imp", "title": "The part everyone asks about", "duration_s": 8,
+         "output_key": "clips/dmp_imp/clp_importeditra.mp4", "output_cover_key": "clips/dmp_imp/clp_importeditra.jpg", "platforms": ["tiktok", "instagram", "youtube"]},
+        {"src": {"url": "https://editor.example/out/wide.mp4"}, "clip_id": "clp_importeditrb", "asset_id": "ast_imp", "title": None, "duration_s": 12,
+         "output_key": "clips/dmp_imp/clp_importeditrb.mp4", "output_cover_key": "clips/dmp_imp/clp_importeditrb.jpg", "platforms": ["tiktok", "instagram", "youtube"]},
+    ]
+    r = cut.import_items({"mode": "import", "replace": None, "editor": "opusclip", "items": items}, work / "w2", download, upload, job.progress, fetch=fetch)
+    clips = r.get("clips") or []
+    if len(clips) != 2 or any(set(c) != CLIP_KEYS for c in clips):
+        problems.append("import: a connected editor's clips have the wrong shape")
+    for c in clips:
+        info = cut.probe(out / c["r2_key"])
+        if (info["width"], info["height"]) != (cut.OUT_W, cut.OUT_H) or abs(info["duration"] - (c["end_s"] - c["start_s"])) > 0.3:
+            problems.append("import: a connected editor's clip is not 1080x1920 or lost length")
+    if clips and clips[0]["hook_text"] != "The part everyone asks about":
+        problems.append("import: the editor's title was not kept as the hook")
+    log("selftest.import", replaced=bool(rep), clips=len(clips))
+
+
 def main() -> int:
     write_fixture = "--write-fixture" in sys.argv
     tmp = Path(tempfile.mkdtemp(prefix="cut-selftest-"))
@@ -455,6 +519,8 @@ def main() -> int:
                 problems.append("looks need libass to prove burned captions")
         if "--skip-looks" not in sys.argv:
             check_looks(tmp, problems, write_thumbs)
+        if "--looks-only" not in sys.argv:
+            check_import(tmp, problems)
         all_platforms = ["tiktok", "instagram", "youtube"]
         runs = [] if "--looks-only" in sys.argv else [
             spec_for("new", "dmp_selftestnew", [{"id": "ast_selftestwide", "r2_key": "wide.mp4", "allowed_platforms": all_platforms, "file_note": None}]),

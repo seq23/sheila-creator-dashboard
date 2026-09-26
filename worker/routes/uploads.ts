@@ -10,6 +10,7 @@ import { fail, readJson } from "../lib/http";
 import { newId, nowIso } from "../lib/ids";
 import { log } from "../lib/log";
 import { ACCEPTED_DOC_TYPES, ACCEPTED_VIDEO_TYPES, UPLOAD_PART_SIZE } from "@shared/constants";
+import { MAX_EDIT_BYTES } from "../domain/editors";
 
 export const uploads = new Hono<{ Bindings: Env; Variables: Vars }>();
 uploads.use("*", requireUser);
@@ -17,7 +18,7 @@ uploads.use("*", requireUser);
 /** Her own songs for the music bed (Settings > Editing > My music). */
 export const MUSIC_MAX_BYTES = 25 * 1024 * 1024;
 
-type Kind = "video" | "brand_doc" | "research_upload" | "voice_sample" | "kit_photo" | "music";
+type Kind = "video" | "brand_doc" | "research_upload" | "voice_sample" | "kit_photo" | "music" | "edit";
 
 function keyFor(kind: Kind, parentId: string | null, id: string): string {
   switch (kind) {
@@ -33,6 +34,8 @@ function keyFor(kind: Kind, parentId: string | null, id: string): string {
       return `kit/photo/${id}`;
     case "music":
       return `music/${id}`;
+    case "edit":
+      return `edits/${parentId}/${id}`;
   }
 }
 
@@ -42,6 +45,7 @@ function acceptable(kind: Kind, mime: string): boolean {
   if (kind === "voice_sample") return mime.startsWith("audio/") || mime.startsWith("video/");
   if (kind === "kit_photo") return mime.startsWith("image/");
   if (kind === "music") return mime.startsWith("audio/");
+  if (kind === "edit") return mime.startsWith("video/");
   return false;
 }
 
@@ -52,6 +56,12 @@ uploads.post("/start", async (c) => {
   if (!acceptable(body.kind, body.mimeType)) return fail(c, 422, "That file type is not supported here.", "clips-look-wrong");
   if (body.size <= 0) return fail(c, 422, "That file is empty.");
   if (body.kind === "music" && body.size > MUSIC_MAX_BYTES) return fail(c, 413, "That song is over 25 MB. Export it as an MP3 or M4A and try again.", "looks-and-styles");
+  if (body.kind === "edit") {
+    // Her edit from CapCut / InShot for one clip (Review > Edit in CapCut > Replace with my edit).
+    if (body.size > MAX_EDIT_BYTES) return fail(c, 413, "That video is over 1 GB. Export it at 1080p and try again.", "edit-in-capcut");
+    const clip = body.parentId ? await c.env.DB.prepare("SELECT id FROM clips WHERE id = ? AND status != 'deleted'").bind(body.parentId).first() : null;
+    if (!clip) return fail(c, 404, "That clip is gone.", "edit-in-capcut");
+  }
   const kind = body.kind;
   const id = newId(kind === "video" ? "ast" : kind === "brand_doc" ? "doc" : "upl");
   const parent = body.parentId ?? null;
@@ -83,7 +93,7 @@ uploads.post("/start", async (c) => {
   } else if (kind === "research_upload") {
     await c.env.DB.prepare("INSERT INTO research_uploads (id, file_name, r2_key) VALUES (?, ?, ?)").bind(id, body.fileName.slice(0, 200), key).run();
   }
-  // voice_sample, kit_photo and music rows are written by their own routes on complete.
+  // voice_sample, kit_photo, music and edit rows are written by their own routes on complete.
 
   log.info("upload.start", { kind, parts: Math.ceil(body.size / UPLOAD_PART_SIZE) });
   return c.json({ id, key, uploadId: mp.uploadId, partSize: UPLOAD_PART_SIZE });

@@ -12,6 +12,9 @@
 //                                     (a cut job with ref "<dump>/<clip>"); the old file stays live
 //   GET    /api/clips/:id/cells       what a grid cell can show: this dump's other clips, approved
 //                                     clips from her library, this moment closer
+//   POST   /api/clips/:id/replace     {id, key, app}  her own edit from CapCut / InShot / another
+//                                     app (uploaded as kind "edit"): header checked here, then the
+//                                     cut job's import mode finishes it and swaps it in
 //
 // Nothing reaches the Calendar without approval (worker/domain/approval.ts decides every move).
 // Every decision is an event, so the learning loop reads one table.
@@ -27,6 +30,9 @@ import { PLATFORMS, RECIPES, REJECT_REASONS, REJECTED_RETENTION_DAYS, type Platf
 import type { ClipRow } from "@shared/types";
 import { cellCount, cleanGridLayout, defaultGridLayout, isGridLook, isLookId, lookById, ZOOMS, type GridLayout, type LookId } from "../domain/looks";
 import { dispatchJob } from "../services/github";
+import { checkEdit, editorName, isHandoffApp, HANDOFF } from "../domain/editors";
+import { editingNote, pollEditorJobs, startHandback } from "../lib/editorJobs";
+import { probeR2 } from "../lib/mp4";
 
 export const clips = new Hono<{ Bindings: Env; Variables: Vars }>();
 clips.use("*", requireUser);
@@ -86,6 +92,10 @@ export interface ReviewClip extends ClipRow {
   source_available: boolean;
   /** Made in another editor (her own edit uploaded back, or a connected editor). */
   edited_with: string | null;
+  /** Its name, for "Edited in CapCut". */
+  edited_with_name: string | null;
+  /** Another editor is working on it right now ("Finishing your edit from CapCut, about a minute"). */
+  editing_note: string | null;
   /** Her voice over on this clip: being added, in it (the video plays with it), or it did not work. */
   voice_over: "mixing" | "ready" | "failed" | null;
 }
@@ -135,6 +145,8 @@ interface ClipDb {
   media_version: number;
   edited_with: string | null;
   raw_deleted_at: string | null;
+  busy_editor: string | null;
+  busy_capability: string | null;
   voice_mix: string | null;
   voice_nid: string | null;
 }
@@ -180,6 +192,8 @@ function toView(r: ClipDb): ReviewClip {
     rerender_error: r.rerender_error,
     source_available: !r.raw_deleted_at,
     edited_with: r.edited_with,
+    edited_with_name: editorName(r.edited_with),
+    editing_note: editingNote(r.busy_editor, r.busy_capability),
     voice_over: r.voice_mix === "mixing" || r.voice_mix === "ready" || r.voice_mix === "failed" ? r.voice_mix : null,
   };
 }
@@ -187,12 +201,20 @@ function toView(r: ClipDb): ReviewClip {
 const CLIP_SELECT = `SELECT c.id, c.asset_id, c.dump_id, c.start_s, c.end_s, c.recipe, c.hook_text, c.hook_alt, c.caption, c.hashtags,
   c.platforms, c.score, c.status, c.reject_reason, c.paid_partnership, c.hidden, c.created_at, c.reviewed_at, c.media_token, c.cover_r2_key,
   c.look, c.layout, c.pending_look, c.rerender_error, c.media_version, c.edited_with, a.raw_deleted_at,
+  (SELECT e.editor FROM editor_jobs e WHERE e.clip_id = c.id AND e.status IN ('submitted', 'importing') ORDER BY e.created_at DESC LIMIT 1) AS busy_editor,
+  (SELECT e.capability FROM editor_jobs e WHERE e.clip_id = c.id AND e.status IN ('submitted', 'importing') ORDER BY e.created_at DESC LIMIT 1) AS busy_capability,
   a.file_name AS source_file, a.source_owner, a.source_note,
   (SELECT n.mix_status FROM narrations n WHERE n.clip_id = c.id AND n.mix_status IS NOT NULL ORDER BY n.created_at DESC LIMIT 1) AS voice_mix,
   (SELECT n.id FROM narrations n WHERE n.clip_id = c.id AND n.mix_status IS NOT NULL ORDER BY n.created_at DESC LIMIT 1) AS voice_nid, d.door, d.created_at AS dump_created_at, d.ready_at AS dump_ready_at, d.status AS dump_status
   FROM clips c JOIN assets a ON a.id = c.asset_id JOIN dumps d ON d.id = c.dump_id`;
 
 clips.get("/", async (c) => {
+  // While Review is open it asks connected editors about the clips they are working on.
+  try {
+    c.executionCtx.waitUntil(pollEditorJobs(c.env).catch(() => undefined));
+  } catch {
+    // no execution context (unit tests): the hourly lane polls
+  }
   const tab = (["new", "approved", "rejected"].includes(c.req.query("tab") ?? "") ? c.req.query("tab") : "new") as ReviewTab;
   const status = tabStatus(tab);
   const door = c.req.query("door");
@@ -520,4 +542,40 @@ clips.post("/:id/look", async (c) => {
   log.info("clip.look", { grid: !!layout });
   const updated = await c.env.DB.prepare(`${CLIP_SELECT} WHERE c.id = ?`).bind(id).first<ClipDb>();
   return c.json({ jobId: job.jobId, clip: updated ? toView(updated) : null });
+});
+
+// ---------------------------------------------------------------- her own edit (hand-back)
+
+/**
+ * "Replace with my edit": her finished video from CapCut, InShot or another app, already uploaded
+ * (kind "edit", key edits/<clip>/<upload>). The header is read here so a wrong shape or length is
+ * refused at once, in words that say what to change in the app; the cut job then measures it
+ * again, levels the loudness, makes the cover and swaps it in (the current file plays meanwhile).
+ */
+clips.post("/:id/replace", async (c) => {
+  const id = c.req.param("id");
+  const body = await readJson<{ id?: string; key?: string; app?: string }>(c);
+  const app = isHandoffApp(body?.app) ? body!.app! : "other";
+  const appName = app === "other" ? "your editing app" : HANDOFF[app as keyof typeof HANDOFF].name;
+  const clip = await c.env.DB.prepare("SELECT id, dump_id, status, platforms FROM clips WHERE id = ?").bind(id).first<{ id: string; dump_id: string; status: ClipStatus; platforms: string }>();
+  if (!clip || clip.status === "deleted") return fail(c, 404, "That clip is gone.");
+  const key = String(body?.key ?? "");
+  if (!/^upl_[a-z0-9]{8,40}$/.test(String(body?.id ?? "")) || key !== `edits/${id}/${body!.id}`) return fail(c, 400, "That upload is not an edit of this clip.", "edit-in-capcut");
+  if (await lockedByBuffer(c.env, id)) {
+    await c.env.FILES.delete(key);
+    return fail(c, 409, "This clip is already loaded into Buffer. Remove it from the Calendar first, then replace it.", "move-or-remove-a-post");
+  }
+  const probe = await probeR2(c.env.FILES, key);
+  const ok = checkEdit(probe, parseJson<Platform[]>(clip.platforms, [...PLATFORMS]), appName);
+  if (!ok.ok) {
+    await c.env.FILES.delete(key);
+    return fail(c, 422, ok.error, "edit-in-capcut");
+  }
+  const started = await startHandback(c.env, clip, app, key);
+  if (!started.ok) return fail(c, 409, started.error, "edit-in-capcut");
+  await c.env.DB.prepare("UPDATE clips SET rerender_error = NULL WHERE id = ?").bind(id).run();
+  await recordEvent(c.env.DB, "clip.edit_uploaded", id, { app, seconds: Math.round(probe!.duration_s) }, c.get("user").email);
+  log.info("clip.handback", { app });
+  const row = await c.env.DB.prepare(`${CLIP_SELECT} WHERE c.id = ?`).bind(id).first<ClipDb>();
+  return c.json({ jobId: started.jobId, clip: row ? toView(row) : null, measured: probe });
 });

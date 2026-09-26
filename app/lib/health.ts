@@ -20,6 +20,12 @@ export const SERVICE_NAMES: Record<string, { label: string; supersededBy?: strin
   // rows the voice code writes under its own names (kept), shown under the screen's name
   Voice: { label: "Voice overs" },
   "Voice · ElevenLabs": { label: "Voice overs · ElevenLabs" },
+  // connected editors (docs/EDITORS.md)
+  opusclip: { label: "Editor · Opus Clip" },
+  vizard: { label: "Editor · Vizard" },
+  klap: { label: "Editor · Klap" },
+  submagic: { label: "Editor · Submagic" },
+  descript: { label: "Editor · Descript" },
 };
 
 export const LIGHT_ORDER: Record<HealthItem["light"], number> = { red: 0, yellow: 1, grey: 2, green: 3 };

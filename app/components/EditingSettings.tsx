@@ -21,10 +21,20 @@ interface MusicTrack {
   file_name: string;
   size_bytes: number;
 }
+interface EditorRow {
+  capability: string;
+  name: string;
+  what: string;
+  choice: string;
+  effective: string;
+  options: { id: string; name: string; connected: boolean }[];
+}
 interface EditingView {
   editing: Editing;
   looks: LookView[];
   music: MusicTrack[];
+  editors: EditorRow[];
+  templates: { name: string; what: string };
 }
 
 export function EditingCard({ owner }: { owner: boolean }) {
@@ -33,6 +43,15 @@ export function EditingCard({ owner }: { owner: boolean }) {
   const [uploading, setUploading] = useState<number | null>(null);
   const file = useRef<HTMLInputElement>(null);
   const v = data.data;
+
+  async function saveEditor(capability: string, id: string) {
+    try {
+      data.setData(await patch<EditingView>("/api/editing", { editors: { [capability]: id } }));
+      toast.ok(id === "built-in" ? "Saved. The built-in editor does it." : "Saved. New clips use it.");
+    } catch (e) {
+      toast.bad(e);
+    }
+  }
 
   async function save(partial: Partial<Editing>) {
     try {
@@ -110,6 +129,43 @@ export function EditingCard({ owner }: { owner: boolean }) {
           checked={v.editing.music}
           onChange={(x) => owner && save({ music: x })}
         />
+      </Card>
+      <Card>
+        <div className="set-text">
+          <div className="set-label">Who edits</div>
+          <div className="hint">The built-in editor is free and always works. Pick a connected editor for a job and it does it instead, using your credits there; if it fails, the built-in editor takes over.</div>
+        </div>
+        {v.editors.map((row) => {
+          const picked = row.options.find((o) => o.id === row.choice);
+          return (
+            <div key={row.capability} className="editor-row" data-editor-row={row.capability}>
+              <div className="set-text">
+                <label className="set-label" htmlFor={`editor-${row.capability}`}>
+                  {row.name}
+                </label>
+                <div className="hint">{row.what}</div>
+                {row.choice !== row.effective && picked ? <div className="hint">{picked.name} isn’t connected, so the built-in editor does this.</div> : null}
+              </div>
+              <select id={`editor-${row.capability}`} className="select" value={row.choice} disabled={!owner} onChange={(e) => saveEditor(row.capability, e.target.value)}>
+                {row.options.map((o) => (
+                  <option key={o.id} value={o.id} disabled={!o.connected}>
+                    {o.connected ? o.name : `${o.name} (connect it first)`}
+                  </option>
+                ))}
+              </select>
+            </div>
+          );
+        })}
+        <div className="editor-row" data-editor-row="templates">
+          <div className="set-text">
+            <div className="set-label">{v.templates.name}</div>
+            <div className="hint">{v.templates.what}</div>
+          </div>
+          <span className="pill">Built-in (free)</span>
+        </div>
+        <div className="hint">
+          <Link to="/settings/connections">Connect an editor</Link> · <Link to="/help/edit-in-capcut">Use CapCut instead</Link>
+        </div>
       </Card>
       <Card>
         <div className="set-text">

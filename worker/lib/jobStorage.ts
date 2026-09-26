@@ -4,8 +4,12 @@
 // keys a job of a given type may touch. Pure, unit-tested (tests/unit/job-storage.test.ts).
 import type { JobRow } from "@shared/types";
 
-/** A cut job's ref: a dump ("dmp_…") or one clip of it to re-render ("dmp_…/clp_…"). One rule for scope and handler. */
-export const CUT_REF = /^([A-Za-z0-9_]{1,64})(?:\/(clp_[a-z0-9]{8,32}))?$/;
+/**
+ * A cut job's ref, one rule for scope and handler: a dump ("dmp_…"), one clip of it to re-render
+ * ("dmp_…/clp_…"), a dump's clips from a connected editor to import ("dmp_…/import"), or one
+ * clip's replacement to import: her own edit or a connected editor's ("dmp_…/clp_…/import").
+ */
+export const CUT_REF = /^([A-Za-z0-9_]{1,64})(?:\/(clp_[a-z0-9]{8,32}))?(?:\/(import))?$/;
 
 export interface StorageScope {
   read: string[];
@@ -27,9 +31,14 @@ export function jobStorageScope(type: JobRow["type"], jobId: string, refId: stri
       // (grid cells she picked from her library); it still writes only its own dump's folder.
       const m = CUT_REF.exec(refId ?? "");
       if (m) {
-        const [, dumpId, clipId] = m;
-        scope.read.push(clipId ? "raw/" : `raw/${dumpId}/`, "music/");
-        if (clipId) scope.read.push("clips/");
+        const [, dumpId, clipId, imp] = m;
+        if (imp) {
+          // An import reads only her uploaded edit for that clip (a connected editor's files come by their own links).
+          if (clipId) scope.read.push(`edits/${clipId}/`);
+        } else {
+          scope.read.push(clipId ? "raw/" : `raw/${dumpId}/`, "music/");
+          if (clipId) scope.read.push("clips/");
+        }
         scope.write.push(`clips/${dumpId}/`);
       }
       break;

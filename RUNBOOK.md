@@ -196,6 +196,34 @@ service. Every clip is rendered in a **Look**, a named preset of the built-in ed
   description, a WebP preview, the mirror entry, unit coverage, and each grid a picture in the
   `grid-looks` guide.
 
+## Editors: CapCut hand-back and connected editors
+
+The research and the decisions are in `docs/EDITORS.md` (checked 25 Sep 2026). The built-in editor
+is the default and the fallback for every job; nothing waits on another editor.
+
+- **CapCut / InShot / any app (no API):** Review → **Edit in CapCut** → share or save the clip
+  (`/media/<token>?download=1`), edit, **Replace with my edit** (upload kind `edit`, R2
+  `edits/<clip>/`). `POST /api/clips/:id/replace` reads the MP4/MOV header in the Worker
+  (`worker/lib/mp4.ts`) and refuses a non-9:16 or too-long edit in words (`checkEdit`: TikTok
+  10 min, Instagram 90 s, YouTube Shorts 3 min, at least 3 s). Then the cut job's **import mode**
+  (ref `<dump>/<clip>/import`) measures it again, fits it to 1080x1920, levels loudness, makes the
+  cover; the Worker swaps it in (`edited_with`, `media_version`), re-mixes an attached voice over.
+- **Connected editors (her own key, Connect → Editing apps):** Opus Clip, Vizard, Klap
+  (`cut_from_source`), Submagic (`caption`, `enhance`), Descript (`enhance`). Settings → Editing →
+  **Who edits** picks one per job (stored in the `editing` setting's `editors`); a pick that is not
+  connected falls back to built-in. `worker/lib/editorJobs.ts`: a dump's videos go to the editor
+  by `/media/source/<token>` (valid while the job waits, max 6 h), rows in `editor_jobs`; Dump and
+  Review poll while open, the hourly lane polls the rest; a finished job dispatches the import
+  (`<dump>/import` → clips through `parseCutResult`, only the planned ids). A captions editor makes
+  the built-in render leave words off; if it fails, the clip is re-rendered with built-in captions.
+- **Failures fall back, never stop:** refused key → connection error + red light
+  (`reconnect-<editor>`); out of credits → yellow; editor failed or over 3 h → yellow; in every
+  case the built-in editor does the job. Each light is the editor's own health row.
+- **Credits:** shown on the card when the editor's API reports them; none of the five documents
+  it today, so the card says where to see them. **Proof:** fakes only (`FAKE_SERVICES=1`: keys
+  `good-…` work, `good-low-…` low credits, `good-fail-…` the editor fails, `good-credits-…` out of
+  credits); no real key exists in the vault, so every real client is not yet proven.
+
 ## Brand deals and the media kit
 
 How it works, where the rules live, and what to check (review: `docs/reviews/2026-09-25-mediakit-deals.md`;

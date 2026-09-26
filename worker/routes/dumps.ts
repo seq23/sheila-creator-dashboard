@@ -7,7 +7,8 @@ import { recordEvent, parseJson } from "../lib/db";
 import { fail, readJson } from "../lib/http";
 import { newId, nowIso } from "../lib/ids";
 import { log } from "../lib/log";
-import { dispatchJob } from "../services/github";
+import { pollEditorJobs, startDumpCut } from "../lib/editorJobs";
+import { editorDef } from "../domain/editors";
 import type { AssetRow, DumpSummary } from "@shared/types";
 
 export const dumps = new Hono<{ Bindings: Env; Variables: Vars }>();
@@ -25,19 +26,37 @@ interface DumpDb {
   files: number;
   progress: string | null;
   held_note: string | null;
+  editor: string | null;
+  editor_status: string | null;
 }
 
 const SELECT = `SELECT d.id, d.door, d.notes, d.status, d.error_summary, d.clips_made, d.created_at, d.ready_at,
   (SELECT COUNT(*) FROM assets a WHERE a.dump_id = d.id AND a.upload_status != 'aborted') AS files,
   (SELECT j.progress FROM jobs j WHERE j.ref_id = d.id AND j.type = 'cut' ORDER BY j.created_at DESC LIMIT 1) AS progress,
-  (SELECT a.source_note FROM assets a WHERE a.dump_id = d.id AND a.source_owner = 'other' LIMIT 1) AS held_note
+  (SELECT a.source_note FROM assets a WHERE a.dump_id = d.id AND a.source_owner = 'other' LIMIT 1) AS held_note,
+  (SELECT e.editor FROM editor_jobs e WHERE e.dump_id = d.id AND e.capability = 'cut_from_source' AND e.status IN ('submitted', 'importing') LIMIT 1) AS editor,
+  (SELECT e.status FROM editor_jobs e WHERE e.dump_id = d.id AND e.capability = 'cut_from_source' AND e.status IN ('submitted', 'importing') LIMIT 1) AS editor_status
   FROM dumps d`;
 
 function view(r: DumpDb): DumpSummary {
-  return { ...r, progress: parseJson(r.progress, null) };
+  const { editor, editor_status, ...rest } = r;
+  // A connected editor is cutting it (Who edits > Cutting): say who, in her words.
+  const name = editorDef(editor)?.name;
+  const progress = name && r.status === "cutting" ? { step: editor_status === "importing" ? `Bringing your clips back from ${name}` : `${name} is cutting your videos`, done: 0, total: 1 } : parseJson(r.progress, null);
+  return { ...rest, progress };
+}
+
+/** While Dump is open it asks the connected editors how they are doing (throttled per job). */
+async function pollWhileOpen(c: { env: Env; executionCtx: { waitUntil(p: Promise<unknown>): void } }) {
+  try {
+    c.executionCtx.waitUntil(pollEditorJobs(c.env).catch(() => undefined));
+  } catch {
+    // no execution context (unit tests): the hourly lane polls
+  }
 }
 
 dumps.get("/", async (c) => {
+  await pollWhileOpen(c);
   const { results } = await c.env.DB.prepare(`${SELECT} ORDER BY d.created_at DESC LIMIT 30`).all<DumpDb>();
   return c.json(results.map(view));
 });
@@ -120,15 +139,17 @@ dumps.post("/:id/dump", async (c) => {
   if (gate) return fail(c, 409, gate.message, gate.fix_guide);
 
   await c.env.DB.prepare("UPDATE dumps SET status = 'queued', dumped_at = ? WHERE id = ?").bind(nowIso(), id).run();
-  const r = await dispatchJob(c.env, "cut", id);
+  // The built-in cutter, or her connected cutting editor (Settings > Editing > Who edits); a refused
+  // editor falls back to the built-in cutter at once (worker/lib/editorJobs.ts).
+  const r = await startDumpCut(c.env, id, c.env.PUBLIC_BASE_URL);
   if (!r.dispatched) {
     await c.env.DB.prepare("UPDATE dumps SET status = 'failed', error_summary = ? WHERE id = ?").bind(r.error, id).run();
     return fail(c, 502, r.error ?? "The cutting job could not start.", "clips-look-wrong");
   }
   await c.env.DB.prepare("UPDATE dumps SET status = 'cutting' WHERE id = ?").bind(id).run();
-  await recordEvent(c.env.DB, "dump.sent", id, { door: dump.door, files: counts.done }, c.get("user").email);
-  log.info("dump.sent", { files: counts.done });
-  return c.json({ ok: true, jobId: r.jobId });
+  await recordEvent(c.env.DB, "dump.sent", id, { door: dump.door, files: counts.done, editor: r.editor }, c.get("user").email);
+  log.info("dump.sent", { files: counts.done, editor: r.editor });
+  return c.json({ ok: true, jobId: r.jobId, editor: r.editor });
 });
 
 /**

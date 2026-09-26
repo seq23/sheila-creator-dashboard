@@ -13,6 +13,7 @@ import path from "node:path";
 export const REGISTER = {
   "bot-prs-get-checks": "a PR opened by a workflow gets no checks, so land can never see it green (help-screenshots PR #21, live test 26 Sep 2026)",
   "design-tokens": "a raw colour, font or off-scale size outside tokens.css is how screens drift apart (docs/design/DESIGN.md)",
+  "editors-documented": "a connected editor nobody researched, or a key box for a tool with no API, sends her to a dead end (owner, 25 Sep 2026: only the most popular, honestly)",
   "envs-match": "staging is production's twin: a config drift or a job workflow without the env mapping sends staging jobs to Sheila's bucket and secret",
   "help-guides-exist": "every screen's ? button and every fix_guide slug must open a real guide (section 12c)",
   "jobs-no-direct-storage": "a job holding storage keys needs an R2 token the owner cannot mint and a public repo can leak; jobs reach storage only through the Worker",

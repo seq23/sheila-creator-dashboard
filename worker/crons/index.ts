@@ -11,6 +11,7 @@ import { bufferSync } from "./buffer-sync";
 import { dailyMaintenance } from "./daily";
 import { weekly } from "./weekly";
 import { briefDraftNotice, monthlyBriefRefresh, weeklyBriefAdjust } from "./brief";
+import { pollEditorJobs } from "../lib/editorJobs";
 import { dailyBrandRefresh } from "./deals";
 import { refreshPublicStats } from "../lib/publicStats";
 
@@ -21,6 +22,9 @@ export async function runCron(env: Env, cron: string): Promise<void> {
     if (lane === "buffer-sync") {
       await bufferSync(env);
       await briefDraftNotice(env);
+      // Connected editors (docs/EDITORS.md): the screens ask while they are open; this catches the rest.
+      const e = await pollEditorJobs(env);
+      if (e.polled) log.info("cron.editors", e);
     } else if (lane === "daily") {
       await dailyMaintenance(env);
       await monthlyBriefRefresh(env);
