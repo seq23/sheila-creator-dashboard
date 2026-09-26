@@ -147,8 +147,12 @@ test("stats: Instagram sign-in, TikTok export, sync, and an expired token turns 
   // Failure shape: Instagram says the token expired → red light, plain sentence, reconnect guide.
   const again = (await (await api.post("/api/stats/sync")).json()) as { jobId: string };
   await runFake(api, again.jobId, { fail: "meta" });
-  const health = (await (await api.get("/api/home")).json()) as { health: { name: string; light: string; fix_guide: string | null }[] };
-  expect(health.health.find((h) => h.name === "Instagram stats")).toMatchObject({ light: "red", fix_guide: "reconnect-meta" });
+  // every light (Home shows the worst few: HOME_CAPS.health), and Home's first light is this red one
+  const lights = (await (await api.get("/api/settings/health")).json()) as { name: string; light: string; fix_guide: string | null }[];
+  expect(lights.find((h) => h.name === "Instagram stats")).toMatchObject({ light: "red", fix_guide: "reconnect-meta" });
+  const home = (await (await api.get("/api/home")).json()) as { health: { items: { name: string; light: string }[]; total: number } };
+  expect(home.health.items[0]).toMatchObject({ light: "red" });
+  expect(home.health.total).toBeGreaterThanOrEqual(home.health.items.length);
   await page.goto("/settings/connections");
   await expect(page.getByText("Instagram needs you to reconnect.")).toBeVisible();
   // Reconnect puts it right.

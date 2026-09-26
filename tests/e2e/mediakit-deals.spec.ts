@@ -234,7 +234,8 @@ test.describe("brand deals", () => {
     await expect(followups).toContainText("Golden Hour Tableware");
     // The row names the step (not a generic "Follow up") and opens that deal, not the Deals list.
     const row = followups.locator("a.list-row", { hasText: "Golden Hour Tableware" });
-    await expect(row.locator(".meta")).toContainText("follow-up 1", { ignoreCase: true });
+    await expect(row.locator(".title")).toContainText("follow-up 1", { ignoreCase: true });
+    await expect(row.locator(".pill")).toContainText(/^(Due|Overdue) /);
     await expect(row).toHaveAttribute("href", /\/deals\?deal=/);
     const before = ((await (await page.request.get("/api/settings")).json()) as { features: Record<string, boolean> }).features;
     expect((await page.request.patch("/api/settings", { data: { features: { ...before, weekly_recap: true } } })).ok()).toBe(true);

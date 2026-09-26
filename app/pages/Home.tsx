@@ -241,7 +241,7 @@ function HomeNoticeCard({ n, more, onDismiss, onKeep }: { n: HomeNotice; more: n
             </>
           ) : n.kind === "storage" ? (
             <>
-              <strong>Storage {n.light === "red" ? "almost full" : "filling up"}:</strong> {n.line.split(".")[0]}. <Link to="/settings#storage">See what takes the space</Link>
+              <strong>Storage {n.light === "red" ? "almost full" : "filling up"}:</strong> {n.line.split(". ")[0].replace(/\.$/, "")}. <Link to="/settings#storage">See what takes the space</Link>
             </>
           ) : n.kind === "clearing" ? (
             <>

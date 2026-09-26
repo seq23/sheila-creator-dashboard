@@ -38,12 +38,12 @@ Add a note, like "lean funny" or "all 2x4 grids, keep them short". See **Tell th
 
 Tap **Dump new videos**. The dashboard cuts your videos into clips and emails you when they're ready, usually 10 to 30 minutes later.
 
-## Watch it in Recent dumps
+## Watch it in Your dumps
 
 ![Step 5](/help/screenshots/dump-new-footage-5.png)
 <!-- target: main a.list-row >> nth=0 -->
 
-Each dump shows here with how its clips are coming along.
+Each dump shows here with how its clips are coming along, newest first, 20 at a time. Search your notes, or tap **Needs a look** to see the ones that did not finish. The × moves a dump you are done with to **Show archived** (Undo brings it right back).
 
 ## Did this work?
 

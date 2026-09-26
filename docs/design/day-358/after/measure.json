@@ -1,0 +1,778 @@
+{
+  "home-phone": {
+    "height": 951,
+    "viewport": 664,
+    "rows": 4,
+    "screens": 1.4,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      },
+      {
+        "url": "/api/settings/health",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      }
+    ]
+  },
+  "dump-phone": {
+    "height": 4462,
+    "viewport": 664,
+    "rows": 13,
+    "screens": 6.7,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/dumps",
+        "ms": -1
+      },
+      {
+        "url": "/api/editing",
+        "ms": -1
+      },
+      {
+        "url": "/api/settings/health",
+        "ms": -1
+      },
+      {
+        "url": "/api/uploads/storage",
+        "ms": -1
+      },
+      {
+        "url": "/api/voice",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      }
+    ]
+  },
+  "review-new-phone": {
+    "height": 11951,
+    "viewport": 664,
+    "rows": 12,
+    "screens": 18,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/clips",
+        "ms": -1
+      },
+      {
+        "url": "/api/settings/health",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      }
+    ]
+  },
+  "review-approved-phone": {
+    "height": 11841,
+    "viewport": 664,
+    "rows": 12,
+    "screens": 17.8,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/clips",
+        "ms": -1
+      },
+      {
+        "url": "/api/settings/health",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      }
+    ]
+  },
+  "review-rejected-phone": {
+    "height": 5573,
+    "viewport": 664,
+    "rows": 6,
+    "screens": 8.4,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/clips",
+        "ms": -1
+      },
+      {
+        "url": "/api/settings/health",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      }
+    ]
+  },
+  "calendar-phone": {
+    "height": 5199,
+    "viewport": 664,
+    "rows": 20,
+    "screens": 7.8,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/settings",
+        "ms": -1
+      },
+      {
+        "url": "/api/posts",
+        "ms": -1
+      },
+      {
+        "url": "/api/posts/pool",
+        "ms": -1
+      },
+      {
+        "url": "/api/settings/health",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      },
+      {
+        "url": "/api/posts/history",
+        "ms": -1
+      },
+      {
+        "url": "/api/clips/yr_dump_45_c02/cover",
+        "ms": -1
+      },
+      {
+        "url": "/api/clips/yr_dump_45_c06/cover",
+        "ms": -1
+      },
+      {
+        "url": "/api/clips/yr_dump_45_c04/cover",
+        "ms": -1
+      },
+      {
+        "url": "/api/clips/yr_dump_45_c08/cover",
+        "ms": -1
+      },
+      {
+        "url": "/api/clips/yr_dump_45_c09/cover",
+        "ms": -1
+      },
+      {
+        "url": "/api/clips/yr_dump_45_c12/cover",
+        "ms": -1
+      },
+      {
+        "url": "/api/clips/yr_dump_45_c07/cover",
+        "ms": -1
+      },
+      {
+        "url": "/api/clips/yr_dump_45_c16/cover",
+        "ms": -1
+      },
+      {
+        "url": "/api/clips/yr_dump_43_c06/cover",
+        "ms": -1
+      },
+      {
+        "url": "/api/clips/yr_dump_43_c07/cover",
+        "ms": -1
+      }
+    ]
+  },
+  "deals-phone": {
+    "height": 4271,
+    "viewport": 664,
+    "rows": 10,
+    "screens": 6.4,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/deals",
+        "ms": -1
+      },
+      {
+        "url": "/api/settings/health",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      }
+    ]
+  },
+  "media-kit-phone": {
+    "height": 8555,
+    "viewport": 664,
+    "rows": 0,
+    "screens": 12.9,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/mediakit",
+        "ms": -1
+      },
+      {
+        "url": "/api/settings/health",
+        "ms": -1
+      },
+      {
+        "url": "/api/deals",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      }
+    ]
+  },
+  "research-phone": {
+    "height": 3145,
+    "viewport": 664,
+    "rows": 1,
+    "screens": 4.7,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/research",
+        "ms": -1
+      },
+      {
+        "url": "/api/settings/health",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      },
+      {
+        "url": "/api/research",
+        "ms": -1
+      }
+    ]
+  },
+  "voice-phone": {
+    "height": 6920,
+    "viewport": 664,
+    "rows": 10,
+    "screens": 10.4,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/settings/health",
+        "ms": -1
+      },
+      {
+        "url": "/api/voice",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      }
+    ]
+  },
+  "stats-phone": {
+    "height": 4852,
+    "viewport": 664,
+    "rows": 4,
+    "screens": 7.3,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/stats",
+        "ms": -1
+      },
+      {
+        "url": "/api/settings/health",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      }
+    ]
+  },
+  "settings-phone": {
+    "height": 9482,
+    "viewport": 664,
+    "rows": 19,
+    "screens": 14.3,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/settings",
+        "ms": -1
+      },
+      {
+        "url": "/api/settings/health",
+        "ms": -1
+      },
+      {
+        "url": "/api/voice",
+        "ms": -1
+      },
+      {
+        "url": "/api/settings/health",
+        "ms": -1
+      },
+      {
+        "url": "/api/editing",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      },
+      {
+        "url": "/api/archive/storage",
+        "ms": -1
+      }
+    ]
+  },
+  "home-desktop": {
+    "height": 971,
+    "viewport": 820,
+    "rows": 4,
+    "screens": 1.2,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      },
+      {
+        "url": "/api/settings/health",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      }
+    ]
+  },
+  "dump-desktop": {
+    "height": 2349,
+    "viewport": 820,
+    "rows": 13,
+    "screens": 2.9,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/dumps",
+        "ms": -1
+      },
+      {
+        "url": "/api/settings/health",
+        "ms": -1
+      },
+      {
+        "url": "/api/editing",
+        "ms": -1
+      },
+      {
+        "url": "/api/uploads/storage",
+        "ms": -1
+      },
+      {
+        "url": "/api/voice",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      }
+    ]
+  },
+  "review-new-desktop": {
+    "height": 5021,
+    "viewport": 820,
+    "rows": 12,
+    "screens": 6.1,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/clips",
+        "ms": -1
+      },
+      {
+        "url": "/api/settings/health",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      }
+    ]
+  },
+  "review-approved-desktop": {
+    "height": 5034,
+    "viewport": 820,
+    "rows": 12,
+    "screens": 6.1,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/clips",
+        "ms": -1
+      },
+      {
+        "url": "/api/settings/health",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      }
+    ]
+  },
+  "review-rejected-desktop": {
+    "height": 2590,
+    "viewport": 820,
+    "rows": 6,
+    "screens": 3.2,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/clips",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      },
+      {
+        "url": "/api/settings/health",
+        "ms": -1
+      }
+    ]
+  },
+  "calendar-desktop": {
+    "height": 3246,
+    "viewport": 820,
+    "rows": 20,
+    "screens": 4,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/settings",
+        "ms": -1
+      },
+      {
+        "url": "/api/posts",
+        "ms": -1
+      },
+      {
+        "url": "/api/posts/pool",
+        "ms": -1
+      },
+      {
+        "url": "/api/settings/health",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      },
+      {
+        "url": "/api/posts/history",
+        "ms": -1
+      },
+      {
+        "url": "/api/clips/yr_dump_45_c02/cover",
+        "ms": -1
+      },
+      {
+        "url": "/api/clips/yr_dump_45_c06/cover",
+        "ms": -1
+      },
+      {
+        "url": "/api/clips/yr_dump_45_c04/cover",
+        "ms": -1
+      },
+      {
+        "url": "/api/clips/yr_dump_45_c08/cover",
+        "ms": -1
+      },
+      {
+        "url": "/api/clips/yr_dump_45_c09/cover",
+        "ms": -1
+      },
+      {
+        "url": "/api/clips/yr_dump_45_c12/cover",
+        "ms": -1
+      },
+      {
+        "url": "/api/clips/yr_dump_45_c07/cover",
+        "ms": -1
+      },
+      {
+        "url": "/api/clips/yr_dump_45_c16/cover",
+        "ms": -1
+      },
+      {
+        "url": "/api/clips/yr_dump_43_c06/cover",
+        "ms": -1
+      },
+      {
+        "url": "/api/clips/yr_dump_43_c07/cover",
+        "ms": -1
+      },
+      {
+        "url": "/api/clips/yr_dump_43_c08/cover",
+        "ms": -1
+      },
+      {
+        "url": "/api/clips/yr_dump_43_c01/cover",
+        "ms": -1
+      },
+      {
+        "url": "/api/clips/yr_dump_42_c07/cover",
+        "ms": -1
+      },
+      {
+        "url": "/api/clips/yr_dump_42_c06/cover",
+        "ms": -1
+      },
+      {
+        "url": "/api/clips/yr_dump_42_c12/cover",
+        "ms": -1
+      },
+      {
+        "url": "/api/clips/yr_dump_42_c01/cover",
+        "ms": -1
+      }
+    ]
+  },
+  "deals-desktop": {
+    "height": 2623,
+    "viewport": 820,
+    "rows": 10,
+    "screens": 3.2,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/deals",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      },
+      {
+        "url": "/api/settings/health",
+        "ms": -1
+      }
+    ]
+  },
+  "media-kit-desktop": {
+    "height": 5532,
+    "viewport": 820,
+    "rows": 0,
+    "screens": 6.7,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/mediakit",
+        "ms": -1
+      },
+      {
+        "url": "/api/settings/health",
+        "ms": -1
+      },
+      {
+        "url": "/api/deals",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      }
+    ]
+  },
+  "research-desktop": {
+    "height": 2364,
+    "viewport": 820,
+    "rows": 1,
+    "screens": 2.9,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/research",
+        "ms": -1
+      },
+      {
+        "url": "/api/settings/health",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      },
+      {
+        "url": "/api/research",
+        "ms": -1
+      }
+    ]
+  },
+  "voice-desktop": {
+    "height": 4651,
+    "viewport": 820,
+    "rows": 10,
+    "screens": 5.7,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/voice",
+        "ms": -1
+      },
+      {
+        "url": "/api/settings/health",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      }
+    ]
+  },
+  "stats-desktop": {
+    "height": 3109,
+    "viewport": 820,
+    "rows": 4,
+    "screens": 3.8,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/stats",
+        "ms": -1
+      },
+      {
+        "url": "/api/settings/health",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      }
+    ]
+  },
+  "settings-desktop": {
+    "height": 6517,
+    "viewport": 820,
+    "rows": 19,
+    "screens": 7.9,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/settings",
+        "ms": -1
+      },
+      {
+        "url": "/api/settings/health",
+        "ms": -1
+      },
+      {
+        "url": "/api/voice",
+        "ms": -1
+      },
+      {
+        "url": "/api/settings/health",
+        "ms": -1
+      },
+      {
+        "url": "/api/editing",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      },
+      {
+        "url": "/api/archive/storage",
+        "ms": -1
+      }
+    ]
+  }
+}

@@ -77,7 +77,7 @@ curl -X POST http://localhost:8787/api/jobs/<job_id>/run-fake -H 'Cookie: ss_ses
 | Cron (UTC) | Lane | Does |
 | --- | --- | --- |
 | `0 * * * *` | buffer-sync | loads the next 7 days into Buffer, reads back status, retries failures twice |
-| `30 13 * * *` | daily | runway email, retention (raw 7 d, rejected 7 d, clip links 30 d after posting), storage light, `Voice · ElevenLabs` light (one read of her plan) |
+| `30 13 * * *` | daily | runway email, retention (raw 7 d, rejected 7 d, clip links 30 d after posting), day-358 storage rules (measure the bucket, posted clip files 30 d after posting unless in the kit, unreviewed drafts 60 d after the Home warning, the 9 GB budget), Storage light, Tidy up (archive), `Voice · ElevenLabs` light (one read of her plan) |
 | `0 * * * *` (same run) | brief draft notice | emails "New brief draft ready" once, when a draft newer than the approved brief lands |
 | `30 13 * * *` (same run) | monthly brief refresh | on the 1st (retries the 2nd, 3rd) starts the research job for a new draft; the approved brief stays live, nothing waits for approval |
 | `0 12 * * 1` | weekly | recap email, metrics + brand-finder jobs |
@@ -349,6 +349,49 @@ the `fullvideo` type).
   with a Home warning from day 11. Before Dump the screen shows "This video: N · free space left: M
   of 10 GB" (R2 listed, cached 10 min) and refuses a video that won't fit. The Storage light now
   counts full videos too.
+
+## Day 358: archive, Tidy up, storage budget, a Home that never overflows
+
+Owner, 26 Sep 2026: "think about day 358 of using this and a way to dismiss dumps that are old or
+whatever and cards that are stacking up" + "account for space and storage and maybe do not keep
+them long". Review: `docs/reviews/2026-09-26-day-358.md` (before/after in `docs/design/day-358/`).
+Migration `0016_archive_storage.sql`.
+
+- **Archive is not delete.** `POST /api/archive/:kind/:id` (dump, deal, brief, voice) sets
+  `archived_at` / `archived_by` ('her' or 'tidy'); `/restore` clears it. Every list hides archived
+  rows unless "Show archived". The screens show Undo in the toast (`app/lib/archive.ts`).
+- **Home**: every list is `{ items, total }` cut by `HOME_CAPS` (`shared/constants.ts`) in
+  `worker/routes/home.ts` `capSection`; one "needs you" notice at a time (profile, storage red, a
+  full video about to go, clips clearing soon, YouTube to-dos, the new brief, storage yellow).
+  Dismiss: `POST /api/home/dismiss {key}` / `restore` (table `dismissals`; a card's key names what it
+  says, so a changed card comes back; dismissals are forgotten after 90 days). Validator
+  `home-caps`; e2e `tests/e2e/day-358.spec.ts` measures the phone page (≤ 844 px).
+- **Tidy up** (`settings.tidy`, on by default, Settings → Tidy up; `worker/domain/tidy.ts` `TIDY`):
+  finished dumps 30 d, paid / done / declined / lost deals 60 d, open deals with no activity 90 d
+  (never an invoiced one), replaced briefs 90 d, failed voice overs 14 d, unused 60 d. Archive only.
+- **Storage** (`worker/lib/storage.ts`, `FILES` / `STORAGE` in `worker/domain/tidy.ts`): the meter
+  counts every file from `file_bytes` (clips + covers, voice overs + mixes) plus raw uploads, full
+  videos, music and docs, and "other" = what the bucket listing holds that no row owns
+  (`measureStorage`, daily and Settings → Measure now; it fills missing sizes from the listing).
+  Green / yellow 70% / red 90% of 10 GB (fix guide `storage-almost-full`). Rules: posted clip files
+  30 d after posting unless in the media kit (the cover, numbers and post link stay; its voice-over
+  mix goes too); unapproved drafts 60 d after they were made, only once the Home warning
+  (`clips.delete_warned_at`, set the first day it is due) is 7 d old; Keep (`POST /api/clips/keep`)
+  = `keep_until` 60 more days. Hard budget 9 GB: the same kinds earlier (originals already cut,
+  rejected clips, clips posted a week ago), never a draft, a clip waiting to post or a kit clip; still
+  over = red light. Validator `tidy-warns-first` lists every function that deletes files.
+- **Long lists** page with true totals (validator `lists-paged`): Dump 20, Review 12, Calendar →
+  History 20, Voice overs 10, Deals (Do this next 8 + Show all, Closed 20), kit versions 10.
+- **A year of demo data**: `node scripts/seed-year.mjs --apply` (local D1 only; `--clear` removes it;
+  validator `seed-year-local-only`); `node scripts/day358-shots.mjs <local url> <dir>` takes the
+  phone + desktop walk. The daily lane locally: `curl "http://127.0.0.1:<port>/cdn-cgi/handler/scheduled?cron=30+13+*+*+*"`
+  (serve.sh runs wrangler dev with `--test-scheduled`).
+
+```bash
+# storage by kind on production, and what Tidy up archived
+npx wrangler d1 execute sheila-creator-dashboard-db --remote --command "SELECT value FROM settings WHERE key = 'storage_report'; SELECT name, light, note FROM health WHERE name = 'Storage'"
+npx wrangler d1 execute sheila-creator-dashboard-db --remote --command "SELECT 'dumps', COUNT(*) FROM dumps WHERE archived_at IS NOT NULL UNION ALL SELECT 'deals', COUNT(*) FROM deals WHERE archived_at IS NOT NULL"
+```
 
 ## Staging
 

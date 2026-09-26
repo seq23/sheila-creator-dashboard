@@ -52,6 +52,8 @@
     { "slug": "upload-brand-docs", "title": "Upload your brand docs (Client Brain)", "group": "getting_started", "screen": "brain" },
     { "slug": "approve-research-brief", "title": "Approve your research brief", "group": "getting_started", "screen": "research" },
     { "slug": "settings-and-switches", "title": "Settings: your switches (all on to start)", "group": "getting_started", "screen": "settings" },
+    { "slug": "archive-and-undo", "title": "Clear old things away (and get them back)", "group": "everyday", "screen": "home" },
+    { "slug": "storage-and-tidy", "title": "Storage: what is kept, and for how long", "group": "everyday", "screen": "settings" },
     { "slug": "dump-new-footage", "title": "Dump new footage", "group": "everyday", "screen": "dump" },
     { "slug": "steer-a-dump", "title": "Tell the cutter what you want (or Surprise me)", "group": "everyday", "screen": "dump" },
     { "slug": "recycle-old-videos", "title": "Recycle old videos", "group": "everyday", "screen": "dump" },
