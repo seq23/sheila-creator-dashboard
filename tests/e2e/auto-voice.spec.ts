@@ -20,7 +20,7 @@ test.beforeAll(() => {
 test.afterAll(() => {
   d1(
     `DELETE FROM brand_profile WHERE sections LIKE '%${SEED}%'; DELETE FROM research_briefs WHERE body LIKE '%${SEED}%';` +
-      `DELETE FROM narrations WHERE auto = 1; UPDATE voice SET sample_r2_key = NULL, consent_at = NULL WHERE id = 1;`,
+      `DELETE FROM narrations WHERE batch IS NOT NULL; UPDATE voice SET sample_r2_key = NULL, consent_at = NULL WHERE id = 1;`,
   );
 });
 
@@ -122,4 +122,48 @@ test("on, voice saved: clips with no talking come back voiced; Review offers Rem
   await expect(page.locator(".toast").last()).toContainText("Voice over removed");
   await expect(card.locator("[data-voice-over]")).toHaveCount(0);
   expect((await clipsOf(page.request, dumpId)).find((c) => c.id === voiced[0].id)!.voice_over).toBeNull();
+});
+
+test("Dump: the Voice over chip (not all or none) and Review: Add voice over on any clip", async ({ page }) => {
+  d1("UPDATE voice SET sample_r2_key = 'voice/sample/e2e-auto', consent_at = '2026-09-26T00:00:00Z' WHERE id = 1");
+  await page.goto("/dump");
+  const group = page.getByRole("group", { name: "Voice over" });
+  await expect(group.getByRole("button", { name: "On quiet clips (your setting)" })).toHaveAttribute("aria-pressed", "true");
+  await expect(group.getByRole("button", { name: "None for this dump" })).toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator("[data-voice-hint]")).toContainText("clips where you talk never do");
+  await group.getByRole("button", { name: "Let me pick in Review" }).click();
+  await expect(group.getByRole("button", { name: "Let me pick in Review" })).toHaveAttribute("aria-pressed", "true");
+  await expect(group.getByRole("button", { name: /On quiet clips/ })).toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator("[data-voice-hint]")).toContainText("tap Add voice over on any clip in Review");
+  // a note says it too, and is read back before Dump
+  await page.getByLabel("Notes for this dump").fill("no voice over on this one");
+  await expect(page.locator("[data-understood]")).toContainText("Voice over: none for this dump");
+
+  // "Let me pick in Review": the dump makes none; Add voice over on one clip makes just that one
+  const since = new Date().toISOString();
+  const { id: dumpId } = await (await page.request.post("/api/dumps", { data: { door: "new", notes: "" } })).json();
+  const s = await page.request.post("/api/uploads/start", { data: { kind: "video", parentId: dumpId, fileName: "pick.mp4", size: 90_000, mimeType: "video/mp4", contentHash: `pick-${Date.now()}-${Math.random()}` } });
+  const u = await s.json();
+  const p = await page.request.put(`/api/uploads/${u.id}/parts/1?key=${encodeURIComponent(u.key)}&uploadId=${encodeURIComponent(u.uploadId)}`, { data: video() });
+  await page.request.post(`/api/uploads/${u.id}/complete`, { data: { key: u.key, uploadId: u.uploadId, parts: [await p.json()] } });
+  await page.request.patch(`/api/dumps/${dumpId}`, { data: { steer: { count: 5, voice: "pick" } } });
+  expect((await page.request.post(`/api/dumps/${dumpId}/dump`)).ok()).toBe(true);
+  await runJob(page.request, (r) => r === dumpId);
+  const clips = await clipsOf(page.request, dumpId);
+  expect(clips.every((c) => c.voice_over === null)).toBe(true);
+  const autoJobs = ((await (await page.request.get("/api/jobs")).json()) as { type: string; ref_id: string; created_at: string }[]).filter((j) => j.type === "voice" && j.created_at >= since);
+  expect(autoJobs).toHaveLength(0);
+
+  await page.goto("/review");
+  const card = page.locator(`[data-clip-id="${clips[0].id}"]`);
+  await card.getByRole("button", { name: "Add voice over" }).click();
+  const dialog = page.getByRole("dialog", { name: "Edit the script" });
+  await expect(dialog.getByLabel("Voice over script")).not.toHaveValue("");
+  await dialog.getByRole("button", { name: "Voice it and mix it in" }).click();
+  await expect(card.locator('[data-voice-over="mixing"]')).toBeVisible();
+  await runJob(page.request, (r) => r.startsWith("auto/"));
+  const after = (await clipsOf(page.request, dumpId)).find((c) => c.id === clips[0].id)!;
+  expect(after).toMatchObject({ voice_over: "ready", voice_auto: false });
+  await page.reload();
+  await expect(card.locator('[data-voice-over="ready"]')).toHaveText("With your voice over · AI-labelled when it posts");
 });

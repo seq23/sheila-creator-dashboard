@@ -10,9 +10,10 @@ import type { Env, Vars } from "@worker/env";
 import { fakeServices } from "@worker/env";
 import { sqliteD1 } from "./helpers/sqlite-d1";
 import { memoryR2 } from "./helpers/r2-memory";
-import { SILENT_BELOW, autoVoiceState, fitScript, isSilentClip, maxWords, silentClips, starterScript, AUTO_VOICE_HINT } from "@worker/domain/autoVoice";
+import { SILENT_BELOW, voiceFor, autoVoiceState, fitScript, isSilentClip, maxWords, silentClips, starterScript, AUTO_VOICE_HINT } from "@worker/domain/autoVoice";
 import { autoVoiceDump } from "@worker/lib/autoVoice";
-import { cutJob } from "@worker/jobs/cut";
+import { cutJob, steerOutcome } from "@worker/jobs/cut";
+import { parseNotes } from "@worker/domain/steer";
 import { voiceJob } from "@worker/jobs/voice";
 import { mixedKey } from "@worker/jobs/voice_batch";
 import { dispatchJob } from "@worker/services/github";
@@ -61,6 +62,27 @@ describe("which clips count as having no talking", () => {
   });
 });
 
+describe("the Voice over chip and notes: not all or none", () => {
+  it("her choice for the dump wins over the switch; untapped, the switch decides; no voice saved is quiet", () => {
+    expect(voiceFor(undefined, true, true)).toBe("quiet");
+    expect(voiceFor(undefined, false, true)).toBe("none");
+    expect(voiceFor(undefined, true, false)).toBe("needs_voice");
+    expect(voiceFor("quiet", false, true)).toBe("quiet");
+    expect(voiceFor("none", true, true)).toBe("none");
+    expect(voiceFor("pick", true, true)).toBe("pick");
+    expect(voiceFor("quiet", true, false)).toBe("needs_voice");
+    expect(voiceFor("pick", false, false)).toBe("pick");
+  });
+  it("notes read as a voice-over choice", () => {
+    expect(parseNotes("no voice over", []).controls.voice).toBe("none");
+    expect(parseNotes("voice over the b-roll", []).controls.voice).toBe("quiet");
+    expect(parseNotes("I'll pick the voice overs", []).controls.voice).toBe("pick");
+    expect(parseNotes("voice over the b-roll", []).said).toContain("Voice over: on quiet clips");
+    expect(parseNotes("don't use voice over", []).controls.avoid).toBeUndefined();
+    expect(parseNotes("voice only", []).controls.voice).toBeUndefined(); // that is about music
+  });
+});
+
 describe("the AI label goes with every post that carries her cloned voice", () => {
   it("TikTok, Instagram and YouTube get isAiGenerated only when the clip has a voice over", () => {
     expect(postMetadata("tiktok", "t", true)).toEqual({ tiktok: { isAiGenerated: true } });
@@ -100,6 +122,13 @@ async function features(voice: boolean) {
 async function voiceSaved() {
   await r2.FILES.put("voice/sample/upl_s", new Uint8Array(4000).fill(1), { httpMetadata: { contentType: "audio/wav" } });
   db.raw.exec("UPDATE voice SET sample_r2_key = 'voice/sample/upl_s', consent_at = '2026-09-26T00:00:00Z', enabled = 1 WHERE id = 1");
+}
+/** The fake cutter over a dump row that already exists (a test set its steer first); one video, optionally with its own note. */
+async function cutDumpExisting(id: string, asset: { steer_notes?: string } = {}) {
+  db.raw.prepare("INSERT INTO assets (id, dump_id, file_name, mime_type, r2_key, upload_status, steer_notes) VALUES (?, ?, 'a.mp4', 'video/mp4', ?, 'uploaded', ?)").run(`ast_${id}`, id, `raw/${id}/ast`, asset.steer_notes ?? null);
+  await r2.FILES.put(`raw/${id}/ast`, new Uint8Array(100).fill(1), { httpMetadata: { contentType: "video/mp4" } });
+  const job = await dispatchJob(env, "cut", id);
+  await cutJob.applyResult(env, job.jobId, id, await cutJob.fakeRun!(env, job.jobId, id, { clips: 8 }));
 }
 /** A dump of 8 clips through the fake cutter: montage clips have no talking (speech 0.04), the rest talk (0.72). */
 async function cutDump(id = "dmp_av1") {
@@ -203,6 +232,58 @@ describe("on, with her voice saved", () => {
     await voiceJob.onFailure(env, job.id, job.ref_id, "runner died");
     expect(one<{ light: string; note: string }>("SELECT light, note FROM health WHERE name = 'Voice'")).toMatchObject({ light: "yellow", note: expect.stringMatching(/Redo/) });
     expect(all<{ mix_status: string }>("SELECT mix_status FROM narrations").every((n) => n.mix_status === "failed")).toBe(true);
+  });
+});
+
+describe("the Voice over chip (per dump) and a video's own note (per video)", () => {
+  it("None for this dump: the switch is on and her voice is saved, still no voice overs", async () => {
+    await features(true);
+    await voiceSaved();
+    db.raw.exec("INSERT INTO dumps (id, door, notes, status, steer) VALUES ('dmp_av1', 'new', '', 'cutting', '{\"voice\":\"none\"}')");
+    await cutDumpExisting("dmp_av1");
+    expect(one<{ n: number }>("SELECT COUNT(*) AS n FROM narrations").n).toBe(0);
+    expect(voiceJobs()).toHaveLength(0);
+  });
+  it("Let me pick in Review: none now; Add voice over drafts a script and voices just that clip", async () => {
+    await features(true);
+    await voiceSaved();
+    db.raw.exec("INSERT INTO dumps (id, door, notes, status, steer) VALUES ('dmp_av1', 'new', '', 'cutting', '{\"voice\":\"pick\"}')");
+    await cutDumpExisting("dmp_av1");
+    expect(one<{ n: number }>("SELECT COUNT(*) AS n FROM narrations").n).toBe(0);
+    const talking = clipRows().find((c) => !isSilentClip(c.speech))!;
+    const d = await call("POST", `/api/clips/${talking.id}/voice-over/draft`);
+    expect(d.status).toBe(200);
+    expect(d.json).toMatchObject({ has_voice: true, script: expect.any(String) });
+    const r = await call("POST", `/api/clips/${talking.id}/voice-over`, { script: d.json.script });
+    expect(r.status).toBe(200); // her own pick may go on a clip where she talks
+    expect(one<{ auto: number; ai_generated: number }>("SELECT auto, ai_generated FROM narrations WHERE clip_id = ?", talking.id)).toEqual({ auto: 0, ai_generated: 1 });
+    expect(voiceJobs()).toHaveLength(1);
+  });
+  it("the Voice over chip On quiet clips works with the switch off", async () => {
+    await features(false);
+    await voiceSaved();
+    db.raw.exec("INSERT INTO dumps (id, door, notes, status, steer) VALUES ('dmp_av1', 'new', '', 'cutting', '{\"voice\":\"quiet\"}')");
+    await cutDumpExisting("dmp_av1");
+    const silent = clipRows().filter((c) => isSilentClip(c.speech));
+    expect(all<{ clip_id: string }>("SELECT clip_id FROM narrations").map((n) => n.clip_id).sort()).toEqual(silent.map((c) => c.id).sort());
+  });
+  it("a video's own note wins for that video's clips", async () => {
+    await features(true);
+    await voiceSaved();
+    db.raw.exec("INSERT INTO dumps (id, door, notes, status) VALUES ('dmp_av1', 'new', '', 'cutting')");
+    await cutDumpExisting("dmp_av1", { steer_notes: JSON.stringify(parseNotes("no voice over on this one", [])) });
+    expect(one<{ n: number }>("SELECT COUNT(*) AS n FROM narrations").n).toBe(0);
+  });
+  it("asked for (chip) with no voice saved: said on the dump, never dropped; nothing fails", async () => {
+    await features(true);
+    db.raw.exec("INSERT INTO dumps (id, door, notes, status, steer) VALUES ('dmp_av1', 'new', '', 'cutting', '{\"voice\":\"quiet\"}')");
+    await cutDumpExisting("dmp_av1");
+    const nf = JSON.parse(one<{ not_followed: string }>("SELECT not_followed FROM dumps WHERE id = 'dmp_av1'").not_followed) as { what: string; why: string }[];
+    expect(nf).toContainEqual({ what: "voice overs on the quiet clips", why: expect.stringMatching(/your voice isn't saved yet/) });
+    expect(one<{ n: number }>("SELECT COUNT(*) AS n FROM jobs WHERE status = 'failed'").n).toBe(0);
+    // the default (untapped) with no voice is not a request: nothing is said
+    db.raw.exec("UPDATE dumps SET steer = NULL WHERE id = 'dmp_av1'");
+    expect((await steerOutcome(env, "dmp_av1", [], [])).not_followed).toEqual([]);
   });
 });
 
