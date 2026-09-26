@@ -20,13 +20,13 @@ test("5 · Dump a real video → cut on Actions → clips + 'clips ready' email 
   await page.goto("/dump");
   await expect(page.getByRole("heading", { name: "Dump videos" })).toBeVisible();
   if (await page.getByRole("button", { name: "Start a new dump" }).isVisible()) await page.getByRole("button", { name: "Start a new dump" }).click();
-  await page.getByRole("button", { name: /New raw footage/ }).click();
+  await page.getByRole("radio", { name: /New videos I just filmed/ }).click();
   await page.locator('input[type="file"]').setInputFiles(VIDEO);
   await expect(page.getByText("Uploaded")).toBeVisible({ timeout: 10 * 60_000 });
   await page.getByLabel("Notes for this dump").fill(EXPECT === "held" ? "Phase 0 live test: someone else's TikTok, must be held." : "Phase 0 live test: TEST POST clip for the throwaway channels.");
   const since = Date.now();
   const dumpCall = page.waitForResponse((r) => /\/api\/dumps\/[^/]+\/dump$/.test(r.url()));
-  await page.getByRole("button", { name: "Dump", exact: true }).click();
+  await page.getByRole("button", { name: /^Dump 1 new video$/ }).click();
   const res = await dumpCall;
   expect(res.status(), await res.text()).toBe(200);
   const { jobId } = (await res.json()) as { jobId: string };

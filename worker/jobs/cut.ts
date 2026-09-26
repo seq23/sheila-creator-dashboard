@@ -47,6 +47,9 @@ import {
 } from "../domain/looks";
 import { getSetting } from "../lib/db";
 import { CUT_REF } from "../lib/jobStorage";
+import { cleanControls, mergeControls, recipesAllowed, steerLook, steerMusic, steerPlatforms, steerRecipes, steerTarget, whatWeTried } from "../domain/steer";
+import { readUnderstood, tracksOf } from "../lib/steerStore";
+import type { NotFollowed, SteerControls } from "@shared/steer";
 import { applyImport, buildImportSpec, fakeImport, importFailed, type ImportSpec } from "./cut_import";
 import { connectedEditors, editorChoice, queueClipEditors } from "../lib/editorJobs";
 import { effectiveEditor } from "../domain/editors";
@@ -89,6 +92,20 @@ export interface CutSpecAsset {
   original_views: number | null;
   /** Platforms this asset's clips may go to (Door B: outside the cooldown). */
   allowed_platforms: Platform[];
+  /** This video's own note, when it asks for something different from the dump (it wins for this video's clips). */
+  steer?: SteerSpec;
+}
+
+/** Everything the job must honor from her chips and notes (worker/domain/steer.ts). */
+export interface SteerSpec {
+  rotation: LookId[];
+  looks: Partial<Record<LookId, ResolvedLook>>;
+  music: { r2_key: string }[];
+  recipes: Record<Recipe, { minS: number; maxS: number }>;
+  allowed_recipes: Recipe[];
+  count: number | null;
+  include: string[];
+  avoid: string[];
 }
 
 export interface CutSpec {
@@ -115,6 +132,8 @@ export interface CutSpec {
   branding: Branding;
   /** Her own songs (Settings > Editing > My music), only when the music bed is on. */
   music: { r2_key: string }[];
+  /** Her chips and notes, resolved (the fields above already carry the dump-wide ones). */
+  steer: SteerSpec;
 }
 
 /** One stretch of a source video for a re-render: a raw upload or, when that is gone, a clip file. */
@@ -168,6 +187,7 @@ interface AssetDb {
   mime_type: string;
   duration_s: number | null;
   file_note: string | null;
+  steer_notes: string | null;
   original_platform: string | null;
   original_posted_at: string | null;
   original_views: number | null;
@@ -183,15 +203,35 @@ async function buildSpec(env: Env, jobId: string, refId: string | null): Promise
 }
 
 async function buildDumpSpec(env: Env, jobId: string, dumpId: string): Promise<CutSpec> {
-  const dump = await env.DB.prepare("SELECT id, door, notes FROM dumps WHERE id = ?").bind(dumpId).first<{ id: string; door: "new" | "recycle"; notes: string }>();
+  const dump = await env.DB.prepare("SELECT id, door, notes, steer, steer_notes FROM dumps WHERE id = ?").bind(dumpId).first<{ id: string; door: "new" | "recycle"; notes: string; steer: string | null; steer_notes: string | null }>();
   if (!dump) throw new Error("dump missing");
   const { results: rows } = await env.DB.prepare(
-    "SELECT id, r2_key, mime_type, duration_s, file_note, original_platform, original_posted_at, original_views, content_hash FROM assets WHERE dump_id = ? AND upload_status = 'uploaded' AND raw_deleted_at IS NULL ORDER BY created_at",
+    "SELECT id, r2_key, mime_type, duration_s, file_note, steer_notes, original_platform, original_posted_at, original_views, content_hash FROM assets WHERE dump_id = ? AND upload_status = 'uploaded' AND raw_deleted_at IS NULL ORDER BY created_at",
   )
     .bind(dumpId)
     .all<AssetDb>();
   const s = await readSettings(env);
   const now = new Date();
+  // Her chips and notes (worker/domain/steer.ts): per control, a video's note > a chip > the dump's note > surprise.
+  const ctx = await renderContext(env);
+  const tracks = await tracksOf(env);
+  const chips = cleanControls(parseJson(dump.steer, {}), tracks).controls;
+  const dumpNote = readUnderstood(dump.steer_notes)?.controls ?? {};
+  const dumpCtl = mergeControls(chips, dumpNote).controls;
+  const steerSpec = (ctl: SteerControls, seed: string): SteerSpec => {
+    const music = steerMusic(ctl, tracks, ctx.music);
+    const rotation = rotationFor(ctl.looks?.length ? (ctl.looks as LookId[]) : ctx.editing.looks, seed);
+    return {
+      rotation,
+      looks: Object.fromEntries(rotation.map((id) => [id, steerLook(resolveLook(id, ctx.editing, music.length > 0), ctl)])) as SteerSpec["looks"],
+      music,
+      recipes: steerRecipes(ctl),
+      allowed_recipes: recipesAllowed(ctl),
+      count: ctl.count ?? null,
+      include: ctl.include ?? [],
+      avoid: ctl.avoid ?? [],
+    };
+  };
   const skipped: CutSpec["skipped_assets"] = [];
   const assets: CutSpecAsset[] = [];
   const ordered = dump.door === "recycle" ? rankRecycle(rows) : rows;
@@ -213,7 +253,8 @@ async function buildDumpSpec(env: Env, jobId: string, dumpId: string): Promise<C
         .all<PriorPost>();
       priors = posted;
     }
-    const allowed = allowedPlatformsFor(a, priors, dump.door, now, s.recycle_cooldown_days);
+    const assetCtl = mergeControls(chips, dumpNote, readUnderstood(a.steer_notes)?.controls ?? {}).controls;
+    const allowed = steerPlatforms(allowedPlatformsFor(a, priors, dump.door, now, s.recycle_cooldown_days), assetCtl);
     if (!allowed.length) {
       skipped.push({ id: a.id, reason: "cooldown" });
       continue;
@@ -228,15 +269,13 @@ async function buildDumpSpec(env: Env, jobId: string, dumpId: string): Promise<C
       original_posted_at: a.original_posted_at,
       original_views: a.original_views,
       allowed_platforms: allowed,
+      ...(readUnderstood(a.steer_notes)?.said.length ? { steer: steerSpec(assetCtl, `${dump.id}:${a.id}`) } : {}),
     });
   }
   const profile = await env.DB.prepare("SELECT sections FROM brand_profile WHERE locked = 1 ORDER BY version DESC LIMIT 1").first<{ sections: string }>();
   const brief = await env.DB.prepare("SELECT body FROM research_briefs WHERE status = 'approved' ORDER BY version DESC LIMIT 1").first<{ body: string }>();
   const need = weeklyNeed(s.weekly_caps);
-  const recipes = Object.fromEntries(Object.entries(RECIPES).map(([k, v]) => [k, { minS: v.minS, maxS: v.maxS }])) as CutSpec["recipes"];
-  const ctx = await renderContext(env);
-  const rotation = rotationFor(ctx.editing.looks, dump.id);
-  const looks = Object.fromEntries(rotation.map((id) => [id, resolveLook(id, ctx.editing, ctx.music.length > 0)])) as CutSpec["looks"];
+  const steer = steerSpec(dumpCtl, dump.id);
   return {
     job_id: jobId,
     type: "cut",
@@ -249,14 +288,15 @@ async function buildDumpSpec(env: Env, jobId: string, dumpId: string): Promise<C
     brief: brief ? parseJson<unknown>(brief.body, null) : null,
     weekly_caps: s.weekly_caps,
     weekly_need: need,
-    target_clips: targetClips(need),
-    recipes,
+    target_clips: steerTarget(dumpCtl, targetClips(need)),
+    recipes: steer.recipes,
     quality_bar: QUALITY_BAR,
     output_prefix: `clips/${dump.id}/`,
-    rotation,
-    looks,
+    rotation: steer.rotation,
+    looks: steer.looks,
     branding: ctx.branding,
-    music: ctx.music,
+    music: steer.music,
+    steer,
   };
 }
 
@@ -273,13 +313,15 @@ interface ClipSourceDb {
   layout: string | null;
   pending_look: string | null;
   pending_layout: string | null;
+  pending_music: string | null;
+  music: string | null;
   media_version: number;
   raw_key: string;
   raw_deleted_at: string | null;
   asset_duration: number | null;
 }
 
-const CLIP_SOURCE_SQL = `SELECT c.id, c.dump_id, c.asset_id, c.start_s, c.end_s, c.recipe, c.hook_text, c.r2_key, c.parts, c.layout, c.pending_look, c.pending_layout,
+const CLIP_SOURCE_SQL = `SELECT c.id, c.dump_id, c.asset_id, c.start_s, c.end_s, c.recipe, c.hook_text, c.r2_key, c.parts, c.layout, c.pending_look, c.pending_layout, c.pending_music, c.music,
   c.media_version, a.r2_key AS raw_key, a.raw_deleted_at, a.duration_s AS asset_duration FROM clips c JOIN assets a ON a.id = c.asset_id`;
 
 /** The file names a re-render writes: the clip's id and the next version, inside its dump's folder. */
@@ -308,7 +350,12 @@ async function buildRerenderSpec(env: Env, jobId: string, dumpId: string, clipId
   const ctx = await renderContext(env);
   // Her captions editor failed on this clip: the built-in captions go back on (her own switch decides).
   const lastCaption = await env.DB.prepare("SELECT status FROM editor_jobs WHERE clip_id = ? AND capability = 'caption' ORDER BY created_at DESC LIMIT 1").bind(clipId).first<{ status: string }>();
-  const look = resolveLook(clip.pending_look, lastCaption?.status === "failed" ? ctx.own : ctx.editing, ctx.music.length > 0);
+  // Change music (Review): "none", one of her songs, else the song it had (or Settings' for a clip that had none).
+  const tracks = await tracksOf(env);
+  const musicChoice = clip.pending_music === "none" ? "none" : clip.pending_music ? `track:${clip.pending_music}` : null;
+  const kept = clip.music ? tracks.filter((t) => t.r2_key === clip.music).map((t) => ({ r2_key: t.r2_key })) : [];
+  const music = musicChoice ? steerMusic(cleanControls({ music: musicChoice }, tracks).controls, tracks, []) : kept.length ? kept : ctx.music;
+  const look = steerLook(resolveLook(clip.pending_look, lastCaption?.status === "failed" ? ctx.own : ctx.editing, music.length > 0), musicChoice ? { music: musicChoice as SteerControls["music"] } : kept.length ? { music: "any" } : {});
   const parts = clipParts(clip);
   let cells: RerenderStretch[] | null = null;
   let voice = 0;
@@ -345,7 +392,7 @@ async function buildRerenderSpec(env: Env, jobId: string, dumpId: string, clipId
     cells,
     voice,
     branding: ctx.branding,
-    music: ctx.music,
+    music,
     output_key: keys.mp4,
     output_cover_key: keys.jpg,
   };
@@ -374,6 +421,8 @@ export interface CutResultClip {
   parts?: [number, number][] | null;
   /** Grid Looks: which moment is in each cell and whose sound plays. */
   layout?: unknown;
+  /** The song under it (R2 key of her upload), null for none. */
+  music?: string | null;
 }
 
 export interface CutResult {
@@ -430,6 +479,7 @@ export interface CleanClip {
   look: LookId | null;
   parts: [number, number][];
   layout: GridLayout | null;
+  music: string | null;
 }
 
 export class CutResultError extends Error {
@@ -536,6 +586,7 @@ export function parseCutResult(
       look,
       parts: cleanParts(c.parts, start, end),
       layout: look && isGridLook(look) ? (cleanGridLayout(look, c.layout) ?? defaultGridLayout(look, [])) : null,
+      music: typeof c.music === "string" && /^music\/[A-Za-z0-9_]{4,60}$/.test(c.music) ? c.music : null,
     });
   }
   return { clips, dropped };
@@ -597,11 +648,11 @@ export async function applyDumpClips(env: Env, jobId: string, dumpId: string, re
   for (const c of clips) {
     stmts.push(
       env.DB.prepare(
-        `INSERT INTO clips (id, asset_id, dump_id, start_s, end_s, recipe, hook_text, hook_alt, caption, hashtags, platforms, score, r2_key, cover_r2_key, media_token, status, hidden, look, parts, layout, edited_with)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?)`,
+        `INSERT INTO clips (id, asset_id, dump_id, start_s, end_s, recipe, hook_text, hook_alt, caption, hashtags, platforms, score, r2_key, cover_r2_key, media_token, status, hidden, look, parts, layout, edited_with, music)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?)`,
       ).bind(
         c.id, c.asset_id, dumpId, c.start_s, c.end_s, c.recipe, c.hook_text, c.hook_alt, c.caption, c.hashtags, JSON.stringify(c.platforms), c.score, c.r2_key, c.cover_r2_key, mediaToken(), c.hidden ? 1 : 0,
-        opts.editor ? null : c.look, JSON.stringify(c.parts), opts.editor ? null : c.layout ? JSON.stringify(c.layout) : null, opts.editor ?? null,
+        opts.editor ? null : c.look, JSON.stringify(c.parts), opts.editor ? null : c.layout ? JSON.stringify(c.layout) : null, opts.editor ?? null, c.music,
       ),
     );
   }
@@ -616,6 +667,9 @@ export async function applyDumpClips(env: Env, jobId: string, dumpId: string, re
   }
   const readyAt = nowIso();
   stmts.push(env.DB.prepare("UPDATE dumps SET status = 'ready', clips_made = ?, ready_at = ?, error_summary = NULL WHERE id = ?").bind(clips.length, readyAt, dumpId));
+  // Never silently dropped: what her notes asked that could not be done, and what the job could not find.
+  const told = await steerOutcome(env, dumpId, (result as CutResult & { steer_report?: unknown }).steer_report, clips);
+  stmts.push(env.DB.prepare("UPDATE dumps SET not_followed = ?, tried = ? WHERE id = ?").bind(JSON.stringify(told.not_followed), told.tried, dumpId));
   await env.DB.batch(stmts);
 
   const visible = clips.filter((c) => !c.hidden).length;
@@ -637,14 +691,33 @@ export async function applyDumpClips(env: Env, jobId: string, dumpId: string, re
   await sendEmail(env, { kind: "clips_ready", to: s.notify_emails, subject: `${visible} clips ready to review`, html, text, refId: dumpId });
 }
 
+/** Everything her chips and notes asked that the dump could not do, and the one-line "What we tried". */
+export async function steerOutcome(env: Env, dumpId: string, report: unknown, clips: { look: string | null; music: string | null }[]): Promise<{ not_followed: NotFollowed[]; tried: string }> {
+  const dump = await env.DB.prepare("SELECT steer, steer_notes FROM dumps WHERE id = ?").bind(dumpId).first<{ steer: string | null; steer_notes: string | null }>();
+  const tracks = await tracksOf(env);
+  const chips = cleanControls(parseJson(dump?.steer ?? null, {}), tracks).controls;
+  const note = readUnderstood(dump?.steer_notes ?? null);
+  const nf: NotFollowed[] = [...(note?.not_followed ?? []), ...mergeControls(chips, note?.controls ?? {}).not_followed];
+  const { results: assetNotes } = await env.DB.prepare("SELECT steer_notes FROM assets WHERE dump_id = ? AND steer_notes IS NOT NULL").bind(dumpId).all<{ steer_notes: string }>();
+  for (const a of assetNotes) nf.push(...(readUnderstood(a.steer_notes)?.not_followed ?? []));
+  if (Array.isArray(report))
+    for (const r of report.slice(0, 20)) if (r && typeof r.what === "string" && typeof r.why === "string") nf.push({ what: r.what.slice(0, 120), why: r.why.slice(0, 240) });
+  const seen = new Set<string>();
+  return {
+    not_followed: nf.filter((x) => (seen.has(x.what) ? false : (seen.add(x.what), true))),
+    tried: whatWeTried(clips, tracks.map((t) => ({ r2_key: t.r2_key, name: t.name }))),
+  };
+}
+
 /** The re-render's answer, checked like every job result: its own clip, the file names it was given. */
-export function parseRerender(result: unknown, expect: { clipId: string; look: string; mp4: string; jpg: string }): { duration_s: number | null; voice: number | null } {
+export function parseRerender(result: unknown, expect: { clipId: string; look: string; mp4: string; jpg: string }): { duration_s: number | null; voice: number | null; music: string | null } {
   const r = (result as { rerender?: Record<string, unknown> } | null)?.rerender;
   if (!r || typeof r !== "object") throw new CutResultError("result has no re-render");
   if (r.clip_id !== expect.clipId || r.look !== expect.look || r.r2_key !== expect.mp4 || r.cover_r2_key !== expect.jpg) throw new CutResultError("re-render result does not match its clip");
   const d = Number(r.duration_s);
   const v = typeof r.voice === "number" ? r.voice : NaN;
-  return { duration_s: Number.isFinite(d) && d > 0 ? d : null, voice: Number.isInteger(v) && v >= 0 ? v : null };
+  const music = typeof r.music === "string" && /^music\/[A-Za-z0-9_]{4,60}$/.test(r.music) ? r.music : null;
+  return { duration_s: Number.isFinite(d) && d > 0 ? d : null, voice: Number.isInteger(v) && v >= 0 ? v : null, music };
 }
 
 /**
@@ -693,10 +766,10 @@ async function applyRerender(env: Env, _jobId: string, dumpId: string, clipId: s
     if (r.voice !== null && r.voice < cellCount(clip.pending_look)) layout = { ...layout, voice: r.voice };
   } else layout = null;
   await env.DB.prepare(
-    `UPDATE clips SET r2_key = ?, cover_r2_key = ?, look = pending_look, layout = ?, pending_look = NULL, pending_layout = NULL, rerender_job_id = NULL,
-       rerender_error = NULL, media_version = media_version + 1, edited_with = NULL WHERE id = ?`,
+    `UPDATE clips SET r2_key = ?, cover_r2_key = ?, look = pending_look, layout = ?, pending_look = NULL, pending_layout = NULL, pending_music = NULL, music = ?,
+       rerender_job_id = NULL, rerender_error = NULL, media_version = media_version + 1, edited_with = NULL WHERE id = ?`,
   )
-    .bind(keys.mp4, keys.jpg, layout ? JSON.stringify(layout) : null, clipId)
+    .bind(keys.mp4, keys.jpg, layout ? JSON.stringify(layout) : null, r.music, clipId)
     .run();
   const old = [clip.r2_key, clip.cover_r2_key].filter((k): k is string => !!k && k !== keys.mp4 && k !== keys.jpg);
   if (old.length) await env.FILES.delete(old);
@@ -711,7 +784,7 @@ async function onFailure(env: Env, jobId: string, refId: string | null, safeErro
   if (!ref) return;
   if (ref.import) return importFailed(env, ref.dumpId, ref.clipId, safeError);
   if (ref.clipId) {
-    await env.DB.prepare("UPDATE clips SET pending_look = NULL, pending_layout = NULL, rerender_job_id = NULL, rerender_error = ? WHERE id = ? AND rerender_job_id = ?")
+    await env.DB.prepare("UPDATE clips SET pending_look = NULL, pending_layout = NULL, pending_music = NULL, rerender_job_id = NULL, rerender_error = ? WHERE id = ? AND rerender_job_id = ?")
       .bind(RERENDER_FAILED, ref.clipId, jobId)
       .run();
     log.warn("cut.rerender.failed", { len: safeError.length });
@@ -769,18 +842,20 @@ async function fakeRun(env: Env, jobId: string, refId: string | null, options: R
     const spec = await buildRerenderSpec(env, jobId, ref.dumpId, ref.clipId);
     await env.FILES.put(spec.output_key, unb64(FAKE_MP4_B64), { httpMetadata: { contentType: "video/mp4" } });
     await env.FILES.put(spec.output_cover_key, unb64(FAKE_JPG_B64[hashNum(spec.look_id) % FAKE_JPG_B64.length]), { httpMetadata: { contentType: "image/jpeg" } });
-    return { rerender: { clip_id: spec.clip_id, look: spec.look_id, r2_key: spec.output_key, cover_r2_key: spec.output_cover_key, duration_s: 2, voice: spec.cells ? spec.voice : null } };
+    return { rerender: { clip_id: spec.clip_id, look: spec.look_id, r2_key: spec.output_key, cover_r2_key: spec.output_cover_key, duration_s: 2, voice: spec.cells ? spec.voice : null, music: spec.look.music && spec.music.length ? spec.music[0].r2_key : null } };
   }
   const spec = await buildDumpSpec(env, jobId, ref.dumpId);
   if (!spec.assets.length) return { clips: [], engine: { picker: "fake" }, skipped: spec.skipped_assets.map((s) => ({ asset_id: s.id, reason: s.reason })) };
   const wanted = Number(options.clips);
-  const count = Number.isInteger(wanted) && wanted >= 1 && wanted <= 24 ? wanted : 6 + (hashNum(spec.dump_id) % 7); // 6–12
+  // "How many" is honored like the real job: her count, else the test's, else 6–12.
+  const count = spec.steer.count ?? (Number.isInteger(wanted) && wanted >= 1 && wanted <= 24 ? wanted : 6 + (hashNum(spec.dump_id) % 7));
   const mp4 = unb64(FAKE_MP4_B64);
   const clips: CutResultClip[] = [];
   for (let i = 0; i < count; i++) {
     const asset = spec.assets[i % spec.assets.length];
-    const recipe: Recipe = spec.door === "recycle" ? "recycle" : FAKE_RECIPES[i % FAKE_RECIPES.length];
-    const b = RECIPES[recipe];
+    const fakeRecipes = FAKE_RECIPES.filter((r) => spec.steer.allowed_recipes.includes(r));
+    const recipe: Recipe = spec.door === "recycle" ? "recycle" : (fakeRecipes.length ? fakeRecipes : FAKE_RECIPES)[i % (fakeRecipes.length || FAKE_RECIPES.length)];
+    const b = spec.recipes[recipe] ?? RECIPES[recipe]; // her clip length, as the real job
     const len = b.minS + ((i * 7) % (b.maxS - b.minS + 1));
     const start = (i * 37) % 240;
     const id = newId("clp", 16);
@@ -807,6 +882,7 @@ async function fakeRun(env: Env, jobId: string, refId: string | null, options: R
       look,
       parts: [[start, start + len]],
       layout: null,
+      music: spec.looks[look]?.music && spec.music.length ? spec.music[i % spec.music.length].r2_key : null,
     });
   }
   // Grid Looks: the other clips of this dump fill the cells, as the real job does.

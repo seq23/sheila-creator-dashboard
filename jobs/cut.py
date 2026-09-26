@@ -401,7 +401,7 @@ def hook_strength(text: str) -> float:
     return min(0.9, s)
 
 
-def fallback_moments(asset: dict[str, Any], duration: float, runs: list[tuple[float, float]], transcript: Transcript, recipes: dict[str, Any], quota: int, door: str) -> list[Moment]:
+def fallback_moments(asset: dict[str, Any], duration: float, runs: list[tuple[float, float]], transcript: Transcript, recipes: dict[str, Any], quota: int, door: str, allowed: list[str] | None = None) -> list[Moment]:
     """Silence-based segmentation + longest speech runs. Always yields something for footage >= 3 s."""
     aid = asset["id"]
     out: list[Moment] = []
@@ -420,6 +420,9 @@ def fallback_moments(asset: dict[str, Any], duration: float, runs: list[tuple[fl
 
     speechy = coverage(runs, 0, duration) >= 0.35
     order = RECIPE_ORDER if speechy else ["montage", "talking_head", "hook_first", "story"]
+    # Her clip length (worker/domain/steer.ts recipesAllowed): only the recipes that reach it.
+    if allowed:
+        order = [r for r in order if r in allowed] or order
     per = max(1, math.ceil(quota / len(order)))
     for r in order:
         if len(out) >= quota:
@@ -449,7 +452,8 @@ def llm_moments(asset: dict[str, Any], duration: float, transcript: Transcript, 
     recipes = spec["recipes"]
     door = spec["door"]
     lines = "\n".join(f"[{s:.1f}-{e:.1f}] {t}" for s, e, t in transcript.segments)[:24000]
-    allowed = ["recycle"] if door == "recycle" else RECIPE_ORDER
+    st = steer_of(spec, asset)
+    allowed = ["recycle"] if door == "recycle" else ([r for r in RECIPE_ORDER if r in (st.get("allowed_recipes") or RECIPE_ORDER)] or RECIPE_ORDER)
     system = (
         "You pick short vertical-video moments for one creator. Follow her Brand Profile exactly; never pick anything on her "
         "off-limits list. Answer with JSON only: {\"moments\":[{\"start\":s,\"end\":s,\"recipe\":r,\"hook\":str,\"hook_alt\":str,"
@@ -463,6 +467,8 @@ def llm_moments(asset: dict[str, Any], duration: float, transcript: Transcript, 
             "video_seconds": round(duration, 1),
             "dump_notes": spec.get("notes", ""),
             "file_note": asset.get("file_note") or "",
+            "must_include": st.get("include") or [],
+            "leave_out": st.get("avoid") or [],
             "brand_profile": spec.get("brand_profile") or {},
             "research_brief": {k: (spec.get("brief") or {}).get(k) for k in ("hooks", "cut_styles", "themes")},
             "transcript": lines,
@@ -673,6 +679,12 @@ def grid_cells(k: int, m: "Moment", src: Source, others: list[tuple[str, "Moment
     return cells, {"cells": layout, "voice": voice}
 
 
+def music_key(spec: dict[str, Any], k: int) -> str | None:
+    """The song clip k gets (her uploads only, one per clip in turn), or None."""
+    tracks = [t for t in (spec.get("music") or []) if isinstance(t, dict) and str(t.get("r2_key", "")).startswith("music/")]
+    return str(tracks[k % len(tracks)]["r2_key"]) if tracks else None
+
+
 def music_for(spec: dict[str, Any], k: int, work: Path, download: "Downloader", cache: dict[str, Path]) -> Path | None:
     """Her own uploaded songs only (Settings > Editing > My music), one per clip in turn."""
     tracks = [t for t in (spec.get("music") or []) if isinstance(t, dict) and str(t.get("r2_key", "")).startswith("music/")]
@@ -819,6 +831,81 @@ def source_marks(norm: Path, duration: float, work: Path, asset_id: str) -> dict
     log("cut.source_check", frames=len(texts), watermark=bool(mark), handles=len(mark["handles"]) if mark else 0)
     return {"asset_id": asset_id, **mark} if mark else None
 
+# ---------------------------------------------------------------- her steering (worker/domain/steer.ts)
+
+STOPWORDS = {"the", "and", "with", "where", "that", "this", "part", "bit", "about", "when", "from", "for", "was", "were", "are", "you", "your", "our", "into", "some", "any"}
+
+
+def steer_of(spec: dict[str, Any], asset: dict[str, Any] | None) -> dict[str, Any]:
+    """The controls for a video's clips: its own note's when it has one, else the dump's."""
+    return ((asset or {}).get("steer") or spec.get("steer") or {})
+
+
+def phrase_words(phrase: str) -> list[str]:
+    words = re.findall(r"[a-z0-9']+", phrase.lower())
+    strong = [w for w in words if len(w) >= 3 and w not in STOPWORDS]
+    return strong or words
+
+
+def mentions(words: list[str], phrase: str) -> bool:
+    have = set(words)
+    need = phrase_words(phrase)
+    return bool(need) and all(w in have for w in need)
+
+
+def heard_at(transcript: Transcript, phrase: str, window: int = 12) -> float | None:
+    """When she said the phrase: every strong word of it within a dozen spoken words."""
+    need = phrase_words(phrase)
+    if not need:
+        return None
+    ws = [(w.start, re.sub(r"[^a-z0-9']", "", w.text.lower())) for w in transcript.words]
+    for i, (t, w) in enumerate(ws):
+        if w == need[0] and all(any(x == n for _t, x in ws[i : i + window]) for n in need):
+            return t
+    return None
+
+
+def moment_words(transcript: Transcript, m: "Moment") -> list[str]:
+    return [re.sub(r"[^a-z0-9']", "", w.text.lower()) for s, e in m.parts for w in transcript.words_in(s, e)]
+
+
+def apply_steer(moments: list["Moment"], asset: dict[str, Any], transcript: Transcript, st: dict[str, Any], recipes: dict[str, Any], duration: float) -> tuple[list["Moment"], list[dict[str, str]]]:
+    """Must include / leave out, from her chips and notes. A moment that mentions something to
+    leave out is dropped; something to include that no moment has gets a moment of its own around
+    where she said it. What cannot be done is reported, never skipped silently."""
+    report: list[dict[str, str]] = []
+    avoid = [str(x) for x in (st.get("avoid") or [])]
+    include = [str(x) for x in (st.get("include") or [])]
+    if not (avoid or include):
+        return moments, report
+    if not transcript.words:
+        for x in include + avoid:
+            report.append({"what": f'"{x}"', "why": "we couldn't make out the words in this video, so it couldn't be checked"})
+        return moments, report
+    for x in avoid:
+        moments = [m for m in moments if not mentions(moment_words(transcript, m), x)]
+    allowed = [r for r in RECIPE_ORDER if r in (st.get("allowed_recipes") or RECIPE_ORDER)] or RECIPE_ORDER
+    for x in include:
+        if any(mentions(moment_words(transcript, m), x) for m in moments):
+            continue
+        t = heard_at(transcript, x)
+        if t is None:
+            report.append({"what": f'"{x}"', "why": "we never heard it in these videos, so no clip could include it"})
+            continue
+        r = allowed[0]
+        b = recipes[r]
+        length = min(duration, (b["minS"] + b["maxS"]) / 2)
+        s = max(0.0, min(t - 3.0, duration - length))
+        m = Moment(asset["id"], r, round(s, 2), round(s + length, 2), [(round(s, 2), round(s + length, 2))])
+        if any(mentions(moment_words(transcript, m), a) for a in avoid):
+            report.append({"what": f'"{x}"', "why": "it is said right next to something you asked us to leave out, so it was left out too"})
+            continue
+        m.included = x  # type: ignore[attr-defined]
+        moments.insert(0, m)
+    log("cut.steer", avoid=len(avoid), include=len(include), reported=len(report))
+    return moments, report
+
+
 Uploader = Callable[[Path, str, str], None]
 Downloader = Callable[[str, Path], Path]
 Progress = Callable[[str, int, int], None]
@@ -846,6 +933,11 @@ def cut_dump(spec: dict[str, Any], work: Path, download: Downloader, upload: Upl
     mediapipe = heavy.get("mediapipe", False)
     brand = L.branding_from(spec.get("branding"), work)
     rotation, look_opts = rotation_of(spec)
+    for a in assets:  # a video's own note may ask for looks the dump doesn't
+        for lid, o in ((a.get("steer") or {}).get("looks") or {}).items():
+            if lid in L.LOOKS:
+                look_opts.setdefault(f"{a['id']}:{lid}", L.look_options(lid, o))
+    steer_report: list[dict[str, str]] = []
 
     # 1-2. download + normalize (+ whose video it is)
     prepared = []
@@ -876,17 +968,30 @@ def cut_dump(spec: dict[str, Any], work: Path, download: Downloader, upload: Upl
         src = Source(norm, info, tr, runs, detect_bars(norm, info["duration"]))
         # 4. pick
         progress("Finding the best moments", i, len(prepared))
+        st = steer_of(spec, a)
+        a_recipes = {**recipes, **(st.get("recipes") or {})}
         quota = 2 if door == "recycle" else max(1, round(target * info["duration"] / total_dur))
+        if (a.get("steer") or {}).get("count"):
+            quota = int(a["steer"]["count"])
         picked = llm_moments(a, info["duration"], tr, spec, quota, runs)
         if picked:
             engine["picker"] = "openrouter"
         else:
-            picked = fallback_moments(a, info["duration"], runs, tr, recipes, quota, door)
+            picked = fallback_moments(a, info["duration"], runs, tr, a_recipes, quota, door, st.get("allowed_recipes"))
+        picked, told = apply_steer(picked, a, tr, st, a_recipes, info["duration"])
+        steer_report.extend(told)
         for j, m in enumerate(picked):
             fill_copy(m, tr, spec, j)
             moments.append((m, src))
     if not moments:
         raise NoUsableMoments("no moments")
+    # How many: her number, the moments she asked to include first, then the strongest.
+    want = (spec.get("steer") or {}).get("count")
+    if want and len(moments) > int(want):
+        moments.sort(key=lambda ms: (0 if getattr(ms[0], "included", None) else 1, -score_moment(ms[0], ms[1].transcript, ms[1].runs, recipes)))
+        moments = moments[: int(want)]
+    elif want and len(moments) < int(want):
+        steer_report.append({"what": f"{int(want)} clips", "why": f"we found {len(moments)} good moments in these videos, so {len(moments)} were made"})
     log("cut.picked", moments=len(moments))
 
     # 5-7. render: clip k takes rotation[k], so a dump's clips never all look alike
@@ -896,8 +1001,11 @@ def cut_dump(spec: dict[str, Any], work: Path, download: Downloader, upload: Upl
     looks_used: dict[str, int] = {}
     for k, (m, src) in enumerate(moments):
         progress("Cutting clips", k, len(moments))
-        look_id = rotation[k % len(rotation)]
-        opts = look_opts[look_id]
+        asset = next((x for x in assets if x["id"] == m.asset_id), None)
+        a_steer = (asset or {}).get("steer") or {}
+        rot = [r for r in (a_steer.get("rotation") or []) if r in L.LOOKS] or rotation
+        look_id = rot[k % len(rot)]
+        opts = look_opts.get(f"{m.asset_id}:{look_id}") or look_opts.get(look_id) or L.look_options(look_id)
         clip_id = ids[k]
         layout = None
         cells = None
@@ -910,7 +1018,9 @@ def cut_dump(spec: dict[str, Any], work: Path, download: Downloader, upload: Upl
                 voice = layout["voice"]
                 if voice > 0 and layout["cells"][voice]["kind"] == "clip":
                     voice_src = next(osrc for cid, _om, osrc in others if cid == layout["cells"][voice]["clip_id"])
-            r = render_moment(m, src, opts, brand, work, clip_id, mediapipe, cells=cells, voice=voice, voice_src=voice_src, music=music_for(spec, k, work, download, music_cache))
+            songs = {"music": a_steer["music"]} if "music" in a_steer else spec
+            song = music_key(songs, k) if opts.get("music") else None
+            r = render_moment(m, src, opts, brand, work, clip_id, mediapipe, cells=cells, voice=voice, voice_src=voice_src, music=music_for(songs, k, work, download, music_cache) if song else None)
         except subprocess.CalledProcessError:
             log("cut.render.failed", n=k, look=look_id)
             continue
@@ -937,6 +1047,7 @@ def cut_dump(spec: dict[str, Any], work: Path, download: Downloader, upload: Upl
                 "look": look_id,
                 "parts": [[round(s, 2), round(e, 2)] for s, e in m.parts],
                 "layout": layout,
+                "music": song if r.music_used else None,
                 "_files": (r.mp4, r.cover),
             }
         )
@@ -957,6 +1068,7 @@ def cut_dump(spec: dict[str, Any], work: Path, download: Downloader, upload: Upl
         "assets": [{"id": a["id"], "duration_s": round(info["duration"], 2)} for a, _n, info, _w in prepared],
         "skipped": [{"asset_id": s["id"], "reason": s["reason"]} for s in spec.get("skipped_assets", [])],
         "source_marks": marks,
+        "steer_report": steer_report,
     }
 
 
@@ -1012,7 +1124,8 @@ def rerender_clip(spec: dict[str, Any], work: Path, download: Downloader, upload
         voice = min(max(0, voice), n - 1)
         voice_src = got[voice][1]
     progress("Cutting clips", 0, 1)
-    r = render_moment(m, main_src, opts, brand, work, str(spec["clip_id"]), mediapipe, cells=cells, voice=voice, voice_src=voice_src, music=music_for(spec, 0, work, download, {}))
+    song = music_key(spec, 0) if opts.get("music") else None
+    r = render_moment(m, main_src, opts, brand, work, str(spec["clip_id"]), mediapipe, cells=cells, voice=voice, voice_src=voice_src, music=music_for(spec, 0, work, download, {}) if song else None)
     progress("Saving clips", 0, 1)
     upload(r.mp4, str(spec["output_key"]), "video/mp4")
     upload(r.cover, str(spec["output_cover_key"]), "image/jpeg")
@@ -1026,6 +1139,7 @@ def rerender_clip(spec: dict[str, Any], work: Path, download: Downloader, upload
             "cover_r2_key": spec["output_cover_key"],
             "duration_s": round(r.duration, 2),
             "voice": voice if cells else None,
+            "music": song if r.music_used else None,
         },
         "engine": {"subtitles": r.subtitles},
     }

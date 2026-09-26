@@ -263,6 +263,37 @@ npx wrangler d1 execute sheila-creator-dashboard-db --remote --command "SELECT s
 npx wrangler d1 execute sheila-creator-dashboard-db --remote --command "SELECT version, published_at FROM media_kit_versions ORDER BY version DESC LIMIT 5; SELECT COUNT(*) FROM kit_views"
 ```
 
+## Steering a dump: Surprise me, chips and notes
+
+The owner (26 Sep 2026): "some degree of on-demand control is good and maybe a surprise-me aspect
+can be good too". The review behind it: `docs/CREATIVE-CONTROL-REVIEW.md`.
+
+- **Which videos:** two cards on Dump ("New videos I just filmed" / "Old posts to reuse"),
+  nothing preselected, a `?` bubble on each; the Dump button repeats her choice ("Dump 3 new
+  videos"). The words "door A/B" never appear in the app.
+- **Surprise me** (default): the built-in variety (Settings > Editing), and the dump says
+  **What we tried** (`dumps.tried`).
+- **Chips** (`dumps.steer`, shared/steer.ts): Look (incl. every grid), Music (none / my songs /
+  one song), Pace, Clip length, How many, Captions, Platforms. Untapped = surprise for that one.
+- **Notes** (the dump's and each video's) are read into the same controls plus must include /
+  leave out: rules always (`worker/domain/steer.ts parseNotes`, fixtures in
+  `tests/unit/fixtures/steer-notes.json`), and the free AI through the Worker's one OpenRouter
+  client when it is connected (`worker/lib/steerStore.ts`). "Here's what we understood" shows
+  before Dump; the confirmed reading is stored (`dumps.steer_notes`, `assets.steer_notes`).
+  Precedence per control: a video's note > a chip > the dump's note > surprise.
+- **Never silently dropped:** anything not possible as asked (a 3x3 grid, a song not uploaded,
+  40 clips, a phrase never said) is still made the closest way and listed on the dump
+  (`dumps.not_followed`): the parse's list, chip/note clashes, and the cut job's `steer_report`.
+- **The cut job honors it** (`jobs/cut.py`): rotation and looks from the chosen looks, captions
+  and pace on each look, her song or none, recipe bounds from the length, the count (moments she
+  asked to include kept first), platforms, leave-out moments dropped and must-include moments
+  added from the transcript. Proven by `tests/unit/steer.test.ts` (spec on the real schema) and
+  `jobs/selftest_cut.py check_steer` (rendered: only 2x4 grids and no song after "2x4 grid, no
+  music, fast"; exactly 2 short clips with her song). Validator `steer-honored` fails when any
+  control loses a link of that chain.
+- **Review:** Change look, **Change music** (`POST /api/clips/:id/music`, `clips.pending_music`),
+  **Try another version** (`POST /api/clips/:id/another`: a different look from her mix).
+
 ## Staging
 
 The owner's fully real twin of production for testing with her own throwaway accounts;

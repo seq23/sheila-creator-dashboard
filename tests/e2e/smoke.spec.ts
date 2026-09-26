@@ -63,7 +63,10 @@ test.describe("home and dump", () => {
 
   test("dump: pick a door, upload a small file in chunks, Dump is gated on the brief", async ({ page }) => {
     await page.goto("/dump");
-    await page.getByRole("button", { name: /Recycle old videos/ }).click();
+    // nothing is picked for her: the Dump button waits until she says which videos these are
+    await expect(page.locator("[data-dump-button]")).toBeDisabled();
+    await page.getByRole("radio", { name: /Old posts to reuse/ }).click();
+    await expect(page.locator("[data-door-picked]")).toHaveText(/You picked: Old posts to reuse/);
     // before anything is uploaded the one next step is choosing videos
     await expect(page.locator("[data-primary]")).toHaveCount(1);
     await expect(page.locator("[data-primary]")).toHaveText("Choose videos");
@@ -75,8 +78,8 @@ test.describe("home and dump", () => {
     await page.getByLabel("Notes for this dump").fill("Test dump from Playwright");
     // once a video is in, the primary moves to the Dump button
     await expect(page.locator("[data-primary]")).toHaveCount(1);
-    await expect(page.getByRole("button", { name: "Dump", exact: true })).toHaveAttribute("data-primary", "true");
-    await page.getByRole("button", { name: "Dump", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Dump 1 old post", exact: true })).toHaveAttribute("data-primary", "true");
+    await page.getByRole("button", { name: "Dump 1 old post", exact: true }).click();
     // Section 6 gate: no Brand Profile locked yet → a plain-English stop with a fix link.
     await expect(page.locator(".toast.bad")).toContainText("Brand Profile");
     await expect(page.locator(".toast.bad").getByRole("link", { name: "How to fix" })).toBeVisible();
@@ -174,6 +177,7 @@ test.describe("guard rails", () => {
     for (let i = 0; i < bytes.length; i += 4) bytes.writeUInt32LE((Math.random() * 0xffffffff) >>> 0, i);
     const upload = async () => {
       await page.goto("/dump");
+      await page.getByRole("radio", { name: /New videos I just filmed/ }).click();
       await page.locator('input[type="file"]').setInputFiles({ name: "same.mp4", mimeType: "video/mp4", buffer: bytes });
       await expect(page.getByText(/Uploaded|Failed/)).toBeVisible({ timeout: 20_000 });
       return page.getByText("Uploaded").isVisible();

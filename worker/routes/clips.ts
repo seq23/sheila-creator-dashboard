@@ -21,14 +21,15 @@
 import { Hono, type Context } from "hono";
 import type { Env, Vars } from "../env";
 import { requireUser } from "../lib/auth";
-import { parseJson, recordEvent } from "../lib/db";
+import { getSetting, parseJson, recordEvent } from "../lib/db";
 import { fail, readJson } from "../lib/http";
 import { addDays, nowIso } from "../lib/ids";
 import { log } from "../lib/log";
 import { canTransition, type ClipStatus } from "../domain/approval";
 import { PLATFORMS, RECIPES, REJECT_REASONS, REJECTED_RETENTION_DAYS, type Platform, type Recipe } from "@shared/constants";
 import type { ClipRow } from "@shared/types";
-import { cellCount, cleanGridLayout, defaultGridLayout, isGridLook, isLookId, lookById, ZOOMS, type GridLayout, type LookId } from "../domain/looks";
+import { cellCount, cleanGridLayout, defaultGridLayout, editingFromStored, isGridLook, isLookId, LOOK_IDS, lookById, ZOOMS, type GridLayout, type LookId, type StoredEditing } from "../domain/looks";
+import { tracksOf } from "../lib/steerStore";
 import { dispatchJob } from "../services/github";
 import { checkEdit, editorName, isHandoffApp, HANDOFF } from "../domain/editors";
 import { editingNote, pollEditorJobs, startHandback } from "../lib/editorJobs";
@@ -98,6 +99,9 @@ export interface ReviewClip extends ClipRow {
   editing_note: string | null;
   /** Her voice over on this clip: being added, in it (the video plays with it), or it did not work. */
   voice_over: "mixing" | "ready" | "failed" | null;
+  /** The song under it (her upload's id), and a Change music in progress ("none" or a song id). */
+  music_id: string | null;
+  pending_music: string | null;
 }
 export interface ReviewGroup {
   /** held_note: "Looks like someone else's video" (worker/domain/sourceCheck.ts), or null. */
@@ -149,6 +153,8 @@ interface ClipDb {
   busy_capability: string | null;
   voice_mix: string | null;
   voice_nid: string | null;
+  music: string | null;
+  pending_music: string | null;
 }
 
 /** "?v=<file version>.<voice over>": changes when the file is swapped or a voice over is mixed in. */
@@ -195,12 +201,14 @@ function toView(r: ClipDb): ReviewClip {
     edited_with_name: editorName(r.edited_with),
     editing_note: editingNote(r.busy_editor, r.busy_capability),
     voice_over: r.voice_mix === "mixing" || r.voice_mix === "ready" || r.voice_mix === "failed" ? r.voice_mix : null,
+    music_id: r.music ? r.music.slice("music/".length) : null,
+    pending_music: r.pending_music,
   };
 }
 
 const CLIP_SELECT = `SELECT c.id, c.asset_id, c.dump_id, c.start_s, c.end_s, c.recipe, c.hook_text, c.hook_alt, c.caption, c.hashtags,
   c.platforms, c.score, c.status, c.reject_reason, c.paid_partnership, c.hidden, c.created_at, c.reviewed_at, c.media_token, c.cover_r2_key,
-  c.look, c.layout, c.pending_look, c.rerender_error, c.media_version, c.edited_with, a.raw_deleted_at,
+  c.look, c.layout, c.pending_look, c.rerender_error, c.media_version, c.edited_with, c.music, c.pending_music, a.raw_deleted_at,
   (SELECT e.editor FROM editor_jobs e WHERE e.clip_id = c.id AND e.status IN ('submitted', 'importing') ORDER BY e.created_at DESC LIMIT 1) AS busy_editor,
   (SELECT e.capability FROM editor_jobs e WHERE e.clip_id = c.id AND e.status IN ('submitted', 'importing') ORDER BY e.created_at DESC LIMIT 1) AS busy_capability,
   a.file_name AS source_file, a.source_owner, a.source_note,
@@ -449,13 +457,14 @@ export interface LookChangeState {
  * Why a clip's look can't change right now, as the sentence she sees, or null when it can.
  * Pure (unit-tested): the route only loads the state and acts on the answer.
  */
-export function lookChangeRefusal(clip: LookChangeState | null, look: unknown, sameLayout: boolean): { status: 404 | 409 | 422; error: string } | null {
+export function lookChangeRefusal(clip: LookChangeState | null, look: unknown, sameLayout: boolean, sameLookOk = false): { status: 404 | 409 | 422; error: string } | null {
   if (!clip || clip.status === "deleted") return { status: 404, error: "That clip is gone." };
   if (!isLookId(look)) return { status: 422, error: "Pick one of the looks in the list." };
   if (clip.in_buffer) return { status: 409, error: "This clip is already loaded into Buffer. Remove it from the Calendar first, then change its look." };
   if (clip.pending_look) return { status: 409, error: "This clip is already getting a new look. It will be ready in about a minute." };
   if (clip.raw_deleted_at) return { status: 409, error: "The original video for this clip was cleared after 7 days, so its look can't change. Dump that video again to get new looks." };
-  if (clip.look === look && (!isGridLook(look) || sameLayout)) return { status: 409, error: "It already has that look. Pick a different one." };
+  // Change music keeps the look on purpose (sameLookOk); a Change look to the same look is refused.
+  if (!sameLookOk && clip.look === look && (!isGridLook(look) || sameLayout)) return { status: 409, error: "It already has that look. Pick a different one." };
   return null;
 }
 
@@ -501,19 +510,59 @@ clips.get("/:id/cells", async (c) => {
   return c.json({ self: cellOption(clip), dump: same.map(cellOption), library: library.map(cellOption), zooms: ZOOMS });
 });
 
-clips.post("/:id/look", async (c) => {
-  const id = c.req.param("id");
-  const body = await readJson<{ look?: string; layout?: unknown }>(c);
-  const row = await c.env.DB.prepare(
-    "SELECT c.id, c.dump_id, c.status, c.look, c.layout, c.pending_look, a.raw_deleted_at FROM clips c JOIN assets a ON a.id = c.asset_id WHERE c.id = ?",
-  )
+type Ctx = Context<{ Bindings: Env; Variables: Vars }>;
+
+interface RerenderRow {
+  id: string;
+  dump_id: string;
+  status: ClipStatus;
+  look: string | null;
+  layout: string | null;
+  pending_look: string | null;
+  raw_deleted_at: string | null;
+  edited_with: string | null;
+}
+
+async function rerenderRow(env: Env, id: string): Promise<RerenderRow | null> {
+  return env.DB.prepare("SELECT c.id, c.dump_id, c.status, c.look, c.layout, c.pending_look, c.edited_with, a.raw_deleted_at FROM clips c JOIN assets a ON a.id = c.asset_id WHERE c.id = ?")
     .bind(id)
-    .first<{ id: string; dump_id: string; status: ClipStatus; look: string | null; layout: string | null; pending_look: string | null; raw_deleted_at: string | null }>();
-  const look = body?.look;
+    .first<RerenderRow>();
+}
+
+clips.post("/:id/look", async (c) => {
+  const body = await readJson<{ look?: string; layout?: unknown }>(c);
+  return rerender(c, c.req.param("id"), body?.look, body?.layout, {});
+});
+
+/** Change music: none, or one of her songs; the clip keeps its look. Her own edit (CapCut) keeps its music. */
+clips.post("/:id/music", async (c) => {
+  const id = c.req.param("id");
+  const body = await readJson<{ music?: string }>(c);
+  const row = await rerenderRow(c.env, id);
+  if (row?.edited_with) return fail(c, 409, "This clip is your own edit, so its music stays as you made it. Change it in your editing app and upload it again.", "looks-and-styles");
+  const tracks = await tracksOf(c.env);
+  const music = body?.music === "none" ? "none" : tracks.find((t) => t.id === body?.music)?.id;
+  if (!music) return fail(c, 422, "Pick No music or one of your songs.", "looks-and-styles");
+  return rerender(c, id, row?.look ?? "clean", undefined, { music, sameLookOk: true });
+});
+
+/** Try another version: a different look, picked at random from the ones in her mix. */
+clips.post("/:id/another", async (c) => {
+  const id = c.req.param("id");
+  const row = await rerenderRow(c.env, id);
+  const editing = editingFromStored(await getSetting<StoredEditing>(c.env.DB, "editing", {}));
+  const pool = editing.looks.filter((l) => l !== row?.look);
+  const pick = (pool.length ? pool : LOOK_IDS.filter((l) => l !== row?.look))[crypto.getRandomValues(new Uint32Array(1))[0] % Math.max(1, pool.length || LOOK_IDS.length - 1)];
+  return rerender(c, id, pick, undefined, {});
+});
+
+/** Queue a re-render of one clip (a new look, new cells, or new music); the old file plays until it is ready. */
+async function rerender(c: Ctx, id: string, look: unknown, layoutInput: unknown, opts: { music?: string; sameLookOk?: boolean }) {
+  const row = await rerenderRow(c.env, id);
   let layout: GridLayout | null = null;
   if (row && isLookId(look) && isGridLook(look)) {
-    if (body?.layout !== undefined) {
-      layout = cleanGridLayout(look, body.layout);
+    if (layoutInput !== undefined) {
+      layout = cleanGridLayout(look, layoutInput);
       if (!layout) return fail(c, 422, `Pick something for all ${cellCount(look)} cells, with this clip in at least one of them.`, "looks-and-styles");
       for (const cell of layout.cells) {
         if (cell.kind !== "clip") continue;
@@ -521,6 +570,8 @@ clips.post("/:id/look", async (c) => {
         if (!other || other.status === "deleted" || (other.dump_id !== row.dump_id && other.status !== "approved"))
           return fail(c, 422, "One of the cells points at a clip that is gone. Pick it again.", "looks-and-styles");
       }
+    } else if (opts.sameLookOk && row.look === look && row.layout) {
+      layout = parseJson<GridLayout | null>(row.layout, null);
     } else {
       const { results } = await c.env.DB.prepare("SELECT id FROM clips WHERE dump_id = ? AND id != ? AND status != 'deleted' ORDER BY score DESC LIMIT 8").bind(row.dump_id, row.id).all<{ id: string }>();
       layout = defaultGridLayout(look, results.map((r) => r.id));
@@ -528,21 +579,23 @@ clips.post("/:id/look", async (c) => {
   }
   const state = row ? { ...row, in_buffer: await lockedByBuffer(c.env, id) } : null;
   const sameLayout = !!row && JSON.stringify(parseJson(row.layout, null)) === JSON.stringify(layout);
-  const refused = lookChangeRefusal(state, look, sameLayout);
+  const refused = lookChangeRefusal(state, look, sameLayout, !!opts.sameLookOk);
   if (refused) return fail(c, refused.status, refused.error, "looks-and-styles");
   // The old file stays live; the job writes <clip>-v<n+1>.mp4 and applyRerender swaps it in.
-  await c.env.DB.prepare("UPDATE clips SET pending_look = ?, pending_layout = ?, rerender_error = NULL WHERE id = ?").bind(look as LookId, layout ? JSON.stringify(layout) : null, id).run();
+  await c.env.DB.prepare("UPDATE clips SET pending_look = ?, pending_layout = ?, pending_music = ?, rerender_error = NULL WHERE id = ?")
+    .bind(look as LookId, layout ? JSON.stringify(layout) : null, opts.music ?? null, id)
+    .run();
   const job = await dispatchJob(c.env, "cut", `${row!.dump_id}/${id}`);
   if (!job.dispatched) {
-    await c.env.DB.prepare("UPDATE clips SET pending_look = NULL, pending_layout = NULL, rerender_error = ? WHERE id = ?").bind("We couldn't start the new look. Try again in a minute.", id).run();
+    await c.env.DB.prepare("UPDATE clips SET pending_look = NULL, pending_layout = NULL, pending_music = NULL, rerender_error = ? WHERE id = ?").bind("We couldn't start the new look. Try again in a minute.", id).run();
     return fail(c, 502, "We couldn't start the new look. Try again in a minute.", "reconnect-github");
   }
   await c.env.DB.prepare("UPDATE clips SET rerender_job_id = ? WHERE id = ?").bind(job.jobId, id).run();
-  await recordEvent(c.env.DB, "clip.look_requested", id, { look, from: row!.look }, c.get("user").email);
+  await recordEvent(c.env.DB, opts.music ? "clip.music_requested" : "clip.look_requested", id, { look, from: row!.look, music: opts.music ? (opts.music === "none" ? "none" : "song") : undefined }, c.get("user").email);
   log.info("clip.look", { grid: !!layout });
   const updated = await c.env.DB.prepare(`${CLIP_SELECT} WHERE c.id = ?`).bind(id).first<ClipDb>();
   return c.json({ jobId: job.jobId, clip: updated ? toView(updated) : null });
-});
+}
 
 // ---------------------------------------------------------------- her own edit (hand-back)
 

@@ -10,9 +10,30 @@ import { Card, Empty, HelpButton, Notice, PageHead, Skeleton, useLoad, useToast 
 import { PLATFORMS, PLATFORM_LABEL } from "@shared/constants";
 import { Icon } from "../components/Icon";
 import { HeldNotice } from "../components/HeldNotice";
+import { NotFollowedList, SteerPanel, UnderstoodNote, type SteerLook, type SteerTrack } from "../components/Steer";
+import type { SteerControls, Understood } from "@shared/steer";
 import "../styles/dump.css";
 
 type Door = "new" | "recycle";
+
+// Which videos she is dumping, in her words (owner, 26 Sep 2026: "super clear which door u r
+// choosing"). Nothing is picked until she taps one; the Dump button repeats her choice.
+const DOORS: Record<Door, { title: string; line: string; hint: string; picked: string; noun: [string, string] }> = {
+  new: {
+    title: "New videos I just filmed",
+    line: "We cut them into fresh clips.",
+    hint: "Pick this for footage you haven't posted anywhere yet. For example: 20 minutes from your kitchen today becomes 10 to 20 short clips.",
+    picked: "New videos I just filmed",
+    noun: ["new video", "new videos"],
+  },
+  recycle: {
+    title: "Old posts to reuse",
+    line: "We give past videos a new life.",
+    hint: "Pick this for videos you already posted. For example: last spring's recipe reel gets a new opening and caption, and waits 90 days before it goes back to the same app.",
+    picked: "Old posts to reuse",
+    noun: ["old post", "old posts"],
+  },
+};
 
 interface Local {
   file: File;
@@ -26,7 +47,12 @@ export function Dump() {
   const { id: routeId } = useParams();
   const nav = useNavigate();
   const toast = useToast();
-  const [door, setDoor] = useState<Door>("new");
+  const [door, setDoor] = useState<Door | null>(null);
+  const [hintOpen, setHintOpen] = useState<Door | null>(null);
+  const [steer, setSteer] = useState<SteerControls>({});
+  const [understood, setUnderstood] = useState<Understood | null>(null);
+  const understandTimer = useRef<number | null>(null);
+  const editing = useLoad(() => get<{ looks: SteerLook[]; music: SteerTrack[] }>("/api/editing"));
   const [dumpId, setDumpId] = useState<string | null>(routeId ?? null);
   const [notes, setNotes] = useState("");
   const [local, setLocal] = useState<Local[]>([]);
@@ -45,6 +71,8 @@ export function Dump() {
     if (current.data) {
       setDoor(current.data.dump.door);
       setNotes(current.data.dump.notes);
+      setSteer(current.data.dump.steer ?? {});
+      setUnderstood(current.data.dump.understood ?? null);
     }
   }, [current.data]);
 
@@ -57,6 +85,7 @@ export function Dump() {
 
   const ensureDump = useCallback(async (): Promise<string> => {
     if (dumpId) return dumpId;
+    if (!door) throw new Error("First pick which videos these are: new videos you just filmed, or old posts to reuse.");
     const r = await post<{ id: string }>("/api/dumps", { door, notes });
     setDumpId(r.id);
     nav(`/dump/${r.id}`, { replace: true });
@@ -99,7 +128,27 @@ export function Dump() {
 
   async function saveNotes(v: string) {
     setNotes(v);
+    // Here's what we understood: read shortly after she stops typing (rules, plus the free AI when connected).
+    if (understandTimer.current) window.clearTimeout(understandTimer.current);
+    understandTimer.current = window.setTimeout(async () => {
+      if (!v.trim()) return setUnderstood(null);
+      try {
+        setUnderstood(await post<Understood>("/api/dumps/understand", { text: v }));
+      } catch {
+        /* the note is still read when she presses Dump */
+      }
+    }, 700);
     if (dumpId) await patch(`/api/dumps/${dumpId}`, { notes: v }).catch(() => undefined);
+  }
+
+  async function pickDoor(d: Door) {
+    setDoor(d);
+    if (dumpId) await patch(`/api/dumps/${dumpId}`, { door: d }).catch(() => undefined);
+  }
+
+  async function changeSteer(next: SteerControls) {
+    setSteer(next);
+    if (dumpId) await patch(`/api/dumps/${dumpId}`, { steer: next }).catch(() => undefined);
   }
 
   async function removeAsset(assetId: string) {
@@ -117,7 +166,7 @@ export function Dump() {
     if (!dumpId) return;
     setSending(true);
     try {
-      await patch(`/api/dumps/${dumpId}`, { notes });
+      await patch(`/api/dumps/${dumpId}`, { notes, steer, understood });
       await post(`/api/dumps/${dumpId}/dump`);
       toast.ok("Dumped. We’ll email you when the clips are ready to review.");
       setLocal([]);
@@ -134,6 +183,9 @@ export function Dump() {
     setDumpId(null);
     setLocal([]);
     setNotes("");
+    setDoor(null);
+    setSteer({});
+    setUnderstood(null);
     nav("/dump", { replace: true });
   }
 
@@ -171,35 +223,60 @@ export function Dump() {
         <div className="section dump-main">
           {editable ? (
             <>
-              <div className="grid cols-2">
-                <button type="button" className={`door ${door === "new" ? "on" : ""}`} onClick={() => setDoor("new")} aria-pressed={door === "new"}>
-                  <span className="door-key">A</span>
-                  <span className="door-title">New raw footage</span>
-                  <span className="hint">Never posted. We cut it into lots of short clips.</span>
-                </button>
-                <button type="button" className={`door ${door === "recycle" ? "on" : ""}`} onClick={() => setDoor("recycle")} aria-pressed={door === "recycle"}>
-                  <span className="door-key">B</span>
-                  <span className="door-title">Recycle old videos</span>
-                  <span className="hint">Already posted. We give them a new hook and wait 90 days per platform.</span>
-                </button>
+              <div className="door-pick" role="radiogroup" aria-label="Which videos are these?">
+                {(["new", "recycle"] as Door[]).map((d) => (
+                  <div key={d} className="door-wrap">
+                    <button type="button" role="radio" aria-checked={door === d} className={`door-card${door === d ? " on" : ""}`} data-door={d} onClick={() => pickDoor(d)}>
+                      <span className="door-icon" aria-hidden="true">
+                        <Icon name={door === d ? "check" : d === "new" ? "plus" : "arrow"} />
+                      </span>
+                      <span className="door-text">
+                        <span className="door-title">{DOORS[d].title}</span>
+                        <span className="hint">{DOORS[d].line}</span>
+                      </span>
+                    </button>
+                    <button type="button" className="door-hint-btn" aria-label={`What does "${DOORS[d].title}" mean?`} aria-expanded={hintOpen === d} aria-controls={`door-hint-${d}`} onClick={() => setHintOpen((h) => (h === d ? null : d))}>
+                      ?
+                    </button>
+                    {hintOpen === d ? (
+                      <div id={`door-hint-${d}`} className="door-hint" role="note">
+                        {DOORS[d].hint}{" "}
+                        <button type="button" className="link-btn" onClick={() => setHintOpen(null)}>
+                          Got it
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
               </div>
+              <p className="door-picked" aria-live="polite" data-door-picked>
+                {door ? (
+                  <>
+                    <Icon name="check" size="sm" /> You picked: {DOORS[door].picked}
+                  </>
+                ) : (
+                  <>First, tap which videos these are.</>
+                )}
+              </p>
 
               <div
                 className={`dropzone ${over ? "over" : ""}`}
+                aria-disabled={!door}
                 onDragOver={(e) => {
                   e.preventDefault();
-                  setOver(true);
+                  if (door) setOver(true);
                 }}
                 onDragLeave={() => setOver(false)}
                 onDrop={(e) => {
                   e.preventDefault();
                   setOver(false);
-                  addFiles(e.dataTransfer.files);
+                  if (door) addFiles(e.dataTransfer.files);
+                  else toast.bad(new Error("First tap which videos these are, above."));
                 }}
-                onClick={() => inputRef.current?.click()}
+                onClick={() => (door ? inputRef.current?.click() : toast.bad(new Error("First tap which videos these are, above.")))}
                 role="button"
                 tabIndex={0}
-                onKeyDown={(e) => (e.key === "Enter" ? inputRef.current?.click() : undefined)}
+                onKeyDown={(e) => (e.key === "Enter" && door ? inputRef.current?.click() : undefined)}
               >
                 <div className="dropzone-title">Drop videos here</div>
                 <div className="hint">or choose from your camera roll · any size · many at once</div>
@@ -225,6 +302,7 @@ export function Dump() {
                 ) : dump.status === "ready" ? (
                   <>
                     <strong>{plural(dump.clips_made, "clip")} ready.</strong> <Link to="/review">Review them now</Link>
+                    {dump.tried ? <span className="tried" data-tried> {dump.tried}</span> : null}
                   </>
                 ) : dump.status === "reviewed" ? (
                   <>This dump has been reviewed.</>
@@ -236,6 +314,8 @@ export function Dump() {
               </span>
             </Notice>
           )}
+
+          {dump && !editable ? <NotFollowedList items={dump.not_followed ?? []} /> : null}
 
           {(local.length > 0 || assets.length > 0) && (
             <Card className="flat">
@@ -261,7 +341,7 @@ export function Dump() {
                 {assets
                   .filter((a) => !local.some((l) => l.assetId === a.id))
                   .map((a) => (
-                    <AssetLine key={a.id} asset={a} door={door} dumpId={dumpId!} editable={editable} onRemove={() => removeAsset(a.id)} />
+                    <AssetLine key={a.id} asset={a} door={door ?? "new"} dumpId={dumpId!} editable={editable} onRemove={() => removeAsset(a.id)} onSaved={reloadCurrent} />
                   ))}
               </div>
             </Card>
@@ -271,11 +351,21 @@ export function Dump() {
             <>
               <div className="field">
                 <label htmlFor="notes">Notes for this dump</label>
-                <textarea id="notes" className="textarea" rows={3} value={notes} onChange={(e) => saveNotes(e.target.value)} placeholder="e.g. Trip weekend, lean funny. The kitchen one is my favorite." />
+                <textarea
+                  id="notes"
+                  className="textarea"
+                  rows={3}
+                  value={notes}
+                  onChange={(e) => saveNotes(e.target.value)}
+                  placeholder="e.g. Trip weekend, lean funny. All 2x4 grids, no music, keep them short. Don't use the part where I cough."
+                />
+                <div className="hint">You can ask for looks (like a 2x4 grid), music, pace, length, how many clips, captions, platforms, and moments to keep in or leave out.</div>
+                <UnderstoodNote understood={understood} />
               </div>
+              <SteerPanel steer={steer} onChange={changeSteer} looks={editing.data?.looks ?? []} tracks={editing.data?.music ?? []} />
               <div className="row wrap">
-                <button className="btn big" data-primary={hasVideos ? true : undefined} disabled={sending || uploading || uploadedCount === 0} onClick={send}>
-                  {sending ? "Sending…" : "Dump"}
+                <button className="btn big" data-primary={hasVideos && door ? true : undefined} disabled={!door || sending || uploading || uploadedCount === 0} onClick={send} data-dump-button>
+                  {sending ? "Sending…" : door ? `Dump ${uploadedCount || ""} ${uploadedCount === 1 ? DOORS[door].noun[0] : DOORS[door].noun[1]}`.replace("  ", " ") : "Dump"}
                 </button>
                 <span className="hint">We’ll email you when the clips are ready to review.</span>
               </div>
@@ -297,7 +387,7 @@ export function Dump() {
                   <Link key={d.id} to={d.status === "ready" ? "/review" : `/dump/${d.id}`} className="list-row">
                     <div className="grow">
                       <div className="title">
-                        {fmtDate(d.created_at)} · Door {d.door === "new" ? "A" : "B"} · {plural(d.files, "video")}
+                        {fmtDate(d.created_at)} · {d.door === "new" ? "New videos" : "Old posts"} · {plural(d.files, "video")}
                       </div>
                       <div className="meta">{d.clips_made ? `${plural(d.clips_made, "clip")} made` : d.status === "cutting" && d.progress ? `${d.progress.step}…` : ""}</div>
                     </div>
@@ -312,12 +402,12 @@ export function Dump() {
           ) : null}
         </aside>
       </div>
-      <HelpButton guide={door === "new" ? "dump-new-footage" : "recycle-old-videos"} />
+      <HelpButton guide={door === "recycle" ? "recycle-old-videos" : "dump-new-footage"} />
     </div>
   );
 }
 
-function AssetLine({ asset, door, dumpId, editable, onRemove }: { asset: AssetRow; door: Door; dumpId: string; editable: boolean; onRemove: () => void }) {
+function AssetLine({ asset, door, dumpId, editable, onRemove, onSaved }: { asset: AssetRow; door: Door; dumpId: string; editable: boolean; onRemove: () => void; onSaved: () => void }) {
   const [open, setOpen] = useState(false);
   const [platform, setPlatform] = useState(asset.original_platform ?? "");
   const [posted, setPosted] = useState(asset.original_posted_at?.slice(0, 10) ?? "");
@@ -326,6 +416,7 @@ function AssetLine({ asset, door, dumpId, editable, onRemove }: { asset: AssetRo
   async function save() {
     await patch(`/api/dumps/${dumpId}/assets/${asset.id}`, { fileNote: note, originalPlatform: platform || undefined, originalPostedAt: posted || undefined, originalViews: views ? Number(views) : undefined }).catch(() => undefined);
     setOpen(false);
+    onSaved();
   }
   return (
     <div>
@@ -337,6 +428,7 @@ function AssetLine({ asset, door, dumpId, editable, onRemove }: { asset: AssetRo
             {asset.file_note ? ` · ${asset.file_note}` : ""}
             {door === "recycle" && asset.original_platform ? ` · ${asset.original_platform}${asset.original_views ? ` · ${asset.original_views.toLocaleString()} views` : ""}` : ""}
           </div>
+          <UnderstoodNote understood={asset.understood ?? null} compact />
         </div>
         {editable ? (
           <>
@@ -355,7 +447,8 @@ function AssetLine({ asset, door, dumpId, editable, onRemove }: { asset: AssetRo
         <div className="section dump-asset-edit">
           <div className="field">
             <label>Note for this video</label>
-            <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Anything we should know about this one" />
+            <div className="hint">It steers this video's clips, the same way as the dump's note.</div>
+            <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Anything we should know? e.g. only the first minute, make it a grid, no music" />
           </div>
           {door === "recycle" ? (
             <div className="grid cols-3">
