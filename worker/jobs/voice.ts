@@ -14,12 +14,21 @@ interface NarrationDb {
   id: string;
   script: string;
   status: string;
+  r2_key: string | null;
+  clip_id: string | null;
+  mix_status: string | null;
 }
 
 async function narration(env: Env, id: string | null): Promise<NarrationDb | null> {
   if (!id) return null;
-  return env.DB.prepare("SELECT id, script, status FROM narrations WHERE id = ?").bind(id).first<NarrationDb>();
+  return env.DB.prepare("SELECT id, script, status, r2_key, clip_id, mix_status FROM narrations WHERE id = ?").bind(id).first<NarrationDb>();
 }
+
+/** Where the clip with her voice over mixed in is written (the job may write only this). */
+export const mixedKey = (narrationId: string) => `voice/mixed/${narrationId}.mp4`;
+
+/** A ready voice over waiting to be mixed into the clip it was attached to. */
+const wantsMix = (n: NarrationDb) => n.status === "ready" && !!n.clip_id && !!n.r2_key && n.mix_status === "mixing";
 
 /** 16-bit mono PCM WAV: a short silence, a soft tone, a short silence. */
 export function toneWav(seconds = 2, sampleRate = 16_000, hz = 440): Uint8Array {
@@ -52,6 +61,11 @@ export function toneWav(seconds = 2, sampleRate = 16_000, hz = 440): Uint8Array 
 export const voiceJob: JobHandler = {
   async buildSpec(env, jobId, refId) {
     const n = await narration(env, refId);
+    if (n && wantsMix(n)) {
+      const clip = await env.DB.prepare("SELECT r2_key FROM clips WHERE id = ? AND status != 'deleted'").bind(n.clip_id).first<{ r2_key: string }>();
+      if (!clip) throw new Error("the clip for this voice over is gone");
+      return { job_id: jobId, ref_id: refId, type: "voice", mode: "mix", narration_id: n.id, clip_key: clip.r2_key, narration_key: n.r2_key, output_key: mixedKey(n.id) };
+    }
     const v = await env.DB.prepare("SELECT sample_r2_key, consent_at, model_r2_key FROM voice WHERE id = 1").first<{ sample_r2_key: string | null; consent_at: string | null; model_r2_key: string | null }>();
     if (!n || !v?.sample_r2_key || !v.consent_at) throw new Error("no consented voice sample or narration");
     await env.DB.prepare("UPDATE narrations SET status = 'generating' WHERE id = ?").bind(n.id).run();
@@ -69,7 +83,19 @@ export const voiceJob: JobHandler = {
   },
 
   async applyResult(env, jobId, refId, result) {
-    const r = (result ?? {}) as { r2_key?: string; duration_s?: number; bytes?: number; model_key?: string };
+    const r = (result ?? {}) as { r2_key?: string; duration_s?: number; bytes?: number; model_key?: string; mode?: string };
+    if (r.mode === "mix") {
+      if (!refId || r.r2_key !== mixedKey(refId)) throw new Error("mix result missing its file");
+      const mixed = await env.FILES.head(r.r2_key);
+      if (!mixed) throw new Error("mixed clip not in storage");
+      // Only if it is still attached: a detach while mixing wins.
+      const u = await env.DB.prepare("UPDATE narrations SET mixed_r2_key = ?, mix_status = 'ready' WHERE id = ? AND clip_id IS NOT NULL AND mix_status = 'mixing'").bind(r.r2_key, refId).run();
+      if (!u.meta.changes) await env.FILES.delete(r.r2_key);
+      await recordEvent(env.DB, "voice.mix.ready", refId, { job: jobId, bytes: mixed.size });
+      await setHealth(env.DB, "Voice", "green", "Last voice over added to a clip", null);
+      log.info("voice.mix.apply", { bytes: mixed.size, attached: !!u.meta.changes });
+      return;
+    }
     if (!refId || !r.r2_key || !r.r2_key.startsWith(`voice/narrations/${refId}`)) throw new Error("voice result missing its file");
     const head = await env.FILES.head(r.r2_key);
     if (!head) throw new Error("voice file not in storage");
@@ -82,6 +108,15 @@ export const voiceJob: JobHandler = {
   },
 
   async onFailure(env, jobId, refId, safeError) {
+    const n = await narration(env, refId);
+    if (n && wantsMix(n)) {
+      // The voice over itself is fine; only adding it to the clip failed. The clip stays as it was.
+      await env.DB.prepare("UPDATE narrations SET mix_status = 'failed' WHERE id = ?").bind(n.id).run();
+      await recordEvent(env.DB, "voice.mix.failed", refId, { job: jobId });
+      await setHealth(env.DB, "Voice", "red", "A voice over could not be added to its clip. Attach it again.", "record-your-voice");
+      log.warn("voice.mix.failed", { len: safeError.length });
+      return;
+    }
     if (refId) await env.DB.prepare("UPDATE narrations SET status = 'failed' WHERE id = ?").bind(refId).run();
     await recordEvent(env.DB, "voice.narration.failed", refId, { job: jobId });
     await setHealth(env.DB, "Voice", "red", "A voice over did not finish. Try Generate again; a shorter script is faster.", "record-your-voice");
@@ -94,6 +129,15 @@ export const voiceJob: JobHandler = {
 
   /** FAKE_SERVICES: a 2-second tone WAV written to R2, exactly where the real job writes. */
   async fakeRun(env, _jobId, refId) {
+    const n = await narration(env, refId);
+    if (n && wantsMix(n)) {
+      // FAKE_SERVICES: the "mixed" clip is the clip itself, written where the real job writes it.
+      const clip = await env.DB.prepare("SELECT r2_key FROM clips WHERE id = ?").bind(n.clip_id).first<{ r2_key: string }>();
+      const src = clip ? await env.FILES.get(clip.r2_key) : null;
+      const bytes = src ? new Uint8Array(await src.arrayBuffer()) : new Uint8Array(0);
+      await env.FILES.put(mixedKey(n.id), bytes, { httpMetadata: { contentType: "video/mp4" } });
+      return { mode: "mix", r2_key: mixedKey(n.id), bytes: bytes.byteLength };
+    }
     const key = `voice/narrations/${refId}.wav`;
     const bytes = toneWav();
     await env.FILES.put(key, bytes, { httpMetadata: { contentType: "audio/wav" } });

@@ -158,6 +158,10 @@ describe("signed chunked upload of a job output", () => {
     expect((await upload("job_vo", "voice/narrations/nar_1.mp3", ["a"], "audio/mpeg")).done!.status).toBe(200);
     expect((await upload("job_vo", "voice/narrations/nar_2.mp3", ["a"])).start.status).toBe(403);
     expect((await upload("job_vo", "voice/sample/x", ["a"])).start.status).toBe(403);
+    // mix mode: its own mixed file only
+    expect((await upload("job_vo", "voice/mixed/nar_1.mp4", ["v"], "video/mp4")).done!.status).toBe(200);
+    expect((await upload("job_vo", "voice/mixed/nar_2.mp4", ["v"])).start.status).toBe(403);
+    expect((await upload("job_vo", "clips/dmp_1/clp_1.mp4", ["v"])).start.status).toBe(403);
   });
 });
 

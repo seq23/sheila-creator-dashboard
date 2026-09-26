@@ -18,15 +18,29 @@ from typing import Any
 from common import WORK, Job, download_input, log, run, upload_output
 
 CHATTERBOX = "chatterbox-tts>=0.1.2,<0.2"  # speed and quality on the Actions CPU runner: not yet proven
+# Chatterbox watermarks every file with resemble-perth, which imports pkg_resources. Setuptools
+# stopped shipping pkg_resources after 80 and the runner's Python has none, so perth quietly set
+# its watermarker to None and the model load died with "TypeError: 'NoneType' object is not
+# callable" (staging run 36208466035, 26 Sep 2026). Pin a setuptools that still has it.
+SETUPTOOLS = "setuptools<81"
 
 
 def install() -> None:
     log("voice.install")
     subprocess.run(
-        [sys.executable, "-m", "pip", "install", "-q", "--extra-index-url", "https://download.pytorch.org/whl/cpu", CHATTERBOX],
+        [sys.executable, "-m", "pip", "install", "-q", "--extra-index-url", "https://download.pytorch.org/whl/cpu", CHATTERBOX, SETUPTOOLS],
         check=True,
         stdout=subprocess.DEVNULL,
     )
+
+
+def require_watermarker() -> None:
+    """Every narration carries the inaudible watermark (BUILD_PLAN section 12). If perth could not
+    load its watermarker, stop with a named reason instead of a bare TypeError inside Chatterbox."""
+    import perth  # noqa: E402  (installed with chatterbox)
+
+    if getattr(perth, "PerthImplicitWatermarker", None) is None:
+        raise RuntimeError("watermarker_unavailable: resemble-perth could not load (pkg_resources missing?)")
 
 
 def to_wav(src: Path, dest: Path) -> Path:
@@ -35,7 +49,44 @@ def to_wav(src: Path, dest: Path) -> Path:
     return dest
 
 
+def has_audio(path: Path) -> bool:
+    out = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "a", "-show_entries", "stream=index", "-of", "csv=p=0", str(path)], capture_output=True, text=True, check=True)
+    return bool(out.stdout.strip())
+
+
+def mix_command(clip: Path, voice: Path, out: Path, clip_has_audio: bool) -> list[str]:
+    """Her voice over on top, the clip's own sound at a quarter underneath; the video stream is
+    copied untouched and the result is exactly as long as the clip."""
+    if clip_has_audio:
+        graph = "[0:a]volume=0.25[bg];[1:a]apad[vo];[bg][vo]amix=inputs=2:duration=first:normalize=0[a]"
+        tail = []
+    else:
+        graph = "[1:a]apad[a]"
+        tail = ["-shortest"]
+    return ["ffmpeg", "-y", "-loglevel", "error", "-i", str(clip), "-i", str(voice), "-filter_complex", graph, "-map", "0:v:0", "-map", "[a]", "-c:v", "copy", "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", *tail, str(out)]
+
+
+def mix(job: Job, spec: dict[str, Any]) -> dict[str, Any]:
+    """Attach: mix the finished voice over into the clip. ffmpeg only, no model, about a minute."""
+    work = WORK / "mix"
+    work.mkdir(parents=True, exist_ok=True)
+    job.progress("adding your voice over", 0, 2)
+    clip = download_input(str(spec["clip_key"]), work / "clip.mp4")
+    voice_key = str(spec["narration_key"])
+    voice = download_input(voice_key, work / ("voice" + Path(voice_key).suffix))
+    out = work / "voiced.mp4"
+    with_sound = has_audio(clip)
+    subprocess.run(mix_command(clip, voice, out, with_sound), check=True)
+    key = str(spec["output_key"])
+    job.progress("adding your voice over", 1, 2)
+    upload_output(out, key, "video/mp4")
+    log("voice.mix.done", clip_audio=with_sound, bytes=out.stat().st_size)
+    return {"mode": "mix", "r2_key": key, "bytes": out.stat().st_size}
+
+
 def main(job: Job, spec: dict[str, Any]) -> dict[str, Any]:
+    if spec.get("mode") == "mix":
+        return mix(job, spec)
     script = str(spec.get("script") or "").strip()
     if not script:
         raise RuntimeError("empty_script")
@@ -44,6 +95,7 @@ def main(job: Job, spec: dict[str, Any]) -> dict[str, Any]:
 
     job.progress("preparing", 0, 4)
     install()
+    require_watermarker()
     import torch  # noqa: E402  (installed above)
     import torchaudio  # noqa: E402
     from chatterbox.tts import ChatterboxTTS  # noqa: E402

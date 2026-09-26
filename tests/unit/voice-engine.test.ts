@@ -15,6 +15,9 @@ import { getSetting, setSetting } from "@worker/lib/db";
 import { DEFAULT_FEATURES } from "@shared/constants";
 import { voice } from "@worker/routes/voice";
 import { connections } from "@worker/routes/connections";
+import { media } from "@worker/routes/media";
+import { clips } from "@worker/routes/clips";
+import { mixedKey, voiceJob } from "@worker/jobs/voice";
 import { sqliteD1 } from "./helpers/sqlite-d1";
 import { memoryR2 } from "./helpers/r2-memory";
 
@@ -137,6 +140,8 @@ app.use("*", async (c, next) => {
 });
 app.route("/api/voice", voice);
 app.route("/api/connections", connections);
+app.route("/api/clips", clips);
+app.route("/media", media);
 
 let env: Env;
 let db: ReturnType<typeof sqliteD1>;
@@ -381,5 +386,75 @@ describe("nothing hidden, nothing switched off", () => {
     const f = await getSetting<Record<string, boolean>>(env.DB, "features", {});
     expect(f).toEqual({ voice: true, deeper_research: false, weekly_recap: true, help_ask: false });
     expect((await narrate()).status).toBe(200);
+  });
+});
+
+describe("a voice over attached to a clip is mixed in: Review plays it, Buffer posts it", () => {
+  const TOKEN = "t".repeat(40);
+  async function seedClip() {
+    db.raw.prepare("INSERT INTO dumps (id, door, status) VALUES ('dmp_1', 'new', 'ready')").run();
+    db.raw.prepare("INSERT INTO assets (id, dump_id, file_name, mime_type, r2_key, upload_status) VALUES ('ast_1', 'dmp_1', 'a.mp4', 'video/mp4', 'raw/dmp_1/ast_1', 'uploaded')").run();
+    db.raw.prepare(`INSERT INTO clips (id, asset_id, dump_id, start_s, end_s, recipe, r2_key, media_token, status) VALUES ('clp_1', 'ast_1', 'dmp_1', 0, 6, 'story', 'clips/dmp_1/clp_1.mp4', '${TOKEN}', 'approved')`).run();
+    await r2.FILES.put("clips/dmp_1/clp_1.mp4", new TextEncoder().encode("ORIGINAL-CLIP"), { httpMetadata: { contentType: "video/mp4" } });
+  }
+  async function readyNarration(): Promise<string> {
+    await saveSample();
+    const n = await narrate();
+    const id = n.json.id as string;
+    await voiceJob.applyResult(env, n.json.jobId as string, id, await voiceJob.fakeRun!(env, n.json.jobId as string, id, {}));
+    return id;
+  }
+  const served = async () => new TextDecoder().decode(await (await app.request(`${BASE_URL}/media/${TOKEN}`, {}, env)).arrayBuffer());
+  const mix = (id: string) => db.raw.prepare("SELECT clip_id, mix_status, mixed_r2_key FROM narrations WHERE id = ?").get(id) as { clip_id: string | null; mix_status: string | null; mixed_r2_key: string | null };
+
+  it("attach → mixing, the job builds a mix spec for exactly that clip, the result makes the clip's link serve the voiced file", async () => {
+    await seedClip();
+    const id = await readyNarration();
+    const a = await call("PATCH", `/api/voice/narrations/${id}`, { clip_id: "clp_1" });
+    expect(a.json).toMatchObject({ ok: true, mixing: true });
+    expect(mix(id)).toEqual({ clip_id: "clp_1", mix_status: "mixing", mixed_r2_key: null });
+    expect(await served()).toBe("ORIGINAL-CLIP"); // until the mix is ready, the original
+
+    const spec = await voiceJob.buildSpec(env, a.json.jobId as string, id);
+    expect(spec).toMatchObject({ mode: "mix", clip_key: "clips/dmp_1/clp_1.mp4", narration_key: `voice/narrations/${id}.wav`, output_key: mixedKey(id) });
+
+    await voiceJob.applyResult(env, a.json.jobId as string, id, await voiceJob.fakeRun!(env, a.json.jobId as string, id, {}));
+    expect(mix(id)).toEqual({ clip_id: "clp_1", mix_status: "ready", mixed_r2_key: mixedKey(id) });
+    await r2.FILES.put(mixedKey(id), new TextEncoder().encode("VOICED-CLIP"), { httpMetadata: { contentType: "video/mp4" } });
+    expect(await served()).toBe("VOICED-CLIP"); // Review's player and Buffer's fetch use this link
+
+    const review = await call("GET", "/api/clips?tab=approved");
+    const clip = (review.json.groups as { clips: { id: string; voice_over: string | null; media_url: string }[] }[])[0].clips[0];
+    expect(clip).toMatchObject({ id: "clp_1", voice_over: "ready", media_url: `/media/${TOKEN}?v=${id}` });
+
+    // detach: the original is back at once and the mixed file is gone
+    await call("PATCH", `/api/voice/narrations/${id}`, { clip_id: null });
+    expect(mix(id)).toEqual({ clip_id: null, mix_status: null, mixed_r2_key: null });
+    expect(r2.objects.has(mixedKey(id))).toBe(false);
+    expect(await served()).toBe("ORIGINAL-CLIP");
+  });
+
+  it("a failed mix leaves the voice over ready and the clip untouched, says so on Review, and a red light with a fix", async () => {
+    await seedClip();
+    const id = await readyNarration();
+    const a = await call("PATCH", `/api/voice/narrations/${id}`, { clip_id: "clp_1" });
+    await voiceJob.onFailure(env, a.json.jobId as string, id, "CalledProcessError at voice.py:120");
+    expect(db.raw.prepare("SELECT status, mix_status FROM narrations WHERE id = ?").get(id)).toEqual({ status: "ready", mix_status: "failed" });
+    expect(await served()).toBe("ORIGINAL-CLIP");
+    const review = await call("GET", "/api/clips?tab=approved");
+    expect((review.json.groups as { clips: { voice_over: string | null }[] }[])[0].clips[0].voice_over).toBe("failed");
+    expect(db.raw.prepare("SELECT light, fix_guide FROM health WHERE name = 'Voice'").get()).toEqual({ light: "red", fix_guide: "record-your-voice" });
+  });
+
+  it("a detach while the mix runs wins: the late result is thrown away", async () => {
+    await seedClip();
+    const id = await readyNarration();
+    const a = await call("PATCH", `/api/voice/narrations/${id}`, { clip_id: "clp_1" });
+    const result = await voiceJob.fakeRun!(env, a.json.jobId as string, id, {});
+    await call("PATCH", `/api/voice/narrations/${id}`, { clip_id: null });
+    await voiceJob.applyResult(env, a.json.jobId as string, id, result);
+    expect(mix(id).mix_status).toBeNull();
+    expect(r2.objects.has(mixedKey(id))).toBe(false);
+    expect(await served()).toBe("ORIGINAL-CLIP");
   });
 });
