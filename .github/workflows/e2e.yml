@@ -1,5 +1,6 @@
 # Post-merge on main: Playwright drives the dashboard at phone and desktop sizes against a
-# local Worker with fake services, and captures the Help screenshots (section 12c).
+# local Worker with fake services. A third job re-takes every Help picture (section 12c) and
+# proves each step still has its own picture of that step (validator help-pictures).
 # Two jobs, one per login mode, so both are proven on every merge: `e2e` runs code mode (the
 # email-code login staging keeps), `e2e-open` runs open mode (no login, as production runs).
 # timeout-minutes is a fault detector (~4× normal), never a budget.
@@ -37,9 +38,7 @@ jobs:
         if: always()
         with:
           name: playwright-report
-          path: |
-            playwright-report
-            help/screenshots
+          path: playwright-report
           retention-days: 7
 
   e2e-open:
@@ -66,4 +65,32 @@ jobs:
         with:
           name: playwright-report-open
           path: playwright-report-open
+          retention-days: 7
+
+  help-screenshots:
+    runs-on: ubuntu-latest
+    # ~7 min locally for 339 steps x 2 sizes; 30 min is a fault detector (~4x), never a budget.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - name: Every guide step, phone and desktop (fake services, demo data)
+        run: npm run help:screenshots
+        env:
+          SESSION_SECRET: ci-session-secret
+          SECRETS_KEY: 3Azr0CP6a687IwEqn9ZTM7gF9VgieHdcyXDvKd9Yo24=
+          JOB_SHARED_SECRET: ci-job-secret
+      - name: Each step has its own picture
+        run: node scripts/validate.mjs help-pictures
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: help-screenshots
+          path: help/screenshots
           retention-days: 7

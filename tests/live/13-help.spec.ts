@@ -27,9 +27,9 @@ test("13 · help search, a guide, feedback stored, tour replays", async ({ page 
   await page.getByRole("button", { name: "Replay the tour" }).click();
   const tour = page.getByRole("dialog", { name: "Quick tour" });
   await expect(tour).toBeVisible();
-  const stops = ["Dump", "Review", "Calendar", "Deals", "Help"];
+  const stops = ["Dump", "Review", "Calendar", "Stats", "Voice overs", "Deals", "Media kit", "Help"];
   for (const [i, s] of stops.entries()) {
-    await expect(tour.getByRole("heading", { name: s })).toBeVisible();
+    await expect(tour.getByRole("heading", { name: s, exact: true })).toBeVisible();
     await tour.getByRole("button", { name: i === stops.length - 1 ? "Done" : "Next" }).click();
   }
   await expect(tour).toHaveCount(0);

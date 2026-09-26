@@ -2,50 +2,75 @@
 title: "How the dashboard works"
 group: getting_started
 screen: help
-last_checked: 2026-09-25
+last_checked: 2026-09-26
+keywords: start, overview, tour, what is this, how does it work
 ---
 
-## Step 1
+Your dashboard turns the videos you film into posts, finds brands that pay creators like you, and tells you when something needs you. Here is every screen in one walk-through.
+
+## Home: what needs you today
 
 ![Step 1](/help/screenshots/getting-started-1.png)
+<!-- route: / -->
+<!-- target: .home-stats -->
 
-**Connect accounts**: open **Settings**, tap **Connect accounts**, and connect Buffer first.
+**Home** shows the clips waiting for you, how many weeks of posts you have, this week's posts and the health lights.
 
-## Step 2
+## Dump: add your footage
 
 ![Step 2](/help/screenshots/getting-started-2.png)
+<!-- route: /dump -->
+<!-- target: [data-door="new"] -->
 
-**Client Brain**: upload your brand documents and lock your Brand Profile.
+**Dump** is where your videos go. Tap which videos they are, choose them, add a note if you like, and tap **Dump**. The dashboard cuts them into short clips.
 
-## Step 3
+## Review: say yes or no
 
 ![Step 3](/help/screenshots/getting-started-3.png)
+<!-- route: /review -->
+<!-- target: [data-clip-id="demo_new_1"] -->
 
-**Research**: read your research brief and tap **Approve**.
+New clips wait in **Review**. Nothing posts until you tap **Approve**.
 
-## Step 4
+## Calendar: your week of posts
 
 ![Step 4](/help/screenshots/getting-started-4.png)
+<!-- route: /calendar -->
+<!-- target: .cal-week -->
 
-**Dump**: add footage and notes, then tap **Dump**. We cut it into clips and email you.
+Approved clips fill your **Calendar** at good times, never more than 10 a week per app. Buffer posts them for you.
 
-## Step 5
+## Deals: brands that pay
 
 ![Step 5](/help/screenshots/getting-started-5.png)
+<!-- route: /deals -->
+<!-- target: section[aria-label="Do this next"] -->
 
-**Review**: approve the clips you like. Nothing posts without your yes.
+**Deals** finds brands with money for creators like you, writes your emails and keeps track until you're paid.
 
-## Step 6
+## Stats: what's working
 
 ![Step 6](/help/screenshots/getting-started-6.png)
+<!-- route: /stats -->
+<!-- target: section:has(#top-h) -->
 
-**Calendar**: approved clips fill the week at the best times, at most 10 per channel. Move or remove any of them here.
+**Stats** shows your followers, your best videos and the times your audience watches. No sign-in needed.
 
-## Step 7
+## Voice overs: your own voice
 
 ![Step 7](/help/screenshots/getting-started-7.png)
+<!-- route: /voice -->
+<!-- target: .engine-card -->
 
-**Home**: check your runway and the health lights. A red light always has a How to fix link.
+**Voice overs** lets you add narration to clips in your own voice. It's optional.
+
+## Help: search any time
+
+![Step 8](/help/screenshots/getting-started-8.png)
+<!-- route: /help -->
+<!-- target: #help-q -->
+
+Stuck? Tap the **?** on any screen, or search here in **Help**.
 
 ## Did this work?
 

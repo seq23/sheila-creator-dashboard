@@ -1,37 +1,36 @@
 ---
 title: "The job runner stopped"
 group: fix_it
-screen: connect
-last_checked: 2026-09-25
+screen: settings
+last_checked: 2026-09-26
+keywords: job runner, github, clips not cutting, stuck, jobs
+fix: connect-github
 ---
 
-## What happened
+The job runner that cuts your clips stopped. Dumps wait safely until it's back.
 
-The job runner that cuts your clips stopped. Dumps wait safely until it is back.
-
-## Step 1
+## Job runner (GitHub) is red
 
 ![Step 1](/help/screenshots/reconnect-github-1.png)
+<!-- light: Job runner (GitHub) | red | The job token was refused, so jobs can't start -->
+<!-- target: [data-health="Job runner (GitHub)"] -->
 
-Open **Settings** and look at **Job runner (GitHub)**.
+In **Settings**, **Job runner (GitHub)** says **Not working**.
 
-## Step 2
+## Your helper renews the token
 
 ![Step 2](/help/screenshots/reconnect-github-2.png)
+<!-- mock: github-token-expired -->
 
-If it is red, send this page to your helper. The job token is a server secret your helper renews once a year.
+Send this page to your helper. They renew the job token in GitHub.
 
-## Step 3
+## Press Dump again
 
 ![Step 3](/help/screenshots/reconnect-github-3.png)
+<!-- route: /dump -->
+<!-- target: main a.list-row >> nth=0 -->
 
-When your helper says it is done, tap **Check everything now**.
-
-## Step 4
-
-![Step 4](/help/screenshots/reconnect-github-4.png)
-
-Check that **Job runner (GitHub)** is green, then open **Dump** and press **Dump** again on any dump that failed.
+When it's green, open **Dump** and press **Dump** again on any dump that failed.
 
 ## Did this work?
 

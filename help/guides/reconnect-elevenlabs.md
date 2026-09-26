@@ -2,52 +2,44 @@
 title: "Reconnect ElevenLabs"
 group: fix_it
 screen: connect
-last_checked: 2026-09-25
+last_checked: 2026-09-26
+keywords: elevenlabs, reconnect, key, not working, red
+fix: connect-elevenlabs
 ---
 
-## What happened
+ElevenLabs refused the key or your credits ran out. Every voice over uses your free built-in voice meanwhile.
 
-ElevenLabs refused the key, or your credits ran out. Nothing stops: every voice over uses your
-free built-in voice until the premium voice works again.
-
-## Step 1
+## The card says what's wrong
 
 ![Step 1](/help/screenshots/reconnect-elevenlabs-1.png)
-<!-- route: external -->
+<!-- api: POST /api/connections/elevenlabs/key {"key":"bad-key-help-demo"} -->
+<!-- target: .card:has(h3:text-is("ElevenLabs")) -->
 
-Open **ElevenLabs** (elevenlabs.io) and log in. If your credits ran out, you can wait for
-them to renew or change your plan under **Subscription**; then skip to step 5.
+Open **Settings**, **Connect accounts**. The **ElevenLabs** card says the key isn't working.
 
-## Step 2
+## Check your credits, or make a new key
 
 ![Step 2](/help/screenshots/reconnect-elevenlabs-2.png)
-<!-- route: external -->
+<!-- mock: elevenlabs-credits -->
 
-Tap your profile at the bottom left, then **API keys**. Tap **Create API key** and copy it.
+Log in to ElevenLabs. Check your credits, or make a new key, then copy the key.
 
-## Step 3
+## Paste the new key
 
 ![Step 3](/help/screenshots/reconnect-elevenlabs-3.png)
-<!-- route: /settings/connections -->
-<!-- target: .card:has-text("ElevenLabs") -->
-
-In the dashboard open **Settings**, then **Connections**. On the **ElevenLabs** card tap
-**Disconnect**.
-
-## Step 4
-
-![Step 4](/help/screenshots/reconnect-elevenlabs-4.png)
-<!-- route: /settings/connections -->
+<!-- api: POST /api/connections/elevenlabs/key {"key":"bad-key-help-demo"} -->
 <!-- target: role=textbox[name="Voice overs · ElevenLabs (premium) key"] -->
 
-Paste the new key and tap **Check key**.
+Tap **Disconnect** if you see it, paste the new key and tap **Check key**.
 
-## Step 5
+## The light turns green
 
-![Step 5](/help/screenshots/reconnect-elevenlabs-5.png)
+![Step 4](/help/screenshots/reconnect-elevenlabs-4.png)
 <!-- route: /settings -->
+<!-- api: POST /api/connections/elevenlabs/key {"key":"good-demo-creator"} -->
+<!-- target: [data-health="Voice · ElevenLabs"] -->
 
-Open **Settings** and tap **Check everything now**. **Voice overs · ElevenLabs** turns green.
+The card turns green, and so does its light on **Settings**.
 
 ## Did this work?
 

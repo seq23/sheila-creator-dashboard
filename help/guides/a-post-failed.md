@@ -2,48 +2,51 @@
 title: "A post failed"
 group: fix_it
 screen: calendar
-last_checked: 2026-09-25
+last_checked: 2026-09-26
+keywords: post failed, didn't post, error, red post, not published
+fix: reconnect-an-account
 ---
 
-## What happened
+The app said no to a post. It was tried again, then you got an email. The clip is safe.
 
-Buffer tried to publish a post and the platform said no. We tried three times, then stopped and emailed you. The clip is safe; nothing is lost.
-
-## Step 1
+## Find the red post
 
 ![Step 1](/help/screenshots/a-post-failed-1.png)
+<!-- target: [data-post="demo_post_h2"] -->
 
-Open **Buffer** (publish.buffer.com) and tap **Channels**.
+Open **Calendar**. A post that didn't go out is red.
 
-## Step 2
+## Read why
 
 ![Step 2](/help/screenshots/a-post-failed-2.png)
+<!-- click: [data-post="demo_post_h2"] .cal-post-main -->
+<!-- target: role=dialog >> .notice.bad -->
 
-Look at the platform named in the email. If it says **Reconnect**, tap it and log in to that platform.
+Tap it. The red note says what the app said.
 
-## Step 3
+## Tap Try again
 
 ![Step 3](/help/screenshots/a-post-failed-3.png)
+<!-- click: [data-post="demo_post_h2"] .cal-post-main -->
+<!-- target: role=button[name="Try again"] -->
 
-Come back to the dashboard and tap **Calendar**. The post that did not go out is red.
+Fix the reason first (often: reconnect the app in Buffer), then tap **Try again**.
 
-## Step 4
+## Or take it off
 
 ![Step 4](/help/screenshots/a-post-failed-4.png)
+<!-- click: [data-post="demo_post_h2"] .cal-post-main -->
+<!-- target: role=button[name="Take off the calendar"] -->
 
-Tap the red post and read what Buffer said.
+Rather skip it? Tap **Take off the calendar**; the clip goes back to your pool.
 
-## Step 5
+## Check the app's light
 
 ![Step 5](/help/screenshots/a-post-failed-5.png)
+<!-- route: /settings -->
+<!-- target: [data-health="Instagram (via Buffer)"] >> text=How to fix -->
 
-Tap **Try again**. We hand it back to Buffer within the hour.
-
-## Step 6
-
-![Step 6](/help/screenshots/a-post-failed-6.png)
-
-If it fails again, tap **Take off the calendar** instead. The clip goes back to your pool, and the next free slot gets a different clip.
+In **Settings**, a red light for that app means reconnect it in Buffer (see **Reconnect an app in Buffer**).
 
 ## Did this work?
 

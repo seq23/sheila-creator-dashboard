@@ -2,42 +2,44 @@
 title: "Reconnect Hunter"
 group: fix_it
 screen: connect
-last_checked: 2026-09-25
+last_checked: 2026-09-26
+keywords: hunter, reconnect, key, not working, red
+fix: connect-hunter
 ---
 
-## What happened
+The Hunter key stopped working. Everything else keeps working.
 
-The Hunter key stopped working, so brand cards cannot look up partnership emails. Everything else keeps working.
-
-## Step 1
+## The card says what's wrong
 
 ![Step 1](/help/screenshots/reconnect-hunter-1.png)
+<!-- api: POST /api/connections/hunter/key {"key":"bad-key-help-demo"} -->
+<!-- target: .card:has(h3:text-is("Hunter.io")) -->
 
-Open **Hunter** (hunter.io) and log in.
+Open **Settings**, **Connect accounts**. The **Hunter.io** card says the key isn't working.
 
-## Step 2
+## Generate a new key
 
 ![Step 2](/help/screenshots/reconnect-hunter-2.png)
+<!-- mock: hunter-new-key -->
 
-Tap your name, then **API**.
+Log in to Hunter.io. Generate a new key, then copy the key.
 
-## Step 3
+## Paste the new key
 
 ![Step 3](/help/screenshots/reconnect-hunter-3.png)
+<!-- api: POST /api/connections/hunter/key {"key":"bad-key-help-demo"} -->
+<!-- target: role=textbox[name="Brand deals · Hunter.io key"] -->
 
-Copy your key.
+Tap **Disconnect** if you see it, paste the new key and tap **Check key**.
 
-## Step 4
+## The light turns green
 
 ![Step 4](/help/screenshots/reconnect-hunter-4.png)
+<!-- route: /settings -->
+<!-- api: POST /api/connections/hunter/key {"key":"good-demo-hunter"} -->
+<!-- target: [data-health="hunter"] -->
 
-In the dashboard open **Settings**, then **Connect accounts**.
-
-## Step 5
-
-![Step 5](/help/screenshots/reconnect-hunter-5.png)
-
-Under **Hunter**, paste the key and tap **Check key**.
+The card turns green, and so does its light on **Settings**.
 
 ## Did this work?
 

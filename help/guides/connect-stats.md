@@ -1,39 +1,47 @@
 ---
-title: "Connect your stats"
+title: "Your numbers: no sign-in needed"
 group: getting_started
-screen: connect
-last_checked: 2026-09-25
+screen: stats
+last_checked: 2026-09-26
+keywords: stats, numbers, followers, views, analytics, sign in, connect stats
 ---
 
-## Step 1
+Your numbers never need a Google or Instagram sign-in. YouTube is read on its own, Instagram is a short form, and TikTok is the file TikTok gives you.
+
+## Your three numbers
 
 ![Step 1](/help/screenshots/connect-stats-1.png)
+<!-- target: .grid.cols-3 >> nth=0 -->
 
-You don't need to sign in anywhere for your numbers. Open **Stats**: YouTube's numbers are read on their own (your channel is found through Buffer), and Instagram shows a short **Your Instagram numbers** form you fill in whenever you like.
+Open **Stats**. Each app has a card with your followers and average views, and where each number came from.
 
-## Step 2
+## YouTube updates itself
 
 ![Step 2](/help/screenshots/connect-stats-2.png)
+<!-- target: role=button[name="Update numbers"] -->
 
-Optional extra detail: under **Settings → Connections → Stats**, **Connect with Instagram** adds per-video reach. Instagram may show a warning until the app is approved (see **Connect Instagram stats**).
+YouTube numbers are public, so they're read for you. Tap **Update numbers** any time.
 
-## Step 3
+## Type your Instagram numbers
 
 ![Step 3](/help/screenshots/connect-stats-3.png)
+<!-- target: section:has(#ig-h) -->
 
-Optional extra detail: **Connect with Google** adds average watch time. Google may show an "unverified app" warning until the app is approved (see **Connect YouTube stats**).
+Instagram keeps its numbers behind its login, so you type two numbers here. See **Update your Instagram numbers**.
 
-## Step 4
+## Upload your TikTok export
 
 ![Step 4](/help/screenshots/connect-stats-4.png)
+<!-- target: role=button[name="Upload TikTok export"] -->
 
-For TikTok, tap **Upload TikTok export**; it opens Stats (see **Upload your TikTok export**).
+For TikTok, upload the file TikTok Studio gives you. See **Upload your TikTok export**.
 
-## Step 5
+## Sign-ins are optional extras
 
 ![Step 5](/help/screenshots/connect-stats-5.png)
+<!-- target: section:has(#extra-h) -->
 
-Your numbers refresh every day; open **Stats** and tap **Update numbers** any time. Nothing on Stats waits for a sign-in.
+**Extra detail (optional)** adds a little more (YouTube watch time, Instagram reach per video). You never need it. Google or Meta may show a warning page; that is expected.
 
 ## Did this work?
 

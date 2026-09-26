@@ -1,39 +1,46 @@
 ---
-title: "What \"runway\" means"
+title: "Your Home screen and what \"runway\" means"
 group: everyday
 screen: home
-last_checked: 2026-09-25
+last_checked: 2026-09-26
+keywords: home, runway, weeks, how many clips left, dashboard
 ---
 
-## Step 1
+## Waiting for you
 
 ![Step 1](/help/screenshots/what-runway-means-1.png)
+<!-- target: a.card.accent[href="/review"] -->
 
-Open **Home**. The big number under **Runway** is how many weeks of approved clips you have left.
+Home shows how many new clips wait in **Review**. Tap it to review.
 
-## Step 2
+## Runway
 
 ![Step 2](/help/screenshots/what-runway-means-2.png)
+<!-- target: .card:has-text("Runway") -->
 
-It counts approved clips that are not on the calendar yet, divided by how many new clips a week needs (10 at launch).
+**Runway** is how many weeks of approved clips you have left. Under 2 weeks, you get a **Time to dump** email with ideas for what to film.
 
-## Step 3
+## This week
 
 ![Step 3](/help/screenshots/what-runway-means-3.png)
+<!-- target: .home-plats -->
 
-When it drops under 2 weeks you get a **Time to dump** email with ideas for what to film next.
+How many posts went out this week for each app, against its weekly limit.
 
-## Step 4
+## Health
 
 ![Step 4](/help/screenshots/what-runway-means-4.png)
+<!-- target: .home-health -->
 
-To raise it, tap **Dump**, add new footage, and approve the clips in **Review**.
+The health lights, worst first. Tap the card to see them all in **Settings**.
 
-## Step 5
+## Change the runway email
 
 ![Step 5](/help/screenshots/what-runway-means-5.png)
+<!-- route: /settings -->
+<!-- target: role=button[name="More weeks of runway"] -->
 
-To change when the email comes, open **Settings** and change **Email me when runway is under**.
+Open **Settings** and change when the runway email comes with **+** and **−**.
 
 ## Did this work?
 

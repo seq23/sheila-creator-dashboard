@@ -1,43 +1,35 @@
 ---
-title: "Reconnect email (Resend)"
+title: "Email isn't sending (Resend)"
 group: fix_it
-screen: connect
-last_checked: 2026-09-25
+screen: settings
+last_checked: 2026-09-26
+keywords: email, resend, not sending, no emails
+fix: i-didnt-get-an-email
 ---
 
-## What happened
+The dashboard's emails can't go out. The dashboard itself keeps working and Home shows everything.
 
-Email is not working, so alerts from the dashboard cannot reach you. The dashboard itself keeps working.
-
-## Step 1
+## Email (Resend) is red
 
 ![Step 1](/help/screenshots/reconnect-resend-1.png)
+<!-- light: Email (Resend) | red | The email key was refused, so emails can't go out -->
+<!-- target: [data-health="Email (Resend)"] -->
 
-Open **Resend** (resend.com) and log in.
+In **Settings**, **Email (Resend)** says **Not working**.
 
-## Step 2
+## Your helper makes a new key
 
 ![Step 2](/help/screenshots/reconnect-resend-2.png)
+<!-- mock: resend-new-key -->
 
-Tap **API Keys**, then **Create API key**. Give it Sending access and copy it.
+Send this page to your helper. They make a new key at resend.com and save it on the server.
 
-## Step 3
+## Check where emails go
 
 ![Step 3](/help/screenshots/reconnect-resend-3.png)
+<!-- target: #emails -->
 
-Send the key to your helper. It is stored as a server secret, which your helper sets once.
-
-## Step 4
-
-![Step 4](/help/screenshots/reconnect-resend-4.png)
-
-When your helper says it is done, open **Settings** and tap **Check everything now**.
-
-## Step 5
-
-![Step 5](/help/screenshots/reconnect-resend-5.png)
-
-Check that **Email (Resend)** is green.
+While you wait, check the address under **Emails go to**.
 
 ## Did this work?
 

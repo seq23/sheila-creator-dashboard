@@ -1,45 +1,52 @@
 ---
-title: "Connect the AI (OpenRouter)"
+title: "Connect the AI writer (OpenRouter, free)"
 group: getting_started
 screen: connect
-last_checked: 2026-09-25
+last_checked: 2026-09-26
+keywords: ai, captions, openrouter, research, writing
+fix: reconnect-openrouter
 ---
 
-## Step 1
+The AI writes your captions, research brief and brand emails. It uses free models, so it costs nothing.
+
+## Open OpenRouter's Keys page
 
 ![Step 1](/help/screenshots/connect-openrouter-1.png)
+<!-- mock: openrouter-keys -->
 
-Open **openrouter.ai** and sign in (a free account is enough).
+Open **openrouter.ai**, sign in (a free account is enough), then open **Keys**.
 
-## Step 2
+## Create a key
 
 ![Step 2](/help/screenshots/connect-openrouter-2.png)
+<!-- mock: openrouter-create -->
 
-Tap your profile picture, then **Keys**.
+Tap **Create Key**, name it Sheila Studio, leave the credit limit empty and tap **Create**.
 
-## Step 3
+## Copy the key
 
 ![Step 3](/help/screenshots/connect-openrouter-3.png)
+<!-- mock: openrouter-copy -->
 
-Tap **Create Key**, name it **Sheila Studio**, leave the credit limit empty, and tap **Create**.
+Copy the key. It starts with sk-or- and is shown only once.
 
-## Step 4
+## Paste it and tap Check key
 
 ![Step 4](/help/screenshots/connect-openrouter-4.png)
+<!-- route: /settings/connections -->
+<!-- api: POST /api/connections/openrouter/disconnect -->
+<!-- target: role=textbox[name="AI · OpenRouter key"] -->
 
-Copy the key (it starts with sk-or-). You only see it once.
+In the dashboard open **Settings**, then **Connect accounts**. Find **OpenRouter**, paste the key and tap **Check key**.
 
-## Step 5
+## It turns green
 
 ![Step 5](/help/screenshots/connect-openrouter-5.png)
+<!-- route: /settings/connections -->
+<!-- api: POST /api/connections/openrouter/key {"key":"good-demo-openrouter"} -->
+<!-- target: .card:has(h3:text-is("OpenRouter")) -->
 
-In the dashboard, open **Settings → Connections**, find the **OpenRouter** card under **AI and research**, paste it into the box, and tap **Check key**.
-
-## Step 6
-
-![Step 6](/help/screenshots/connect-openrouter-6.png)
-
-It turns green. Free models are used by default, so it costs nothing.
+The card turns green. Free models are used, so it costs nothing.
 
 ## Did this work?
 

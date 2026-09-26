@@ -3,41 +3,43 @@ title: "Connect faster web research (Firecrawl, optional)"
 group: getting_started
 screen: connect
 last_checked: 2026-09-26
+keywords: web research, firecrawl, search, optional
+fix: reconnect-firecrawl
 ---
 
-You do not need this. The dashboard searches the web for free on its own for your Research Brief
-and the brand finder. Firecrawl is an optional, faster search: its free plan has 1,000 credits a
-month.
+Optional. Research and the brand finder already search the web for free. Firecrawl is a faster search.
 
-## Step 1
+## Make a free Firecrawl account
 
 ![Step 1](/help/screenshots/connect-firecrawl-1.png)
+<!-- mock: firecrawl-sign-up -->
 
-Open **firecrawl.dev** and sign up for the free plan (1,000 credits a month).
+You don't need this: the dashboard searches the web for free on its own. For faster research, open **firecrawl.dev** and sign up (1,000 free credits a month).
 
-## Step 2
+## Copy your key
 
 ![Step 2](/help/screenshots/connect-firecrawl-2.png)
+<!-- mock: firecrawl-keys -->
 
-Open the dashboard on Firecrawl's site and tap **API Keys**.
+Open **API Keys** and copy your key (it starts with fc-).
 
-## Step 3
+## Paste it and tap Check key
 
 ![Step 3](/help/screenshots/connect-firecrawl-3.png)
+<!-- route: /settings/connections -->
+<!-- api: POST /api/connections/firecrawl/disconnect -->
+<!-- target: role=textbox[name="Web research · Firecrawl key"] -->
 
-Copy your key (it starts with fc-).
+In the dashboard open **Settings**, then **Connect accounts**. Find **Firecrawl**, paste the key and tap **Check key**.
 
-## Step 4
+## It turns green
 
 ![Step 4](/help/screenshots/connect-firecrawl-4.png)
+<!-- route: /settings/connections -->
+<!-- api: POST /api/connections/firecrawl/key {"key":"good-demo-firecrawl"} -->
+<!-- target: .card:has(h3:text-is("Firecrawl")) -->
 
-In the dashboard, open **Settings → Connections**, find the **Firecrawl** card under **AI and research**, paste it into the box, and tap **Check key**.
-
-## Step 5
-
-![Step 5](/help/screenshots/connect-firecrawl-5.png)
-
-It turns green and shows the credits left. Your next **Refresh research** searches the web too.
+The card turns green and shows the credits left. If it ever runs out, the free search takes over.
 
 ## Did this work?
 

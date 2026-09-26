@@ -2,50 +2,59 @@
 title: "Review and approve clips"
 group: everyday
 screen: review
-last_checked: 2026-09-25
+last_checked: 2026-09-26
+keywords: approve, review, clips, reject, yes, no
 ---
 
-## Step 1
+## Open Review
 
 ![Step 1](/help/screenshots/review-and-approve-clips-1.png)
+<!-- target: .review-tab.on -->
 
-Tap **Review** in the menu. The number next to it is how many new clips are waiting.
+Open **Review**. The number beside **New** is how many clips are waiting.
 
-## Step 2
+## Watch a clip
 
 ![Step 2](/help/screenshots/review-and-approve-clips-2.png)
+<!-- target: [data-clip-id="demo_new_1"] video -->
 
-Clips are grouped by dump, best first. Tap **▶** on a clip to watch it.
+Clips are grouped by dump, best first. Tap play to watch.
 
-## Step 3
+## Tap Approve
 
 ![Step 3](/help/screenshots/review-and-approve-clips-3.png)
+<!-- target: [data-clip-id="demo_new_1"] >> role=button[name="Approve"] -->
 
-Like it? Tap **Approve**. It goes into the pool the Calendar fills from. Nothing posts unless you approve it.
+Like it? Tap **Approve**. Nothing posts unless you approve it.
 
-## Step 4
+## Or tap Reject and say why
 
 ![Step 4](/help/screenshots/review-and-approve-clips-4.png)
+<!-- click: [data-clip-id="demo_new_2"] >> role=button[name="Reject"] -->
+<!-- target: .reason-list -->
 
-Not for you? Tap **Reject**, then tap a reason like **Too long** or **Bad hook**. The reason teaches the cutter what you don't like.
+Not for you? Tap **Reject** and tap a reason. The reason teaches the cutter what you don't like.
 
-## Step 5
+## Approve all at once
 
 ![Step 5](/help/screenshots/review-and-approve-clips-5.png)
+<!-- target: button:has-text("Approve all") -->
 
-Happy with everything on screen? Tap **Approve all** at the top. Or tick the circles on a few clips and use **Approve** or **Reject** in the bar at the bottom.
+Happy with everything? Tap **Approve all** at the top, or tick a few clips and use the bar at the bottom.
 
-## Step 6
+## Changed your mind?
 
 ![Step 6](/help/screenshots/review-and-approve-clips-6.png)
+<!-- target: .review-tab >> nth=2 -->
 
-Changed your mind? Open the **Rejected** tab and tap **Approve** or **Back to New**. Rejected clips stay there for 7 days, then they are removed.
+Open **Rejected** to bring a clip back. Rejected clips are removed after 7 days.
 
-## Step 7
+## See the lower-scoring clips
 
 ![Step 7](/help/screenshots/review-and-approve-clips-7.png)
+<!-- target: label.switch:has-text("Show hidden") -->
 
-Want the lower-scoring clips too? Switch on **Show hidden (under the quality bar)**.
+Switch on **Show hidden** to see clips under the quality bar too.
 
 ## Did this work?
 

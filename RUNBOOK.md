@@ -449,6 +449,28 @@ may upload the zip or the CSV. Only a real Excel workbook (a zip with `[Content_
 time comes from the TikTok video id (its top 32 bits are the Unix seconds it was posted).
 Proven on staging 25 Sep 2026: the real zip imported 5 videos with exact post times.
 
+## Help guides and their pictures
+
+Review and decisions: `docs/HELP-REVIEW.md`. Guides are `help/guides/<slug>.md` listed in
+`help/index.json`; each `## ` step has one picture `/help/screenshots/<slug>-<n>.png` (desktop) and
+`-phone.png`, taken by `npm run help:screenshots` (HELP_SHOTS=1, ~7 min, fake services, demo data).
+
+- Each step says what to picture: `<!-- target: selector -->` on its `route`, after any `click` /
+  `fill` / `api` / `light` directives; a step on another site is `<!-- mock: name -->` from
+  `tests/e2e/help-mocks.ts` (labelled illustration, never a real account). A target not on screen
+  fails the run; nothing falls back to the page heading.
+- While writing guides: `HELP_ONLY=slug,slug HELP_REPORT=/tmp/r.txt npm run help:screenshots`
+  re-shoots just those guides and lists every problem instead of stopping.
+- `node scripts/validate.mjs help-pictures` (in `npm run validate`): every step pictured, both
+  sizes committed, no two pictures identical unless both steps say `<!-- shared -->`, no unused
+  picture, every screen's help link / tour stop / checklist entry is a real guide.
+- Demo state: `tests/e2e/seed-demo.sql` + `seed-help-extra.sql` (clips in several Looks with covers,
+  a held video, Stats results, voice overs, deals at every stage) + `seed-help-lights.sql`
+  (connections and the health board, re-applied after a guide changes them) + today's posts
+  (`helpPostsSql` in `tests/e2e/demo.ts`).
+- CI: `e2e.yml` job `help-screenshots` after every merge; `job-help_screenshots.yml` on each release
+  opens a PR with refreshed pictures.
+
 ## When something is red
 
 1. Settings → Connections + health names the light and links its fix guide.

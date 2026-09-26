@@ -1,39 +1,54 @@
 ---
 title: "Upload your TikTok export"
-group: fix_it
+group: everyday
 screen: stats
-last_checked: 2026-09-25
+last_checked: 2026-09-26
+keywords: tiktok, export, csv, zip, numbers, stats
 ---
 
-## Step 1
+## Open TikTok Studio
 
 ![Step 1](/help/screenshots/upload-your-tiktok-export-1.png)
+<!-- mock: tiktok-studio -->
 
-On your computer, open **TikTok Studio** (tiktok.com/tiktokstudio) and log in.
+On a computer, open **TikTok Studio** (tiktok.com/tiktokstudio) and tap **Analytics**.
 
-## Step 2
+## Tap Download data
 
 ![Step 2](/help/screenshots/upload-your-tiktok-export-2.png)
+<!-- mock: tiktok-download -->
 
-Tap **Analytics**, pick the last 60 days, then tap **Download data**.
+Pick the last 60 days, then tap **Download data**.
 
-## Step 3
+## Choose CSV
 
 ![Step 3](/help/screenshots/upload-your-tiktok-export-3.png)
+<!-- mock: tiktok-csv -->
 
-Choose **CSV** (not Excel). TikTok may hand you a **zip** file (like `Content_yourname.zip`) instead of the CSV itself: that is fine, you don't need to open it. It lists each video with its link, post time and views.
+Choose **CSV**, not Excel.
 
-## Step 4
+## Keep the zip as it is
 
 ![Step 4](/help/screenshots/upload-your-tiktok-export-4.png)
+<!-- mock: tiktok-zip -->
 
-In the dashboard, tap **Stats**, then **Upload TikTok export**, and pick that file: the zip as it downloaded, or the CSV inside it. Both work.
+TikTok may hand you a zip file. No need to open it.
 
-## Step 5
+## Upload it on Stats
 
 ![Step 5](/help/screenshots/upload-your-tiktok-export-5.png)
+<!-- route: /stats -->
+<!-- target: role=button[name="Upload TikTok export"] -->
 
-You'll see **Imported N TikTok videos**. Your top clips and best times update right away. Uploading the Followers file too updates your follower count.
+In the dashboard, open **Stats**, tap **Upload TikTok export** and pick the file (the zip or the CSV).
+
+## Your top clips update
+
+![Step 6](/help/screenshots/upload-your-tiktok-export-6.png)
+<!-- route: /stats -->
+<!-- target: .stats-top -->
+
+You'll see **Imported N TikTok videos**, and your top clips and best times update.
 
 ## Did this work?
 

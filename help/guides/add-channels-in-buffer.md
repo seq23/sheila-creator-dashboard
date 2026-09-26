@@ -2,44 +2,54 @@
 title: "Add TikTok, Instagram and YouTube in Buffer"
 group: getting_started
 screen: connect
-last_checked: 2026-09-25
+last_checked: 2026-09-26
+keywords: channels, tiktok, instagram, youtube, buffer, connect account
+fix: reconnect-an-account
 ---
 
-## Step 1
+## Open Channels in Buffer
 
 ![Step 1](/help/screenshots/add-channels-in-buffer-1.png)
+<!-- mock: buffer-channels -->
 
-Open **Buffer** (publish.buffer.com) and tap **Channels**.
+In Buffer, open **Channels** and tap **Connect a channel**.
 
-## Step 2
+## Add TikTok
 
 ![Step 2](/help/screenshots/add-channels-in-buffer-2.png)
+<!-- mock: buffer-pick-tiktok -->
 
-Tap **Connect a channel**, then **TikTok**, and log in to TikTok. Tap **Allow**.
+Tap **TikTok**, log in to TikTok and tap **Allow**.
 
-## Step 3
+## Add Instagram
 
 ![Step 3](/help/screenshots/add-channels-in-buffer-3.png)
+<!-- mock: buffer-pick-instagram -->
 
 Tap **Connect a channel** again, then **Instagram**. Pick your professional account and tap **Allow**.
 
-## Step 4
+## Add YouTube
 
 ![Step 4](/help/screenshots/add-channels-in-buffer-4.png)
+<!-- mock: buffer-pick-youtube -->
 
-Tap **Connect a channel** again, then **YouTube**. Log in to Google, pick your channel and tap **Allow**.
+Tap **Connect a channel** again, then **YouTube**. Pick your channel and tap **Allow**.
 
-## Step 5
+## Tap Check everything now
 
 ![Step 5](/help/screenshots/add-channels-in-buffer-5.png)
+<!-- route: /settings -->
+<!-- target: role=button[name="Check everything now"] -->
 
-Back in the dashboard open **Settings** and tap **Check everything now**.
+Back in the dashboard, open **Settings** and tap **Check everything now**.
 
-## Step 6
+## See one green light per app
 
 ![Step 6](/help/screenshots/add-channels-in-buffer-6.png)
+<!-- route: /settings -->
+<!-- target: [data-health="TikTok (via Buffer)"] -->
 
-Check that TikTok, Instagram and YouTube (via Buffer) are green. Posts for a missing platform wait safely until it is added.
+TikTok, Instagram and YouTube (via Buffer) each get a light. Green means posts can go out.
 
 ## Did this work?
 

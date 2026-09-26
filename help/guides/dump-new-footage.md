@@ -1,45 +1,49 @@
 ---
-title: "Dump new footage (phone)"
+title: "Dump new footage"
 group: everyday
 screen: dump
-last_checked: 2026-09-25
+last_checked: 2026-09-26
+keywords: upload, add videos, footage, dump, film, camera roll
+fix: clips-look-wrong
 ---
 
-## Step 1
+## Tap New videos I just filmed
 
 ![Step 1](/help/screenshots/dump-new-footage-1.png)
+<!-- target: [data-door="new"] -->
 
-Tap **Dump** at the bottom of the screen.
+Open **Dump** and tap **New videos I just filmed**: videos you have never posted.
 
-## Step 2
+## Choose your videos
 
 ![Step 2](/help/screenshots/dump-new-footage-2.png)
+<!-- click: [data-door="new"] -->
+<!-- target: .dump-choose >> nth=0 -->
 
-Tap **New raw footage** (door A): videos you have never posted.
+Tap **Choose videos** and pick as many as you like. Any size is fine; keep the page open while they upload.
 
-## Step 3
+## Add a note
 
 ![Step 3](/help/screenshots/dump-new-footage-3.png)
+<!-- click: [data-door="new"] -->
+<!-- target: #notes -->
 
-Tap **Choose videos** and pick as many videos from your camera roll as you like. Any size is fine.
+Add a note, like "lean funny" or "all 2x4 grids, keep them short". See **Tell the cutter what you want**.
 
-## Step 4
+## Tap Dump new videos
 
 ![Step 4](/help/screenshots/dump-new-footage-4.png)
+<!-- click: [data-door="new"] -->
+<!-- target: [data-dump-button] -->
 
-Keep the page open while each video shows **Uploaded**. If your connection drops, it picks up where it stopped.
+Tap **Dump new videos**. The dashboard cuts your videos into clips and emails you when they're ready, usually 10 to 30 minutes later.
 
-## Step 5
+## Watch it in Recent dumps
 
 ![Step 5](/help/screenshots/dump-new-footage-5.png)
+<!-- target: main a.list-row >> nth=0 -->
 
-Add a note in **Notes for this dump**, like "lean funny" or "the kitchen one is my favorite".
-
-## Step 6
-
-![Step 6](/help/screenshots/dump-new-footage-6.png)
-
-Tap **Dump**. We cut the videos into clips and email you when they're ready to review, usually 10 to 30 minutes later.
+Each dump shows here with how its clips are coming along.
 
 ## Did this work?
 

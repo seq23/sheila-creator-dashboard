@@ -16,6 +16,7 @@ export const REGISTER = {
   "editors-documented": "a connected editor nobody researched, or a key box for a tool with no API, sends her to a dead end (owner, 25 Sep 2026: only the most popular, honestly)",
   "envs-match": "staging is production's twin: a config drift or a job workflow without the env mapping sends staging jobs to Sheila's bucket and secret",
   "help-guides-exist": "every screen's ? button and every fix_guide slug must open a real guide (section 12c)",
+  "help-pictures": "every help step must show its own picture of that step: 20 guides shared one identical picture per step number because the screenshot job fell back to the page heading (owner, 26 Sep 2026: \"the help section has the same screenshot\"); also every screen's help link, tour stop and checklist entry must open a real guide",
   "jobs-no-direct-storage": "a job holding storage keys needs an R2 token the owner cannot mint and a public repo can leak; jobs reach storage only through the Worker",
   "jobs-one-openrouter-client": "three hand-rolled OpenRouter clients in jobs each lost the end of a reasoning model's answer (live test 25 Sep 2026); one client in common.py asks again with more room",
   "jobs-registered": "every job type in the schema must have a handler or dispatch silently does nothing",

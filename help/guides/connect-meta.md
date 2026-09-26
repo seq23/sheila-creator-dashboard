@@ -1,41 +1,35 @@
 ---
-title: "Connect Instagram stats"
+title: "Instagram sign-in (optional extra detail)"
 group: getting_started
-screen: connect
-last_checked: 2026-09-25
+screen: stats
+last_checked: 2026-09-26
+keywords: instagram, meta, sign in, reach, optional
+fix: reconnect-meta
 ---
 
-## Step 1
+You never need this: your Instagram numbers already work with the short form on Stats. Signing in adds reach per video. Meta may show a warning page until the app is approved; that is expected.
+
+## Make your Instagram professional
 
 ![Step 1](/help/screenshots/connect-meta-1.png)
+<!-- mock: instagram-account-type -->
 
-This is **optional extra detail**. Your numbers already show on **Stats** without signing in. Meta may show a warning until the app is approved; that is expected.
+In the Instagram app, open **Settings**, **Account type and tools**, and switch to a professional account. It's free.
 
-Make sure your Instagram is a Professional account (Creator or Business): in Instagram, open **Settings → Account type and tools**.
-
-## Step 2
+## Tap Connect with Instagram
 
 ![Step 2](/help/screenshots/connect-meta-2.png)
+<!-- route: /stats -->
+<!-- target: a[href="/api/oauth/meta/start"] -->
 
-In the dashboard, tap **Settings → Connections**.
+On **Stats**, under **Extra detail (optional)**, tap **Connect with Instagram (optional)**.
 
-## Step 3
+## Tap Allow
 
 ![Step 3](/help/screenshots/connect-meta-3.png)
+<!-- mock: meta-consent -->
 
-Next to **Instagram**, tap **Connect with Instagram**.
-
-## Step 4
-
-![Step 4](/help/screenshots/connect-meta-4.png)
-
-Instagram's own page opens. Log in if asked, then tap **Allow**. We can read your stats only; we can't post.
-
-## Step 5
-
-![Step 5](/help/screenshots/connect-meta-5.png)
-
-You come back to Connections and Instagram shows green with your @name.
+Instagram's own page opens. Log in if asked and tap **Allow**. It can read your numbers only; it can't post.
 
 ## Did this work?
 

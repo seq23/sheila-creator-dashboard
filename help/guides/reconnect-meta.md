@@ -1,43 +1,36 @@
 ---
-title: "Reconnect Instagram stats"
+title: "Reconnect the Instagram sign-in (optional)"
 group: fix_it
 screen: connect
-last_checked: 2026-09-25
+last_checked: 2026-09-26
+keywords: instagram, meta, sign in expired, reconnect
+fix: update-instagram-numbers
 ---
 
-## What happened
+The optional Instagram sign-in expired. Your typed Instagram numbers keep working without it.
 
-Instagram stats stopped updating, so research and your media kit use the last numbers we had.
-
-## Step 1
+## Tap Connect with Instagram
 
 ![Step 1](/help/screenshots/reconnect-meta-1.png)
+<!-- route: /settings/connections -->
+<!-- target: a[href="/api/oauth/meta/start"] -->
 
-In the dashboard open **Settings**, then **Connect accounts**.
+On **Settings**, **Connect accounts**, tap **Connect with Instagram**.
 
-## Step 2
+## Tap Allow
 
 ![Step 2](/help/screenshots/reconnect-meta-2.png)
+<!-- mock: meta-login-again -->
 
-Under **Stats · for research**, find **Instagram** and tap **Reconnect**.
+Log in to Instagram if asked and tap **Allow**.
 
-## Step 3
+## Or just type your numbers
 
 ![Step 3](/help/screenshots/reconnect-meta-3.png)
+<!-- route: /stats -->
+<!-- target: role=button[name="Save my numbers"] -->
 
-Log in to Instagram on its own page.
-
-## Step 4
-
-![Step 4](/help/screenshots/reconnect-meta-4.png)
-
-Pick your professional account and tap **Allow**.
-
-## Step 5
-
-![Step 5](/help/screenshots/reconnect-meta-5.png)
-
-Back in the dashboard, check that Instagram says **Numbers updated** with today's date.
+Rather not? The form on **Stats** works with no sign-in.
 
 ## Did this work?
 

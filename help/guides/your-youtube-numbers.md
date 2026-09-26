@@ -1,39 +1,38 @@
 ---
 title: "Your YouTube numbers"
-group: fix_it
+group: everyday
 screen: stats
-last_checked: 2026-09-25
+last_checked: 2026-09-26
+keywords: youtube, subscribers, channel, numbers
 ---
 
-## Step 1
+## Your YouTube channel
 
 ![Step 1](/help/screenshots/your-youtube-numbers-1.png)
+<!-- target: section:has(#yt-h) -->
 
-Your YouTube numbers are public, so the dashboard reads them without you signing in. Normally it finds your channel through Buffer on its own.
+YouTube numbers are public, so they're read without signing in. The channel is found through Buffer.
 
-## Step 2
+## Find your @name
 
 ![Step 2](/help/screenshots/your-youtube-numbers-2.png)
+<!-- mock: youtube-channel -->
 
-If the YouTube card on **Stats** says it can't find your channel, open YouTube, tap your profile picture, then **Your channel**. Copy the name that starts with **@** (or the channel link).
+If it can't find your channel: in YouTube, open **Your channel** and copy the name that starts with @.
 
-## Step 3
+## Paste it here
 
 ![Step 3](/help/screenshots/your-youtube-numbers-3.png)
+<!-- target: #yt-channel -->
 
-In the dashboard, open **Stats**. Under **Your YouTube channel**, paste it and tap **Use this channel**.
+On **Stats**, under **Your YouTube channel**, paste it.
 
-## Step 4
+## Tap Use this channel
 
 ![Step 4](/help/screenshots/your-youtube-numbers-4.png)
+<!-- target: role=button[name="Use this channel"] -->
 
-The YouTube card shows your subscribers and your videos' views. They refresh every day and whenever you tap **Update numbers**.
-
-## Step 5
-
-![Step 5](/help/screenshots/your-youtube-numbers-5.png)
-
-If the card says YouTube refused the dashboard's key or asked us to slow down, nothing is wrong on your side: it tries again tomorrow, and your helper gets the same message.
+Tap **Use this channel**. Numbers refresh every day and whenever you tap **Update numbers**.
 
 ## Did this work?
 

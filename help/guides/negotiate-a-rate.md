@@ -3,61 +3,44 @@ title: "Negotiate a rate"
 group: brand_deals
 screen: deals
 last_checked: 2026-09-26
-target: ".nego-card"
-fix: media-kit
+keywords: negotiate, counter offer, too low, rate, money, push back
+fix: set-your-rates
 ---
 
-Set a private floor and target for each package once, and the dashboard works out every
-counter-offer for you, with the math shown. It trades scope, not price.
+Set a floor and target once (see **Set your rates**) and the dashboard works out every counter-offer, with the math shown.
 
-## Set your floor and target
+## Open the Negotiation helper
 
 ![Step 1](/help/screenshots/negotiate-a-rate-1.png)
-<!-- route: /deals?tab=kit -->
-<!-- target: #kit-packages -->
+<!-- route: /deals?deal=demo_deal_4 -->
+<!-- target: .nego-card -->
 
-On the **Media kit** tab, under **Packages and rates**, fill in **Your target** and **Your
-floor** for each package. Brands never see these.
-
-## Open the deal
-
-![Step 2](/help/screenshots/negotiate-a-rate-2.png)
-<!-- route: /deals -->
-<!-- target: .deal-card >> nth=0 -->
-
-On **Deals**, tap the deal you are talking terms on.
+Open the deal. **Negotiation helper** is under the email.
 
 ## Type their number
 
+![Step 2](/help/screenshots/negotiate-a-rate-2.png)
+<!-- route: /deals?deal=demo_deal_4 -->
+<!-- target: .nego-card input.nums >> nth=0 -->
+
+Pick the package and type what they offered. It says **Say yes**, **Counter**, **Trim the scope** or **Walk away politely**, and why.
+
+## Price the add-ons
+
 ![Step 3](/help/screenshots/negotiate-a-rate-3.png)
-<!-- route: /deals -->
-<!-- click: .deal-card >> nth=0 -->
-<!-- target: .nego-card -->
-
-In **Negotiation helper**, pick the package and type what they offered. It says **Say yes**,
-**Counter**, **Trim the scope** or **Walk away politely**, shows the arithmetic, and gives you
-the line to say.
-
-## Price usage and exclusivity
-
-![Step 4](/help/screenshots/negotiate-a-rate-4.png)
-<!-- route: /deals -->
-<!-- click: .deal-card >> nth=0 -->
+<!-- route: /deals?deal=demo_deal_4 -->
 <!-- target: .quote-lines -->
 
-Change the usage days, paid-ads days or exclusivity months; each add-on line shows its math
-from your rate card. Open **What to say when they push** for a script per lever.
+Change usage days, paid-ads days or exclusivity months; each line shows its math.
 
-## Send the counter
+## What to say when they push
 
-![Step 5](/help/screenshots/negotiate-a-rate-5.png)
-<!-- route: /deals -->
-<!-- click: .deal-card >> nth=0 -->
-<!-- target: .email-panel -->
+![Step 4](/help/screenshots/negotiate-a-rate-4.png)
+<!-- route: /deals?deal=demo_deal_4 -->
+<!-- target: summary:has-text("What to say when they push") -->
 
-In **Write the email**, pick **Counter-offer** (or **Rate proposal** for three options), tap
-**Write it**, and send it from Gmail.
+Open this for a line to say for each lever.
 
 ## Did this work?
 
-If it says to set your floor and target first, add them on the Media kit tab.
+If not, tap **No** below and we'll open the matching fix-it guide or email your helper.

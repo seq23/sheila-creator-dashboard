@@ -2,44 +2,59 @@
 title: "Approve your research brief"
 group: getting_started
 screen: research
-last_checked: 2026-09-25
+last_checked: 2026-09-26
+keywords: research, brief, posting times, hooks, what to film
 ---
 
-## Step 1
+The research brief says when to post, what hooks work and what to film next, with a source for every claim.
+
+## Lock your Brand Profile first
 
 ![Step 1](/help/screenshots/approve-research-brief-1.png)
+<!-- route: /brain -->
+<!-- target: #sec-audience -->
 
-Lock your Brand Profile first (see **Upload your brand docs**). The research starts from it.
+The research starts from your locked profile in **Client Brain**.
 
-## Step 2
+## Tap Refresh research
 
 ![Step 2](/help/screenshots/approve-research-brief-2.png)
+<!-- route: /research -->
+<!-- target: role=button[name="Refresh research"] -->
 
-Tap **Research** in the menu, then **Refresh research**. It takes about 5 to 10 minutes; you can leave the page.
+Open **Research** and tap **Refresh research**. It takes 5 to 10 minutes; you can leave the page.
 
-## Step 3
+## Jump to any section
 
 ![Step 3](/help/screenshots/approve-research-brief-3.png)
+<!-- route: /research -->
+<!-- target: .rs-nav -->
 
-Read the brief. Each claim has a label: **Her data** (your profile or numbers), **Web**, **Upload** (a report you added) or **Uncertain** (weak or mixed evidence). The links under each claim open the source.
+Use the list to jump to posting times, audience, hooks, what to film next and more.
 
-## Step 4
+## Check each claim's label
 
 ![Step 4](/help/screenshots/approve-research-brief-4.png)
+<!-- route: /research -->
+<!-- target: .rs-claim >> nth=0 -->
 
-To change wording, tap **Edit this draft**, fix the text, then **Save edits**.
+Every claim says where it came from: your own numbers, the web, a report you added, or uncertain. Tap a source to open it.
 
-## Step 5
+## Add an outside report (optional)
 
 ![Step 5](/help/screenshots/approve-research-brief-5.png)
+<!-- route: /research -->
+<!-- target: role=button[name="Upload outside report"] -->
 
-Have a ChatGPT or Perplexity research report? Tap **Upload outside report**, then **Refresh research** so it is used.
+Have a ChatGPT or Perplexity report? Tap **Upload outside report**, then **Refresh research**.
 
-## Step 6
+## Approve it
 
 ![Step 6](/help/screenshots/approve-research-brief-6.png)
+<!-- route: /research -->
+<!-- target: .rs-lead -->
 
-When it looks right, tap **Approve brief**. Clips can be cut from then on.
+When it looks right, tap **Approve brief**. A new draft comes each month; the approved one stays in use until you approve the next.
 
 ## Did this work?
 

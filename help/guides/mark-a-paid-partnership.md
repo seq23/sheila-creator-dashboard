@@ -1,39 +1,32 @@
 ---
-title: "Mark a paid partnership"
+title: "Mark a paid partnership (#ad)"
 group: brand_deals
 screen: review
-last_checked: 2026-09-25
+last_checked: 2026-09-26
+keywords: ad, sponsored, paid partnership, disclosure, #ad
 ---
 
-## Step 1
+## Open the sponsored clip
 
 ![Step 1](/help/screenshots/mark-a-paid-partnership-1.png)
+<!-- target: [data-clip-id="demo_look_1"] >> text=Edit caption & hook -->
 
-Open **Review** and find the sponsored clip.
+In **Review**, tap **Edit caption & hook** on the sponsored clip.
 
-## Step 2
+## Switch on Paid partnership
 
 ![Step 2](/help/screenshots/mark-a-paid-partnership-2.png)
+<!-- click: [data-clip-id="demo_look_1"] >> text=Edit caption & hook -->
+<!-- target: role=dialog >> label.switch:has-text("Paid partnership") -->
 
-Tap **Edit caption & hook**.
+Switch on **Paid partnership**. #ad is added to the caption. Tap **Save**.
 
-## Step 3
+## Turn on the app's own label
 
 ![Step 3](/help/screenshots/mark-a-paid-partnership-3.png)
+<!-- mock: instagram-paid-label -->
 
-Switch on **Paid partnership**. We add **#ad** to the end of the caption so the disclosure is clear.
-
-## Step 4
-
-![Step 4](/help/screenshots/mark-a-paid-partnership-4.png)
-
-Tap **Save**. The clip now shows a **Paid partnership** tag.
-
-## Step 5
-
-![Step 5](/help/screenshots/mark-a-paid-partnership-5.png)
-
-When the post goes live, open it in the TikTok, Instagram or YouTube app and switch on their own paid-partnership label too. The law asks for a clear disclosure.
+When it posts, also switch on the app's paid-partnership label.
 
 ## Did this work?
 

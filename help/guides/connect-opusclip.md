@@ -2,46 +2,47 @@
 title: "Connect Opus Clip (optional)"
 group: getting_started
 screen: connect
-last_checked: 2026-09-25
-target: "role=textbox[name=\"Editor · Opus Clip key\"]"
+last_checked: 2026-09-26
+keywords: opus clip, editor, editing app, optional
 fix: reconnect-opusclip
 ---
 
-Opus Clip cuts your dumps into clips, instead of the built-in editor, using your Opus Clip credits. Everything works
-without it.
+Opus Clip cuts your dumps into clips using your Opus Clip credits, instead of the built-in editor. Everything works without it.
 
-## Open Opus Clip
+## Create a key in Opus Clip
 
 ![Step 1](/help/screenshots/connect-opusclip-1.png)
-<!-- route: external -->
+<!-- mock: opusclip-api -->
 
-Go to [opus.pro](https://opus.pro) and log in. Open your profile, then **API** (Pro, Max or Business plans).
-
-## Create a key and copy it
-
-![Step 2](/help/screenshots/connect-opusclip-2.png)
-<!-- route: external -->
-
-Create a key, name it **Sheila Studio**, and copy it.
+Log in at **opus.pro** and open its API page (Pro, Max or Business plans). Create a key named Sheila Studio and copy it.
 
 ## Paste it and tap Check key
 
-![Step 3](/help/screenshots/connect-opusclip-3.png)
+![Step 2](/help/screenshots/connect-opusclip-2.png)
 <!-- route: /settings/connections -->
 <!-- target: role=textbox[name="Editor · Opus Clip key"] -->
 
-In the dashboard open **Settings**, then **Connections**, **Editing apps**. Paste the key in the
-**Opus Clip** card and tap **Check key**.
+In the dashboard open **Settings**, then **Connect accounts**, **Editing apps**. Paste the key in the **Opus Clip** card and tap **Check key**.
 
-## Pick it under Who edits
+## It turns green
+
+![Step 3](/help/screenshots/connect-opusclip-3.png)
+<!-- route: /settings/connections -->
+<!-- api: POST /api/connections/opusclip/key {"key":"good-opusclip-demo-key"} -->
+<!-- target: .card:has(h3:text-is("Opus Clip")) -->
+
+The **Opus Clip** card says it's connected and its light is green.
+
+## Pick Opus Clip under Editing
 
 ![Step 4](/help/screenshots/connect-opusclip-4.png)
 <!-- route: /settings -->
-<!-- target: section[aria-label="Editing"] -->
+<!-- api: POST /api/connections/opusclip/key {"key":"good-opusclip-demo-key"} -->
+<!-- api: PATCH /api/editing {"editors":{"cut_from_source":"opusclip"}} -->
+<!-- target: #editor-cut_from_source -->
 
-Open **Settings**, then **Editing**, **Who edits**, and pick **Opus Clip**.
+Open **Settings**, then **Editing**. Under **Cutting a dump into clips**, pick **Opus Clip**. Your next dump uses it.
 
 ## Did this work?
 
-The card says **Connected**. If it says the key is not valid, copy the whole key again. If your
-plan has no API access, Opus Clip says so; the built-in editor keeps working.
+If not, tap **No** below and we'll open the matching fix-it guide or email your helper.

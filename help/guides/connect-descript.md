@@ -2,46 +2,47 @@
 title: "Connect Descript (optional)"
 group: getting_started
 screen: connect
-last_checked: 2026-09-25
-target: "role=textbox[name=\"Editor · Descript key\"]"
+last_checked: 2026-09-26
+keywords: descript, editor, editing app, optional
 fix: reconnect-descript
 ---
 
-Descript polishes each clip, instead of the built-in editor, using your Descript credits. Everything works
-without it.
+Descript polishes each clip (clean sound, filler words out) using your Descript credits, instead of the built-in editor. Everything works without it.
 
-## Open Descript
+## Create a key in Descript
 
 ![Step 1](/help/screenshots/connect-descript-1.png)
-<!-- route: external -->
+<!-- mock: descript-api -->
 
-Go to [descript.com](https://descript.com) and log in. Open **Settings**, then **API tokens**.
-
-## Create a key and copy it
-
-![Step 2](/help/screenshots/connect-descript-2.png)
-<!-- route: external -->
-
-Create a key, name it **Sheila Studio**, and copy it.
+Log in at **descript.com** and open its API page (paid plans). Create a key named Sheila Studio and copy it.
 
 ## Paste it and tap Check key
 
-![Step 3](/help/screenshots/connect-descript-3.png)
+![Step 2](/help/screenshots/connect-descript-2.png)
 <!-- route: /settings/connections -->
 <!-- target: role=textbox[name="Editor · Descript key"] -->
 
-In the dashboard open **Settings**, then **Connections**, **Editing apps**. Paste the key in the
-**Descript** card and tap **Check key**.
+In the dashboard open **Settings**, then **Connect accounts**, **Editing apps**. Paste the key in the **Descript** card and tap **Check key**.
 
-## Pick it under Who edits
+## It turns green
+
+![Step 3](/help/screenshots/connect-descript-3.png)
+<!-- route: /settings/connections -->
+<!-- api: POST /api/connections/descript/key {"key":"good-descript-demo-key"} -->
+<!-- target: .card:has(h3:text-is("Descript")) -->
+
+The **Descript** card says it's connected and its light is green.
+
+## Pick Descript under Editing
 
 ![Step 4](/help/screenshots/connect-descript-4.png)
 <!-- route: /settings -->
-<!-- target: section[aria-label="Editing"] -->
+<!-- api: POST /api/connections/descript/key {"key":"good-descript-demo-key"} -->
+<!-- api: PATCH /api/editing {"editors":{"enhance":"descript"}} -->
+<!-- target: #editor-enhance -->
 
-Open **Settings**, then **Editing**, **Who edits**, and pick **Descript**.
+Open **Settings**, then **Editing**. Under **Polish**, pick **Descript**. Your next dump uses it.
 
 ## Did this work?
 
-The card says **Connected**. If it says the key is not valid, copy the whole key again. If your
-plan has no API access, Descript says so; the built-in editor keeps working.
+If not, tap **No** below and we'll open the matching fix-it guide or email your helper.

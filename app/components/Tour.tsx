@@ -1,18 +1,23 @@
-// First-login tour (section 12c): five short pop-ups pointing at Dump, Review, Calendar, Deals
-// and Help. Shown once on Home (localStorage flag "ss-tour-done"); "Replay the tour" in Help
+// First-login tour (section 12c): short pop-ups pointing at each part of the menu as it is now
+// (Dump, Review with its Looks, Calendar, Stats, Voice overs, Deals, the Media kit, Help), each
+// with a "Show me how" link to its picture guide. The stops are checked by the validator
+// help-pictures: every `to` is a menu item and every `guide` is a real guide. Shown once on Home (localStorage flag "ss-tour-done"); "Replay the tour" in Help
 // clears the flag and opens Home. It never blocks the page: no backdrop, the rest of the screen
 // stays usable, and Skip ends it for good.
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { LAST_SCREEN_KEY, TOUR_KEY } from "../lib/guides";
 import "../styles/tour.css";
 
-export const TOUR_STEPS: { to: string; title: string; text: string }[] = [
-  { to: "/dump", title: "Dump", text: "Your footage goes here. Pick new or old videos, add a note, and press Dump. The cutter makes the clips." },
-  { to: "/review", title: "Review", text: "New clips wait here for you. Approve the ones you like. Nothing ever posts without your yes." },
-  { to: "/calendar", title: "Calendar", text: "Approved clips fill your week on their own, up to 10 posts per channel. Drag one to move it." },
-  { to: "/deals", title: "Deals", text: "Brands that fit you, with the right public contact and a pitch ready. You send it yourself from Gmail." },
-  { to: "/help", title: "Help", text: "Stuck? Tap ? on any screen, or Help for picture guides and to replay this tour. Voice overs start on Home." },
+export const TOUR_STEPS: { to: string; title: string; text: string; guide: string }[] = [
+  { to: "/dump", title: "Dump", text: "Your footage goes here. Pick your videos, add a note, and press Dump. We cut them into short clips.", guide: "dump-new-footage" },
+  { to: "/review", title: "Review", text: "New clips wait here. Approve the ones you like; nothing posts without your yes. Change look gives any clip a different style.", guide: "review-and-approve-clips" },
+  { to: "/calendar", title: "Calendar", text: "Approved clips fill your week on their own and Buffer posts them. Tap a post to move it.", guide: "how-posting-works" },
+  { to: "/stats", title: "Stats", text: "Your followers, best videos and best times. No sign-in needed.", guide: "read-your-stats" },
+  { to: "/voice", title: "Voice overs", text: "Optional: record your voice once and add narration to clips in your own voice.", guide: "record-your-voice" },
+  { to: "/deals", title: "Deals", text: "Brands with money for creators like you, the next email for every deal written and ready. You send it from Gmail.", guide: "find-brands" },
+  { to: "/deals", title: "Media kit", text: "In Deals, the Media kit tab is the link in every pitch: your numbers, best work and rates.", guide: "media-kit" },
+  { to: "/help", title: "Help", text: "Stuck? Tap ? on any screen, or search Help for picture guides. You can replay this tour there.", guide: "getting-started" },
 ];
 
 function tourDone(): boolean {
@@ -117,6 +122,11 @@ export function Tour() {
         </div>
         <h3>{s.title}</h3>
         <p>{s.text}</p>
+        <p>
+          <Link to={`/help/${s.guide}`} onClick={finish}>
+            Show me how
+          </Link>
+        </p>
         <div className="btn-row">
           {step > 0 ? (
             <button type="button" className="btn quiet" onClick={() => setStep(step - 1)}>

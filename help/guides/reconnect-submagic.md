@@ -2,30 +2,45 @@
 title: "Reconnect Submagic"
 group: fix_it
 screen: connect
-last_checked: 2026-09-25
-target: "role=textbox[name=\"Editor · Submagic key\"]"
+last_checked: 2026-09-26
+keywords: submagic, reconnect, key, not working, red
+fix: connect-submagic
 ---
 
-Submagic's light is red (its key stopped working) or yellow (it is out of credits). Meanwhile the
-built-in editor does its job, so nothing waits.
+Submagic's key stopped working or it's out of credits. The built-in editor does its job meanwhile.
 
-## Check your Submagic account
+## The card says what's wrong
 
 ![Step 1](/help/screenshots/reconnect-submagic-1.png)
-<!-- route: external -->
+<!-- api: POST /api/connections/submagic/key {"key":"bad-key-help-demo"} -->
+<!-- target: .card:has(h3:text-is("Submagic")) -->
 
-Log in at [submagic.co](https://submagic.co). If you are out of credits, top up or wait for your plan to
-renew. If the key was deleted, create a new one under **Settings**, then **API** (the Business + API plan).
+Open **Settings**, **Connect accounts**. The **Submagic** card says the key isn't working.
+
+## Top up, or make a new key
+
+![Step 2](/help/screenshots/reconnect-submagic-2.png)
+<!-- mock: submagic-credits -->
+
+Log in to Submagic. Top up, or make a new key, then copy the key.
 
 ## Paste the new key
 
-![Step 2](/help/screenshots/reconnect-submagic-2.png)
-<!-- route: /settings/connections -->
+![Step 3](/help/screenshots/reconnect-submagic-3.png)
+<!-- api: POST /api/connections/submagic/key {"key":"bad-key-help-demo"} -->
 <!-- target: role=textbox[name="Editor · Submagic key"] -->
 
-Open **Settings**, then **Connections**, **Editing apps**. Tap **Disconnect** on the Submagic card,
-paste the new key and tap **Check key**.
+Tap **Disconnect** if you see it, paste the new key and tap **Check key**.
+
+## The light turns green
+
+![Step 4](/help/screenshots/reconnect-submagic-4.png)
+<!-- route: /settings -->
+<!-- api: POST /api/connections/submagic/key {"key":"good-submagic-demo-key"} -->
+<!-- target: [data-health="submagic"] -->
+
+The card turns green, and so does its light on **Settings**.
 
 ## Did this work?
 
-The light turns green on **Settings**. Your next dump or clip uses Submagic again.
+If not, tap **No** below and we'll open the matching fix-it guide or email your helper.

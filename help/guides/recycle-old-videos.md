@@ -2,44 +2,40 @@
 title: "Recycle old videos"
 group: everyday
 screen: dump
-last_checked: 2026-09-25
+last_checked: 2026-09-26
+keywords: recycle, repost, old videos, already posted
 ---
 
-## Step 1
+## Tap Old posts to reuse
 
 ![Step 1](/help/screenshots/recycle-old-videos-1.png)
+<!-- target: [data-door="recycle"] -->
 
-Tap **Dump**, then tap **Recycle old videos** (door B).
+Open **Dump** and tap **Old posts to reuse**: videos you already posted.
 
-## Step 2
+## Choose the videos
 
 ![Step 2](/help/screenshots/recycle-old-videos-2.png)
+<!-- click: [data-door="recycle"] -->
+<!-- target: [data-door-picked] -->
 
-Tap **Choose videos** and pick videos you already posted.
+Tap **Choose videos**. For each one, say where and roughly when it was posted, and the views if you know them. Best performers come back first.
 
-## Step 3
+## Tap Dump
 
 ![Step 3](/help/screenshots/recycle-old-videos-3.png)
+<!-- click: [data-door="recycle"] -->
+<!-- target: [data-dump-button] -->
 
-Tap **Posted on…** next to each video and say where and roughly when it was posted, and the views if you know them. Best performers come back first.
+Tap the **Dump** button. Each video gets a new opening, a new caption and a new look, so it doesn't look reposted. It waits 90 days before going back to the same app.
 
-## Step 4
+## Review them like any clip
 
 ![Step 4](/help/screenshots/recycle-old-videos-4.png)
+<!-- route: /review -->
+<!-- target: [data-clip-id="demo_held_1"] -->
 
-Tap **Dump**. Each video gets a new first 2 seconds, a new subtitle style, a trim and a new caption, so it doesn't look reposted.
-
-## Step 5
-
-![Step 5](/help/screenshots/recycle-old-videos-5.png)
-
-We wait 90 days before a video goes back to the same platform. Platforms still waiting are unticked on the clip in **Review**.
-
-## Step 6
-
-![Step 6](/help/screenshots/recycle-old-videos-6.png)
-
-Review the recycled clips like any other and approve the ones you want back.
+Recycled clips show up in **Review** under **Old posts**. Approve the ones you want back.
 
 ## Did this work?
 

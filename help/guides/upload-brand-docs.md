@@ -1,45 +1,60 @@
 ---
-title: "Upload your brand docs"
+title: "Upload your brand docs (Client Brain)"
 group: getting_started
 screen: brain
-last_checked: 2026-09-25
+last_checked: 2026-09-26
+keywords: brand, profile, documents, client brain, pdf, who i am
 ---
 
-## Step 1
+Client Brain learns who you are from your documents and writes your Brand Profile. Everything the dashboard writes uses it.
+
+## Tap Choose docs
 
 ![Step 1](/help/screenshots/upload-brand-docs-1.png)
+<!-- route: /brain -->
+<!-- target: role=button[name="Choose docs"] -->
 
-Tap **Client Brain** in the menu.
+Open **Client Brain** and tap **Choose docs**. PDF, Word, text, even a saved chat about your goals. Pick many at once.
 
-## Step 2
+## Wait for Read
 
 ![Step 2](/help/screenshots/upload-brand-docs-2.png)
+<!-- route: /brain -->
+<!-- target: section:has(#docs-h) -->
 
-Tap **Choose docs** and pick your files: PDF, Word, Markdown or plain text. You can pick many at once, including saved chats with ChatGPT about your goals.
+Each doc says **Read** when its words are in. A doc that couldn't be read says why, with **Try again** or **Remove**.
 
-## Step 3
+## Your Brand Profile
 
 ![Step 3](/help/screenshots/upload-brand-docs-3.png)
+<!-- route: /brain -->
+<!-- target: #profile-h -->
 
-Wait while each doc shows **Reading text…**. When it says **Read**, we have the words. A doc marked **Couldn’t read · flagged** says why; tap **Try again** or **Remove**.
+Tap **Draft my profile**. In a minute your profile appears in nine sections.
 
-## Step 4
+## Fix anything that isn't you
 
 ![Step 4](/help/screenshots/upload-brand-docs-4.png)
+<!-- route: /brain -->
+<!-- target: #sec-who -->
 
-Tap **Draft my profile**. In a minute your Brand Profile appears in nine sections.
+Read each section and change anything that doesn't sound like you.
 
-## Step 5
+## Lock it
 
 ![Step 5](/help/screenshots/upload-brand-docs-5.png)
+<!-- route: /brain -->
+<!-- target: role=button[name="Unlock to edit"] -->
 
-Read each section and fix anything that doesn't sound like you. Tap **Save changes**.
+Tap **Lock profile**. From then on research, clips and captions use it. **Unlock to edit** changes it later.
 
-## Step 6
+## Go back to an older version
 
 ![Step 6](/help/screenshots/upload-brand-docs-6.png)
+<!-- route: /brain -->
+<!-- target: button:has-text("Versions") -->
 
-Tap **Lock profile**. From now on research, clips and captions use this version. To change it later, tap **Unlock to edit**; **Versions** lets you roll back.
+**Versions** lets you roll back to any earlier profile.
 
 ## Did this work?
 

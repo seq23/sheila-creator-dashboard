@@ -12,12 +12,19 @@ export interface LlmClient {
   checkKey(): Promise<{ ok: boolean; error: string | null }>;
 }
 
-class FakeLlm implements LlmClient {
+/**
+ * The fake answers like the real one, failure shapes included: a key starting "bad" is refused
+ * (the same rule as the Firecrawl and Hunter fakes), so the refused-key card, light and fix
+ * guide can be shown and tested without a real OpenRouter account.
+ */
+export class FakeLlm implements LlmClient {
+  constructor(private key: string | null = null) {}
   async complete(input: { system: string; user: string; json?: boolean }) {
     if (input.json) return { ok: true, text: JSON.stringify({ fake: true, echo: input.user.slice(0, 40) }), error: null };
     return { ok: true, text: `(fake model) ${input.user.slice(0, 80)}`, error: null };
   }
   async checkKey() {
+    if (this.key?.startsWith("bad")) return { ok: false, error: "OpenRouter says this key is not valid." };
     return { ok: true, error: null };
   }
 }
@@ -94,6 +101,6 @@ class RealLlm implements LlmClient {
 
 export async function getLlm(env: Env, keyOverride?: string): Promise<LlmClient> {
   const key = keyOverride ?? (await getConnectionSecret(env, "openrouter"));
-  if (fakeServices(env) || !key) return new FakeLlm();
+  if (fakeServices(env) || !key) return new FakeLlm(key);
   return new RealLlm(key, env.PUBLIC_BASE_URL);
 }
