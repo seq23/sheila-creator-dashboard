@@ -551,7 +551,7 @@ Proven on staging 25 Sep 2026: the real zip imported 5 videos with exact post ti
 ## YouTube: full videos straight to her channel
 
 Owner decision (26 Sep 2026): Sheila taps **Connect YouTube (full videos)** on Connect once, signs in
-on Google's page and taps Allow (Google may show "Google hasn't verified this app": Continue). From
+on Google's page (pick the account; on "Google hasn't verified this app" the small Advanced link, then "Go to seq-taylor.workers.dev (unsafe)"; then Continue on the consent page). From
 then on every approved full video on the Calendar goes to her own channel; Buffer keeps posting the
 Shorts, TikTok and Instagram clips. Code: `worker/domain/youtubeDirect.ts` (rules),
 `worker/lib/youtubeDirect.ts` (sync, read-back, light), `worker/services/youtubeDirect.ts` (real +

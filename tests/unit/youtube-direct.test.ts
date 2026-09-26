@@ -181,6 +181,8 @@ describe("upload → read back → follow the Calendar", () => {
     expect(Date.parse(u.publish_at!)).toBeGreaterThan(Date.now());
     expect((await readFake(env)).videos[u.video_id!]).toMatchObject({ privacyStatus: "private", publishAt: u.publish_at });
     expect(one<{ status: string }>("SELECT status FROM posts WHERE id = ?", v.post).status).toBe("planned");
+    // what videos.list answered is kept exactly (status fields only)
+    expect(JSON.parse(one<{ detail: string }>("SELECT detail FROM events WHERE kind = 'ytdirect.readback' AND ref_id = ?", v.clip).detail)).toEqual({ video_id: u.video_id, found: true, privacyStatus: "private", publishAt: u.publish_at, uploadStatus: "uploaded", failureReason: null, rejectionReason: null });
     expect(await fullVideoCards(env)).toEqual([]);
     expect(light().light).toBe("green");
     // her words live on YouTube now: edits refuse with where to change them
