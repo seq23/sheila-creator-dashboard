@@ -93,8 +93,27 @@ export const LAUNCH_SLOTS: Record<Platform, Slot[]> = {
 
 export const REJECT_REASONS = ["too long", "not on brand", "bad hook", "bad cut", "other"] as const;
 
-export const DEAL_STAGES = ["found", "drafted", "sent", "replied", "negotiating", "won", "passed"] as const;
+/**
+ * The deal pipeline a talent manager runs (docs/reviews/agency-pov.md), in order, then the two
+ * closed-without-money outcomes. Transitions live in worker/domain/deals.ts `canMove`; the
+ * database CHECK in migrations/0009 lists the same words.
+ */
+export const DEAL_STAGES = ["find_contact", "pitch", "follow_up", "negotiating", "agreed", "delivering", "invoiced", "paid", "done", "declined", "lost"] as const;
 export type DealStage = (typeof DEAL_STAGES)[number];
+/** What she sees for each stage: plain words, what is happening now. */
+export const DEAL_STAGE_LABEL: Record<DealStage, string> = {
+  find_contact: "Find a contact",
+  pitch: "Ready to pitch",
+  follow_up: "Waiting on a reply",
+  negotiating: "Talking terms",
+  agreed: "Agreed",
+  delivering: "Making the content",
+  invoiced: "Invoiced",
+  paid: "Paid",
+  done: "Done",
+  declined: "You said no",
+  lost: "Didn't happen",
+};
 
 /** Brand Profile fixed sections (section 5). */
 export const BRAND_PROFILE_SECTIONS = [
