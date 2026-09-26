@@ -548,6 +548,49 @@ may upload the zip or the CSV. Only a real Excel workbook (a zip with `[Content_
 time comes from the TikTok video id (its top 32 bits are the Unix seconds it was posted).
 Proven on staging 25 Sep 2026: the real zip imported 5 videos with exact post times.
 
+## YouTube: full videos straight to her channel
+
+Owner decision (26 Sep 2026): Sheila taps **Connect YouTube (full videos)** on Connect once, signs in
+on Google's page and taps Allow (Google may show "Google hasn't verified this app": Continue). From
+then on every approved full video on the Calendar goes to her own channel; Buffer keeps posting the
+Shorts, TikTok and Instagram clips. Code: `worker/domain/youtubeDirect.ts` (rules),
+`worker/lib/youtubeDirect.ts` (sync, read-back, light), `worker/services/youtubeDirect.ts` (real +
+fake YouTube), `worker/jobs/ytupload.ts` + `jobs/ytupload.py` + `.github/workflows/job-ytupload.yml`
+(the upload), migration `0017_youtube_direct.sql` (`youtube_uploads`, connection `youtube`).
+
+- **Sign-in:** `/api/oauth/youtube/start` asks youtube.upload + youtube.readonly, offline, prompt
+  consent, include_granted_scopes; Google returns to the one registered callback
+  `/api/oauth/google/callback` (the state cookie says which flow). Google Cloud project
+  `sheilastudio-staging-p0`, External, In production (unverified), staging and production each have
+  their own web client (`GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` per Worker). The token is stored
+  AES-GCM encrypted (`connections.service = 'youtube'`); the optional Stats sign-in (`google`) is
+  separate and Stats itself still uses `YOUTUBE_API_KEY`.
+- **When:** the hourly lane uploads a video once its Calendar slot is within 7 days. Public and 15+
+  minutes ahead: private with `publishAt` = the slot; otherwise her privacy at once (Unlisted /
+  Private never get a publishAt). Title, description with chapters, tags, category 26, madeForKids
+  false, `containsSyntheticMedia` when it has an automatic voice over, then her thumbnail.
+- **The job** reads the video through the Worker, gets a short-lived access token from
+  `POST /api/jobs/:id/youtube-token` (never the refresh token), uploads with the resumable protocol
+  (8 MB chunks, resumes after drops and 5xx), sets the thumbnail, reports an outcome.
+- **Read-back:** `videos.list` after every upload and update; privacyStatus / publishAt must match
+  or the row is `mismatch` with a red light and a named fix (Calendar move, or Upload it yourself).
+- **Calendar:** moved → `videos.update` publishAt; taken off before it went public → private and
+  kept; put back → its time again. Never a second upload, never a delete (validator `youtube-direct`).
+- **Quota:** insert costs 1600 of 10,000 units a day; at most 3 uploads per Pacific day, the rest wait
+  with a note; quotaExceeded / uploadLimitExceeded wait for the next Pacific midnight (yellow).
+- **Failures, never silent:** revoked sign-in → red `YouTube (full videos)` light, Reconnect YouTube
+  (`reconnect-youtube`), the video falls back to Upload it yourself and goes up again after
+  reconnecting; refused publish time → uploaded private, red, move it on the Calendar; channel not
+  verified for custom thumbnails → uploaded, Home note "Verify your channel's phone number in YouTube
+  to use custom thumbnails" with youtube.verify; a job that dies twice → Upload it yourself.
+- **Fakes:** settings row `fake_youtube` `{scenario}`: ok, quota, revoked, interrupted,
+  publish_at_rejected, thumb_unverified, kept_private; bodies from `shared/youtube-errors.json` (also
+  read by `jobs/tests/test_ytupload.py`, which runs the real job against a local fake YouTube).
+
+```bash
+npx wrangler d1 execute sheila-creator-dashboard-db --remote --command "SELECT clip_id, status, video_id, privacy, publish_at, actual_privacy, actual_publish_at, thumbnail, reason FROM youtube_uploads ORDER BY updated_at DESC LIMIT 10"
+```
+
 ## Help guides and their pictures
 
 Review and decisions: `docs/HELP-REVIEW.md`. Guides are `help/guides/<slug>.md` listed in

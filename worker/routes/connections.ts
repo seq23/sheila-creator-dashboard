@@ -11,6 +11,7 @@ import { checkBufferKey, checkEditor, checkElevenLabs, checkFirecrawl, checkHunt
 import { API_EDITORS, isApiEditor } from "../domain/editors";
 import { writeEditorCheckLight } from "../lib/editorJobs";
 import type { KeyCheck } from "../services/keychecks";
+import { writeLight as writeYouTubeLight } from "../lib/youtubeDirect";
 import { dropPremiumVoice, ensurePremiumVoice, planFromMeta, recheckElevenLabs, writeElevenLabsLight } from "../lib/premiumVoice";
 
 export const connections = new Hono<{ Bindings: Env; Variables: Vars }>();
@@ -103,17 +104,19 @@ connections.post("/:service/disconnect", requireOwner, async (c) => {
   if (service === "elevenlabs") await dropPremiumVoice(c.env, "disconnect");
   await disconnect(c.env, service);
   if (service === "elevenlabs") await writeElevenLabsLight(c.env, { state: "not_connected" });
+  else if (service === "youtube") await writeYouTubeLight(c.env);
   else await setHealth(c.env.DB, service, "grey", "Disconnected", `connect-${service}`);
   await recordEvent(c.env.DB, "connection.disconnected", service, {}, c.get("user").email);
   return c.json({ ok: true });
 });
 
 connections.post("/disconnect-all", requireOwner, async (c) => {
-  const all: Service[] = ["buffer", "openrouter", "firecrawl", "resend", "hunter", "meta", "google", "tiktok", "github", "elevenlabs", ...API_EDITORS];
+  const all: Service[] = ["buffer", "openrouter", "firecrawl", "resend", "hunter", "meta", "google", "tiktok", "github", "elevenlabs", "youtube", ...API_EDITORS];
   await dropPremiumVoice(c.env, "disconnect");
   for (const s of all) {
     await disconnect(c.env, s);
     if (s === "elevenlabs") await writeElevenLabsLight(c.env, { state: "not_connected" });
+    else if (s === "youtube") await writeYouTubeLight(c.env);
     else await setHealth(c.env.DB, s, "grey", "Disconnected", `connect-${s}`);
   }
   await recordEvent(c.env.DB, "connection.disconnected_all", null, {}, c.get("user").email);

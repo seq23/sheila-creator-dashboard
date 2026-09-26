@@ -263,6 +263,19 @@ export const MOCKS: Record<string, Frame> = {
     { k: "p", v: "Expected: the app is waiting for Google's review. It can only read your numbers." },
     { k: "row", v: "Advanced", action: "Go to Sheila Studio", hl: true },
   ]),
+  // Connect YouTube (full videos): the same Google pages, with the upload permission she allows.
+  "youtube-unverified": apiPage("Google", "accounts.google.com", [], "", "Google hasn't verified this app", [
+    { k: "p", v: "Expected: Sheila Studio is your own dashboard. Tap Continue." },
+    { k: "btn", v: "Continue", hl: true },
+  ]),
+  "youtube-account": apiPage("Google", "accounts.google.com", [], "", "Choose an account to continue to Sheila Studio", [
+    { k: "row", v: "The Google account your YouTube channel is on", action: "Pick", hl: true },
+  ]),
+  "youtube-allow": apiPage("Google", "accounts.google.com/consent", [], "", "Sheila Studio wants access to your Google Account", [
+    { k: "check", v: "Manage your YouTube videos", on: true },
+    { k: "check", v: "View your YouTube account", on: true },
+    { k: "btn", v: "Allow", hl: true },
+  ]),
   "youtube-channel": apiPage("YouTube", "youtube.com", ["Home", "Shorts", "You"], "You", "Your channel", [
     { k: "field", label: "Handle", value: "@yourchannel", hl: true },
     { k: "p", v: "Copy the name that starts with @, or the channel link." },

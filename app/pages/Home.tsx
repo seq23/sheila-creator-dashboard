@@ -224,7 +224,7 @@ export function Home() {
 }
 
 function HomeNoticeCard({ n, more, onDismiss, onKeep }: { n: HomeNotice; more: number; onDismiss: () => void; onKeep: () => void }) {
-  const tone = n.kind === "storage" ? (n.light === "red" ? "bad" : "warn") : n.kind === "clearing" || (n.kind === "youtube" && n.card.kind === "removal_soon") ? "warn" : "info";
+  const tone = n.kind === "storage" ? (n.light === "red" ? "bad" : "warn") : n.kind === "clearing" || (n.kind === "youtube" && (n.card.kind === "removal_soon" || n.card.kind === "youtube_note")) ? "warn" : "info";
   return (
     <Notice tone={tone}>
       <div className="home-card" data-notice={n.kind} data-notice-key={n.key}>
@@ -289,9 +289,28 @@ function YoutubeCardBody({ y: card }: { y: HomeYoutubeCard }) {
             <Link to="/review?tab=approved">Copy the tags</Link>
           </span>
         </>
+      ) : y.kind === "youtube_note" ? (
+        <>
+          <strong>“{y.title}”:</strong> {y.note}
+          {y.link ? (
+            <span className="home-yt-links">
+              <a href={y.link.url} target="_blank" rel="noreferrer">
+                {y.link.label}
+              </a>
+            </span>
+          ) : null}
+        </>
       ) : y.kind === "upload_yourself" ? (
         <>
-          <strong>Buffer couldn't take “{y.title}”.</strong> Upload it on YouTube yourself; we mark it posted when it shows on your channel.
+          {y.note ? (
+            <>
+              <strong>“{y.title}”:</strong> {y.note} We mark it posted when it shows on your channel.
+            </>
+          ) : (
+            <>
+              <strong>Buffer couldn't take “{y.title}”.</strong> Upload it on YouTube yourself; we mark it posted when it shows on your channel.
+            </>
+          )}
           <span className="home-yt-links">
             {y.download_url ? (
               <a href={y.download_url} download>

@@ -192,8 +192,8 @@ export function spaceLine(uploadBytes: number, usedBytes: number): { line: strin
  * YouTube Shorts., Video must be vertical (portrait orientation) for YouTube Shorts."; its schema has
  * no post type for YouTube (YoutubePostMetadataInput has none). So Buffer takes a full video only
  * when it is vertical and 3 minutes or less; every other one is hers to upload in two taps (Download
- * for YouTube, then YouTube's upload page). YouTube's own API won't help: uploads from an app Google
- * hasn't audited stay private, and the audit is the Google verification the owner ruled out.
+ * for YouTube, then YouTube's upload page). With Connect YouTube (owner decision 26 Sep 2026) a full
+ * video goes to her channel directly instead (worker/lib/youtubeDirect.ts) and this stays the fallback.
  */
 export const SHORTS_MAX_S = 180;
 export function bufferCanTake(v: { width: number; height: number; duration_s: number }): boolean {

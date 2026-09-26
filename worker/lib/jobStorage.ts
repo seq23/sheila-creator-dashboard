@@ -73,6 +73,13 @@ export function jobStorageScope(type: JobRow["type"], jobId: string, refId: stri
         scope.write.push(`full/${refId}/`);
       }
       break;
+    case "ytupload": {
+      // Her full video to her own YouTube channel (worker/lib/youtubeDirect.ts): ref "<dumpId>/<clipId>";
+      // it reads only that dump's full-video folder (the video and its thumbnails) and writes nothing.
+      const m = /^([A-Za-z0-9_]{1,64})\/clp_[a-z0-9]{8,40}$/.exec(refId ?? "");
+      if (m) scope.read.push(`full/${m[1]}/`);
+      break;
+    }
     default:
       break;
   }

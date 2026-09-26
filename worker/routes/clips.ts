@@ -137,6 +137,12 @@ export interface FullVideoView extends Omit<FullVideoDetails, "thumbnails"> {
   /** Its YouTube post: planned / in Buffer / posted (with the link) / failed, and YouTube Studio's page for it. */
   post: { status: string; url: string | null; scheduled_at: string } | null;
   studio_url: string;
+  /**
+   * Connect YouTube (full videos): "on" = it goes to her channel directly (thumbnail and tags
+   * included, no Finish in YouTube Studio), "broken" = it needs Reconnect YouTube (meanwhile Upload
+   * it yourself), "off" = the older path. upload: where it stands on her channel.
+   */
+  direct: { mode: "on" | "broken" | "off"; upload: { status: string; video_id: string | null; note: string | null; thumbnail: string | null; publish_at: string | null; privacy: string | null; url: string | null } | null };
 }
 export interface ReviewGroup {
   /** held_note: "Looks like someone else's video" (worker/domain/sourceCheck.ts), or null. */
@@ -204,6 +210,8 @@ interface ClipDb {
   youtube: string | null;
   file_deleted_at: string | null;
   yt_post: string | null;
+  yt_upload: string | null;
+  yt_conn: string | null;
   keep_until: string | null;
   delete_warned_at: string | null;
 }
@@ -273,6 +281,7 @@ function clearsOn(r: ClipDb): string | null {
 function fullVideoView(r: ClipDb): FullVideoView {
   const d = parseJson<FullVideoDetails | null>(r.youtube, null);
   const post = parseJson<{ status: string; url: string | null; scheduled_at: string } | null>(r.yt_post, null);
+  const up = parseJson<{ status: string; video_id: string | null; note: string | null; thumbnail: string | null; publish_at: string | null; privacy: string | null } | null>(r.yt_upload, null);
   const base = d ?? ({ title: r.hook_text, description: r.caption, chapters: [], tags: [], thumbnails: [], thumb_pick: 0, privacy: "public", width: 0, height: 0, duration_s: r.end_s, size_bytes: 0, studio_done_at: null, handoff: false } as FullVideoDetails);
   return {
     ...base,
@@ -280,6 +289,7 @@ function fullVideoView(r: ClipDb): FullVideoView {
     file_deleted: !!r.file_deleted_at,
     post,
     studio_url: studioLink(post?.url ?? null),
+    direct: { mode: r.yt_conn === "ok" ? "on" : r.yt_conn === "error" ? "broken" : "off", upload: up ? { ...up, url: up.video_id ? `https://www.youtube.com/watch?v=${up.video_id}` : null } : null },
   };
 }
 
@@ -295,6 +305,8 @@ const CLIP_SELECT = `SELECT c.id, c.asset_id, c.dump_id, c.start_s, c.end_s, c.r
   (SELECT n.auto FROM narrations n WHERE n.clip_id = c.id AND n.mix_status IS NOT NULL ORDER BY n.created_at DESC LIMIT 1) AS voice_auto,
   c.full_video, c.youtube, c.file_deleted_at, c.keep_until, c.delete_warned_at,
   (SELECT json_object('status', p.status, 'url', p.url, 'scheduled_at', p.scheduled_at) FROM posts p WHERE p.clip_id = c.id AND c.full_video = 1 ORDER BY p.created_at DESC LIMIT 1) AS yt_post,
+  (SELECT json_object('status', u.status, 'video_id', u.video_id, 'note', u.note, 'thumbnail', u.thumbnail, 'publish_at', u.publish_at, 'privacy', u.privacy) FROM youtube_uploads u WHERE u.clip_id = c.id AND c.full_video = 1) AS yt_upload,
+  (SELECT cn.status FROM connections cn WHERE cn.service = 'youtube') AS yt_conn,
   CASE WHEN d.kind = 'full_video' THEN 'youtube' ELSE d.door END AS door, d.created_at AS dump_created_at, d.ready_at AS dump_ready_at, d.status AS dump_status
   FROM clips c JOIN assets a ON a.id = c.asset_id JOIN dumps d ON d.id = c.dump_id`;
 
@@ -583,6 +595,9 @@ clips.patch("/:id/youtube", async (c) => {
   const row = await fullRow(c.env, id);
   if (!row || row.status === "deleted" || !row.full_video) return fail(c, 404, "That video is gone.");
   if (await lockedByBuffer(c.env, id)) return fail(c, 409, "This video is already loaded into Buffer. Remove it from the Calendar first, then edit.", "move-or-remove-a-post");
+  // Already on her channel (Connect YouTube): words and thumbnail live on YouTube now.
+  const up = await c.env.DB.prepare("SELECT status FROM youtube_uploads WHERE clip_id = ? AND (video_id IS NOT NULL OR status = 'uploading')").bind(id).first<{ status: string }>();
+  if (up) return fail(c, 409, up.status === "uploading" ? "This video is uploading to your channel right now. Change it in YouTube Studio once it's up." : "This video is already on your YouTube channel. Change its words or thumbnail in YouTube Studio; move it on the Calendar to change its time.", "post-a-full-video");
   const d = parseJson<FullVideoDetails | null>(row.youtube, null);
   if (!d) return fail(c, 404, "That video is gone.");
   if (body?.title !== undefined) {
