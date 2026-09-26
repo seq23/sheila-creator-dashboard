@@ -46,6 +46,9 @@
 .ks a {
   color: var(--rose);
 }
+.ks a.btn {
+  color: var(--accent-ink);
+}
 .ks h2 {
   font-size: var(--text-lg);
   padding-bottom: var(--space-3xs);
@@ -407,6 +410,96 @@
 .ks-print .ks-clips {
   grid-template-columns: repeat(6, minmax(0, 1fr));
 }
+/* Two Letter pages: page 1 is who she is and her numbers, page 2 her work, prices and contact. */
+.ks-print {
+  font-size: var(--text-sm);
+}
+.ks-print h2 {
+  font-size: var(--text-md);
+  margin-bottom: var(--space-3xs);
+}
+.ks-print .ks-cover {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas: "photo script" "photo name" "photo pos" "photo niche" "photo handles";
+  text-align: left;
+  align-items: start;
+  column-gap: var(--space-md);
+  row-gap: var(--space-3xs);
+}
+.ks-print .ks-cover > :first-child {
+  grid-area: photo;
+}
+.ks-print .ks-script {
+  grid-area: script;
+  font-size: var(--text-script);
+  margin: 0;
+}
+.ks-print .ks-cover h1 {
+  grid-area: name;
+}
+.ks-print .ks-positioning {
+  grid-area: pos;
+  font-size: var(--text-base);
+}
+.ks-print .ks-niche {
+  grid-area: niche;
+  font-size: var(--text-2xs);
+}
+.ks-print .ks-handles {
+  grid-area: handles;
+  justify-content: flex-start;
+}
+.ks-print .ks-chip {
+  min-height: 0;
+  padding: var(--space-3xs) var(--space-xs);
+  font-size: var(--text-2xs);
+}
+.ks-print .ks-figures {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.ks-print .ks-figure,
+.ks-print .ks-manual div {
+  padding: var(--space-2xs) var(--space-xs);
+}
+.ks-print .ks-fig-n {
+  font-size: var(--text-lg);
+}
+.ks-print .ks-pillars {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.ks-print .ks-pillar {
+  padding: var(--space-2xs) var(--space-xs);
+  font-size: var(--text-xs);
+}
+.ks-print .ks-package {
+  padding: var(--space-3xs) 0;
+}
+.ks-print .ks-pkg-what,
+.ks-print .ks-pkg-note,
+.ks-print .ks-clip figcaption {
+  font-size: var(--text-2xs);
+}
+.ks-print .ks-quote p {
+  font-size: var(--text-base);
+}
+.ks-print .ks-contact {
+  padding: var(--space-xs) var(--space-sm);
+}
+.ks-print .ks-qr {
+  width: 96px;
+}
+/* page 1 carries the testimonials (short); everything from Recent work on is page 2 */
+.ks-print .ks-says {
+  order: 1;
+}
+.ks-print .ks-rest {
+  order: 2;
+}
+.ks-print .ks-clip img,
+.ks-print .ks-clip-blank {
+  aspect-ratio: 4 / 5;
+}
 @media print {
   @page {
     size: letter;
@@ -444,7 +537,6 @@
   .ks-print .ks-page2 {
     break-before: page;
   }
-  .ks-print .ks-section,
   .ks-print .ks-figure,
   .ks-print .ks-package,
   .ks-print .ks-collab,

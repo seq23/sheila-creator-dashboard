@@ -677,6 +677,9 @@ function DeliveryPanel({ d, onChanged }: { d: DealDetail; onChanged: () => void 
     }
   }
   const stamp = (on: boolean) => (on ? new Date().toISOString() : null);
+  // Ticks show at once; the saved state comes back with the reload.
+  const [ticked, setTicked] = useState<Record<string, boolean>>({});
+  useEffect(() => setTicked({}), [d.delivery.steps]);
   return (
     <Card className="delivery-card">
       <h3>Delivery</h3>
@@ -691,9 +694,10 @@ function DeliveryPanel({ d, onChanged }: { d: DealDetail; onChanged: () => void 
             <label className="check">
               <input
                 type="checkbox"
-                checked={st.done}
+                checked={ticked[st.key] ?? st.done}
                 onChange={(e) => {
                   const on = e.target.checked;
+                  setTicked((t) => ({ ...t, [st.key]: on }));
                   if (st.key === "brief") void set({ briefReceivedAt: stamp(on) });
                   if (st.key === "concept") void set({ conceptOkAt: stamp(on) });
                   if (st.key === "draft") void set({ draftSentAt: stamp(on) });

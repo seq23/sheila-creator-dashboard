@@ -2,6 +2,7 @@
 // URL and her dashboard is there. No login page, no login API, no cookie needed. Runs on its own
 // server and port through playwright.open.config.ts (npm run e2e:open); the code-mode suite keeps
 // proving the email-code login that staging uses.
+import { sql } from "./helpers";
 import { expect, test } from "@playwright/test";
 
 const OWNER = "asheilabruceaffair@gmail.com";
@@ -82,6 +83,11 @@ test.describe("open mode: no login at all", () => {
   });
 
   test("public routes are unchanged: the media kit and media links", async ({ page }) => {
+    // A draft is never public: nothing shows until she publishes (as the owner, with no login).
+    sql("DELETE FROM media_kit_versions");
+    await page.goto("/kit/sheila");
+    await expect(page.getByRole("heading", { name: "No media kit here" })).toBeVisible();
+    expect((await page.request.post("/api/mediakit/publish")).ok()).toBe(true);
     await page.goto("/kit/sheila");
     await expect(page.getByRole("heading", { name: "Sheila Bruce" })).toBeVisible();
     expect((await page.request.get("/media/notavalidtokenatall000000000000000000")).status()).toBe(404);

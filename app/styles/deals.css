@@ -304,10 +304,13 @@
   font-size: var(--text-md);
 }
 .email-controls {
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) auto auto auto;
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--space-xs);
-  align-items: end;
+  align-items: flex-end;
+}
+.email-controls .field {
+  flex: 1 1 100%;
 }
 .email-subjects {
   border: 0;
@@ -363,8 +366,8 @@
   gap: var(--space-2xs) var(--space-md);
   margin: 0;
 }
-.offer-terms div,
-.memo div {
+.offer-terms > div,
+.memo > div {
   display: contents;
 }
 .offer-terms dt,
@@ -488,8 +491,7 @@
   .money:nth-child(4) {
     border-left: 0;
   }
-  .why-grid,
-  .email-controls {
+  .why-grid {
     grid-template-columns: minmax(0, 1fr);
   }
   .email-panel {

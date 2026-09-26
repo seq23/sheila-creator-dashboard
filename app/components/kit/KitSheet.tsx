@@ -157,7 +157,7 @@ export function KitSheet({ kit, print = false, pdfHref }: { kit: PublicKit; prin
       ) : null}
 
       {kit.showcase.length ? (
-        <section className="ks-section ks-page2" aria-label="Recent work">
+        <section className="ks-section ks-page2 ks-rest" aria-label="Recent work">
           <h2>Recent work</h2>
           <div className="ks-clips">
             {kit.showcase.map((c) => (
@@ -168,7 +168,7 @@ export function KitSheet({ kit, print = false, pdfHref }: { kit: PublicKit; prin
       ) : null}
 
       {kit.collabs.length ? (
-        <section className={`ks-section${kit.showcase.length ? "" : " ks-page2"}`} aria-label="Past collaborations">
+        <section className={`ks-section ks-rest${kit.showcase.length ? "" : " ks-page2"}`} aria-label="Past collaborations">
           <h2>Brands I've worked with</h2>
           <div className="ks-collabs">
             {kit.collabs.map((c) => (
@@ -186,7 +186,7 @@ export function KitSheet({ kit, print = false, pdfHref }: { kit: PublicKit; prin
       ) : null}
 
       {kit.packages.length ? (
-        <section className="ks-section" aria-label="Packages and rates">
+        <section className="ks-section ks-rest" aria-label="Packages and rates">
           <h2>Packages and rates</h2>
           <div className="ks-packages">
             {kit.packages.map((p) => (
@@ -205,9 +205,9 @@ export function KitSheet({ kit, print = false, pdfHref }: { kit: PublicKit; prin
       ) : null}
 
       {kit.testimonials.length ? (
-        <section className="ks-section" aria-label="What brands say">
+        <section className="ks-section ks-says" aria-label="What brands say">
           <h2>What brands say</h2>
-          {kit.testimonials.map((t) => (
+          {(print ? kit.testimonials.slice(0, 2) : kit.testimonials).map((t) => (
             <blockquote key={t.quote} className="ks-quote">
               <p>“{t.quote}”</p>
               <footer>
@@ -219,7 +219,7 @@ export function KitSheet({ kit, print = false, pdfHref }: { kit: PublicKit; prin
         </section>
       ) : null}
 
-      <section className="ks-section ks-contact" aria-label="Contact">
+      <section className="ks-section ks-contact ks-rest" aria-label="Contact">
         <div className="ks-contact-text">
           <h2>Work with me</h2>
           {kit.contactEmail ? (
@@ -245,7 +245,7 @@ export function KitSheet({ kit, print = false, pdfHref }: { kit: PublicKit; prin
         </div>
         <div className="ks-qr" dangerouslySetInnerHTML={{ __html: kit.qrSvg }} />
       </section>
-      <p className="ks-foot">
+      <p className="ks-foot ks-rest">
         {dates.length ? `Figures as of ${dates.join(", ")}, from the platforms. ` : ""}
         {kit.manual.length ? "Self-reported figures are marked. " : ""}
         {kit.version ? `Version ${kit.version}, published ${asOf(kit.publishedAt)}.` : "Preview: not published."}

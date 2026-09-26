@@ -17,7 +17,7 @@ Every brand carries: kind, a budget signal (paying / likely / unproven) with evi
 without a source, anything off-limits, and anything she declined, lost or hid.
 
 Web access goes through common.Web: Firecrawl when she connected it, else the free keyless
-search (DuckDuckGo) and reader (Jina r.jina.ai). No key is required. The model is called only
+search and reader (see common.Web). No key is required. The model is called only
 through common.openrouter_content; without an OpenRouter key a rules pass keeps program pages.
 
 Modes: "full" (weekly, Find brands now: up to 30 searches) and "daily" (8 searches, one source
@@ -51,7 +51,7 @@ PROGRAM_PATHS = ["/pages/creators", "/creators", "/pages/affiliates", "/affiliat
 FORM_HINT = re.compile(r"(apply|application|creator|ambassador|affiliate|influencer|partner)", re.I)
 # Hosts that are never "a brand" and whose pages we never fetch (logged-in walls, marketplaces, news).
 SOCIAL = ("instagram.com", "tiktok.com", "facebook.com", "youtube.com", "pinterest.com", "x.com", "twitter.com", "threads.net", "linkedin.com")
-NOT_BRANDS = SOCIAL + ("amazon.com", "etsy.com", "ltk.app", "shopltk.com", "shopmy.us", "collabstr.com", "aspire.io", "grin.co", "reddit.com", "wikipedia.org", "medium.com", "forbes.com", "nytimes.com", "duckduckgo.com")
+NOT_BRANDS = SOCIAL + ("amazon.com", "etsy.com", "ltk.app", "shopltk.com", "shopmy.us", "collabstr.com", "aspire.io", "grin.co", "reddit.com", "wikipedia.org", "medium.com", "forbes.com", "nytimes.com", "duckduckgo")
 PAID_WORDS = re.compile(r"(#ad\b|#sponsored|paid partnership|sponsored by|in partnership with|#partner\b|ad \|)", re.I)
 PROGRAM_WORDS = re.compile(r"(creator program|ambassador|affiliate|influencer program|work with us|collaborat|partner with us)", re.I)
 

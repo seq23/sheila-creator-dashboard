@@ -79,6 +79,7 @@ export function Deals() {
   const [contactFor, setContactFor] = useState<string | null>(null);
   const [showUnproven, setShowUnproven] = useState(false);
   const [pitching, setPitching] = useState<string | null>(null);
+  const [joinedNow, setJoinedNow] = useState<Record<string, boolean>>({});
   const toast = useToast();
 
   useEffect(() => {
@@ -128,6 +129,7 @@ export function Deals() {
   }
 
   async function joined(key: string, on: boolean) {
+    setJoinedNow((j) => ({ ...j, [key]: on }));
     try {
       await patch("/api/deals/listings", { key, joined: on });
       reload();
@@ -320,7 +322,7 @@ export function Deals() {
                           </a>
                         ) : null}
                         <label className="check">
-                          <input type="checkbox" checked={l.joined} onChange={(e) => joined(l.key, e.target.checked)} />
+                          <input type="checkbox" checked={joinedNow[l.key] ?? l.joined} onChange={(e) => joined(l.key, e.target.checked)} />
                           I'm on it
                         </label>
                         <a className="hint" href={l.sourceUrl} target="_blank" rel="noreferrer">

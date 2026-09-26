@@ -150,11 +150,11 @@ export function EmailPanel({
           <label className="field">
             <span className="label">Email</span>
             <textarea className="textarea email-body" key={`b-${draft.id}`} defaultValue={draft.body} onBlur={(e) => e.target.value !== draft.body && save({ body: e.target.value })} onChange={(e) => setDraft({ ...draft, body: e.target.value })} />
-            <span className="hint">
-              {draft.source === "ai" ? "Written by the AI from your facts. " : "Starter draft from your facts. "}
-              Edit anything; it saves when you tap outside the box.
-            </span>
           </label>
+          <p className="hint">
+            {draft.source === "ai" ? "Written by the AI from your facts. " : "Starter draft from your facts. "}
+            Edit anything; it saves when you tap outside the box.
+          </p>
 
           {checks.length ? (
             <div className="before-send" aria-label="Before you send">
