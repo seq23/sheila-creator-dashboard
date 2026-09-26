@@ -6,6 +6,7 @@ on:
   pull_request:
   push:
     branches: [main]
+  workflow_dispatch: # by hand, on any branch
 
 concurrency:
   group: check-${{ github.ref }}

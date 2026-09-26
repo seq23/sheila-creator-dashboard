@@ -92,7 +92,10 @@ export function KitSheet({ kit, print = false, pdfHref }: { kit: PublicKit; prin
                 <div className="ks-fig-p">{PLATFORM_LABEL[f.platform]}</div>
                 <div className="ks-fig-n nums">{num(f.followers)}</div>
                 <div className="ks-fig-l">followers</div>
-                <div className="ks-fig-row nums">{num(f.avgViews)} average views</div>
+                <div className="ks-fig-row nums">
+                  {num(f.avgViews)} average {f.platform === "instagram" ? "reach" : "views"}
+                  {f.avgSelfReported ? " (self-reported)" : ""}
+                </div>
                 {f.engagement ? <div className="ks-fig-row nums">{f.engagement.rate}% engagement</div> : null}
                 {f.bestTimes.length ? <div className="ks-fig-row">Best times: {f.bestTimes.map((b) => b.label).join(", ")}</div> : null}
                 {f.topFormats.length ? <div className="ks-fig-row">Top formats: {f.topFormats.join(", ")}</div> : null}

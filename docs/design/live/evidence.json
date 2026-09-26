@@ -141,7 +141,27 @@
     "taken_off_post": "pst_9gsnezrd5yin",
     "fill_screenshot": "docs/design/live/07-calendar-filled.jpg",
     "taken_off_screenshot": "docs/design/live/07-calendar-taken-off.jpg",
-    "at": "2026-09-26T01:55:31.940Z"
+    "at": "2026-09-26T03:12:55.065Z",
+    "buffer_readback": {
+      "youtube": {
+        "buffer_post_id": "6ab7357a84e8fc26af1e8026",
+        "status": "sent",
+        "externalLink": "https://www.youtube.com/watch?v=lFDhkdWMj0w",
+        "error": null
+      },
+      "tiktok": {
+        "buffer_post_id": "6ab7276fb097c5b401a97c03",
+        "status": "sent",
+        "externalLink": "https://tiktok.com/@iamcindymercer/video/7689660837077847309",
+        "error": null
+      },
+      "instagram": {
+        "buffer_post_id": "6ab7357cdffba3cec6ec9603",
+        "status": "sent",
+        "externalLink": "https://www.instagram.com/reel/DdvCgMMFRhk/",
+        "error": null
+      }
+    }
   },
   "9-stats": {
     "youtube_job": "job_3oyrlrqpauh6",
@@ -183,5 +203,22 @@
     "feedback_rows_added": 1,
     "tour_stops": 5,
     "at": "2026-09-26T02:01:34.672Z"
+  },
+  "12-voice": {
+    "narration": "nar_kjykvk291d25",
+    "engine": "built-in",
+    "duration_s": 9.1,
+    "audio_status": 200,
+    "audio_type": "audio/mpeg",
+    "media_url_path": "/api/voice/narrations/nar_kjykvk291d25/audio",
+    "played_seconds": 9.1,
+    "voice_job": "job_o6c8dv1b6btd",
+    "run_id": 36213784217,
+    "job_minutes": 4.4,
+    "attached_clip": "clp_f67pbap0xxddggct",
+    "screenshot": "docs/design/live/12-voice-narration.jpg",
+    "at": "2026-09-26T03:12:23.298Z",
+    "deleted": true,
+    "deleted_screenshot": "docs/design/live/12-voice-deleted.jpg"
   }
 }

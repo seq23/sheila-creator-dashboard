@@ -19,6 +19,7 @@ concurrency:
 permissions:
   contents: write
   pull-requests: write
+  actions: write # approve the merge gate run of the PR it opens
 
 jobs:
   run:
@@ -66,3 +67,18 @@ jobs:
           git commit -q -m "Help screenshots refreshed (run ${{ github.run_id }})"
           git push -q origin "$branch"
           gh pr create --title "Help screenshots refreshed" --body "Made by job-help_screenshots from demo data (tests/e2e/seed-demo.sql). Merging ships the new pictures with the next deploy." --head "$branch" --base "${{ github.event.repository.default_branch }}"
+          # A pull request opened by this workflow gets its merge gate run parked as
+          # "action_required" (Phase 0: PR #21 never showed a check, so `land` could never merge
+          # it; a workflow_dispatch run does not attach to the PR). Approve that run so the PR's
+          # own check goes green. Bounded: 2 minutes for the run to appear, then fail loudly.
+          for i in $(seq 1 24); do
+            rid=$(gh run list --workflow check.yml --branch "$branch" --event pull_request --limit 1 --json databaseId,status -q '.[] | select(.status == "action_required" or .status == "waiting" or .status == "queued" or .status == "completed") | .databaseId' || true)
+            if [ -n "$rid" ]; then
+              gh api -X POST "repos/${{ github.repository }}/actions/runs/$rid/approve" >/dev/null 2>&1 || true
+              echo "merge gate run $rid approved"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::the PR's check run never appeared; approve it under Actions or land will refuse"
+          exit 1

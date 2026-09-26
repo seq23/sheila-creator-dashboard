@@ -64,3 +64,23 @@
     grid-row: 2;
   }
 }
+/* No-login Stats: the Instagram 3-step guide and the two-number form. */
+.stats-steps {
+  margin: 0 0 var(--space-xs);
+  padding-left: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+  font-size: var(--text-sm);
+}
+.stats-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-xs);
+  margin-bottom: var(--space-xs);
+}
+@media (max-width: 560px) {
+  .stats-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

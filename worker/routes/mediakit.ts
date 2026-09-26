@@ -12,7 +12,7 @@
 import { Hono } from "hono";
 import type { Env, Vars } from "../env";
 import { requireUser } from "../lib/auth";
-import { parseJson, recordEvent } from "../lib/db";
+import { getSetting, parseJson, recordEvent } from "../lib/db";
 import { fail, readJson } from "../lib/http";
 import { newId, nowIso } from "../lib/ids";
 import { log } from "../lib/log";
@@ -129,10 +129,14 @@ export async function kitFigures(env: Env, handles: Partial<Record<Platform, str
   const buckets = bucketByTime(obs, s.audience_timezone);
   const { results: vids } = await env.DB.prepare("SELECT platform, views, likes, comments, shares, saves, posted_at FROM platform_videos").all<VideoStat>();
   const now = new Date();
+  const igManual = await getSetting<{ avg_reach?: number | null } | null>(env.DB, "instagram_manual", null);
   const out: PlatformFigures[] = [];
   for (const p of PLATFORMS) {
     const r = await env.DB.prepare("SELECT followers, avg_views, captured_at, source FROM account_stats WHERE platform = ? ORDER BY captured_at DESC LIMIT 1").bind(p).first<{ followers: number; avg_views: number; captured_at: string; source: string }>();
     if (!r || r.followers <= 0) continue;
+    // Numbers she typed on Stats are hers to state, not the dashboard's: they go on the kit as
+    // self-reported (manualFigures), never as a verified figure.
+    if (r.source === "manual") continue;
     const eng = engagementRate(vids, p, now);
     const ready = learningReady(obs, p);
     const day = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -144,11 +148,22 @@ export async function kitFigures(env: Env, handles: Partial<Record<Platform, str
       avgViews: r.avg_views,
       asOf: r.captured_at,
       source: sourceLabel(p, r.source),
+      avgSelfReported: p === "instagram" && igManual?.avg_reach != null && igManual.avg_reach === r.avg_views,
       engagement: eng ? { rate: eng.rate, videos: eng.videos, method: `(likes + comments + shares + saves) ÷ views, last 90 days, ${eng.videos} videos${typical ? `; typical for ${typical.band}: ${typical.rate}% (${typical.source.name})` : ""}` } : null,
       bestTimes: ready ? buckets.filter((b) => b.platform === p && b.posts >= 2).slice(0, 2).map((b) => ({ label: `${day[b.day]} ${hour(b.hour)}` })) : [],
       topFormats: ready ? rankRecipes(obs.filter((o) => o.platform === p && o.recipe).map((o) => ({ recipe: o.recipe as string, views: o.views }))).slice(0, 2).map((x) => RECIPES[x.recipe as keyof typeof RECIPES]?.label ?? x.recipe) : [],
     });
     void handles;
+  }
+  return out;
+}
+
+/** Latest numbers she typed on Stats (account_stats source "manual"), as self-reported kit figures. */
+async function typedStats(env: Env): Promise<KitContent["manual"]> {
+  const out: KitContent["manual"] = [];
+  for (const p of PLATFORMS) {
+    const r = await env.DB.prepare("SELECT followers, captured_at, source FROM account_stats WHERE platform = ? ORDER BY captured_at DESC LIMIT 1").bind(p).first<{ followers: number; captured_at: string; source: string }>();
+    if (r && r.source === "manual" && r.followers > 0) out.push({ id: `typed_${p}`, platform: p, label: "Followers", value: r.followers.toLocaleString("en-US"), asOf: r.captured_at.slice(0, 10) });
   }
   return out;
 }
@@ -189,7 +204,7 @@ export async function buildPublicKit(env: Env, k: KitContent, slug: string, vers
     series: k.series,
     showcase: await showcaseClips(env, k.showcase),
     figures: await kitFigures(env, k.handles),
-    manual: k.manual.map((m) => ({ ...m, selfReported: true as const })),
+    manual: [...(await typedStats(env)), ...k.manual].map((m) => ({ ...m, selfReported: true as const })),
     collabs: k.collabs.map((c) => ({ brand: c.brand, website: c.website, logoUrl: c.logoKey ? imageUrl(slug, c.logoKey, preview) : c.website ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(new URL(c.website).hostname)}&sz=64` : null, what: c.what, result: c.result })),
     packages,
     addOns,

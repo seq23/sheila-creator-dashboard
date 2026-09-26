@@ -191,6 +191,8 @@ export interface PlatformFigures {
   asOf: string;
   /** Plain words: "TikTok Studio export", "Instagram (connected)" … */
   source: string;
+  /** True when the average came from numbers she typed (Stats → Your Instagram numbers), not the platform. */
+  avgSelfReported: boolean;
   engagement: { rate: number; videos: number; method: string } | null;
   bestTimes: { label: string }[];
   topFormats: string[];
@@ -199,7 +201,7 @@ export interface PlatformFigures {
 export function sourceLabel(platform: Platform, source: string): string {
   if (source === "import") return `${PLATFORM_LABEL[platform]} export you uploaded`;
   if (source === "manual") return "Typed in by you";
-  return `${PLATFORM_LABEL[platform]} (connected account)`;
+  return `${PLATFORM_LABEL[platform]}, read by the dashboard`;
 }
 
 export function isStale(asOf: string, now: Date): boolean {

@@ -3,6 +3,7 @@
 -- so tests/e2e/demo.ts can remove it again; brands/pitches/deals/narrations are reset whole
 -- because only these specs create them. Idempotent: it clears before it inserts.
 
+DELETE FROM posts WHERE id LIKE 'demo_%';
 DELETE FROM narrations;
 DELETE FROM deal_emails;
 DELETE FROM deal_offers;

@@ -151,12 +151,12 @@ test("7b · the hourly lane loads the TEST post into Buffer and Buffer publishes
   test.setTimeout(80 * 60_000);
   const e = ev()["7-calendar"]!;
   const ids = e.test_posts as string[];
-  const due = Date.parse(String(e.post_at_utc));
   // Loaded by the hourly run before `due` (bounded: the run at due-10 min, plus 10 min slack).
   const rows = await waitForRow<{ id: string; platform: string; status: string; buffer_post_id: string | null; error: string | null }>(
     `SELECT id, platform, status, buffer_post_id, error FROM posts WHERE id IN ('${ids.join("','")}')`,
-    (r) => r.every((p) => p.status !== "planned" || !!p.error),
-    Math.max(60_000, due - Date.now() + 10 * 60_000),
+    (r) => r.every((p) => p.status !== "planned"),
+    // the next hourly run that loads it (a post Buffer refused is re-created by the next run)
+    Math.ceil(Date.now() / 3600_000) * 3600_000 - Date.now() + 10 * 60_000,
     30_000,
   );
   const results: Record<string, unknown> = {};
@@ -166,11 +166,11 @@ test("7b · the hourly lane loads the TEST post into Buffer and Buffer publishes
       continue;
     }
     // Buffer publishes at `due`; allow 20 minutes for the platform to accept it.
-    const deadline = Math.max(due, Date.now()) + 20 * 60_000;
+    const deadline = Date.now() + 30 * 60_000;
     let last: { status: string; externalLink: string | null; error: unknown } | null = null;
     while (Date.now() < deadline) {
       const d = await buffer<{ post: { status: string; externalLink: string | null; error: unknown } | null }>(
-        "query($id: PostId!) { post(input: { id: $id }) { status externalLink error } }",
+        "query($id: PostId!) { post(input: { id: $id }) { status externalLink error { message } } }",
         { id: p.buffer_post_id },
       );
       last = d.post;

@@ -12,7 +12,7 @@ import { showcaseIds } from "@worker/crons/daily";
 import { sqliteD1 } from "./helpers/sqlite-d1";
 
 const NOW = new Date("2026-09-25T12:00:00.000Z");
-const fig = (p: Partial<PlatformFigures> = {}): PlatformFigures => ({ platform: "tiktok", followers: 12_400, avgViews: 3_100, asOf: "2026-09-24T12:00:00.000Z", source: "TikTok export you uploaded", engagement: null, bestTimes: [], topFormats: [], ...p });
+const fig = (p: Partial<PlatformFigures> = {}): PlatformFigures => ({ platform: "tiktok", followers: 12_400, avgViews: 3_100, asOf: "2026-09-24T12:00:00.000Z", source: "TikTok export you uploaded", avgSelfReported: false, engagement: null, bestTimes: [], topFormats: [], ...p });
 
 function kit(p: Partial<KitContent> = {}): KitContent {
   return { ...emptyKit("Sheila Bruce"), photoKey: "kit/photo/upl_abcdef12", handles: { tiktok: "@sheila" }, positioning: "Hosting that makes guests feel celebrated.", showcase: ["c1", "c2", "c3"], packages: starterPackages().map((x) => ({ ...x, startingAt: 300, floor: 250, target: 400 })), contactEmail: "partnerships@sheila.example", testimonials: [{ quote: "Sold out.", name: "Maya", role: "Brand" }], ...p };
@@ -150,6 +150,15 @@ describe("the public link: newest published version only (real schema)", () => {
     await get("/kit/sheila?preview=1");
     await get("/kit/sheila", "Mozilla/5.0 (compatible; Googlebot/2.1)");
     expect(views()).toBe(1);
+  });
+  it("numbers she typed on Stats are self-reported on the kit, never a verified figure", async () => {
+    raw.prepare("INSERT INTO media_kit_versions (version, content, slug) VALUES (1, ?, 'sheila')").run(JSON.stringify(kit()));
+    raw.prepare("INSERT INTO account_stats (id, platform, captured_at, followers, avg_views, source) VALUES ('m1', 'instagram', '2026-09-20T12:00:00.000Z', 8200, 1900, 'manual')").run();
+    raw.prepare("INSERT INTO account_stats (id, platform, captured_at, followers, avg_views, source) VALUES ('y1', 'youtube', '2026-09-24T12:00:00.000Z', 2100, 900, 'api')").run();
+    const body = (await (await get("/kit/sheila")).json()) as { figures: PlatformFigures[]; manual: { platform: string; label: string; value: string; asOf: string; selfReported: boolean }[] };
+    expect(body.figures.map((f) => f.platform)).toEqual(["youtube"]);
+    expect(body.figures[0].source).toBe("YouTube Shorts, read by the dashboard");
+    expect(body.manual).toContainEqual(expect.objectContaining({ platform: "instagram", label: "Followers", value: "8,200", asOf: "2026-09-20", selfReported: true }));
   });
   it("an old link name forwards to the current one; an unknown one is a 404", async () => {
     raw.prepare("INSERT INTO media_kit_versions (version, content, slug) VALUES (1, ?, 'sheila')").run(JSON.stringify(kit()));

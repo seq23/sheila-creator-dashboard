@@ -15,6 +15,10 @@ export interface BufferChannel {
   connected: boolean;
   /** Queue paused inside Buffer: nothing publishes until she presses Resume there. */
   paused?: boolean;
+  /** The platform's own id for the account (YouTube: the UC… channel id), from Buffer's `serviceId`. */
+  service_id?: string | null;
+  /** The account's public link (Buffer's `externalLink`). */
+  link?: string | null;
 }
 
 export interface BufferPostStatus {
@@ -92,8 +96,8 @@ export class FakeBuffer implements BufferClient {
     if (this.key.includes("no-channels")) return { ok: true, channels: [], error: null, organizationId: "fake_org" };
     const channels: BufferChannel[] = [
       { id: "ch_tiktok", platform: "tiktok", handle: "@sheila.bruce", connected: true },
-      { id: "ch_instagram", platform: "instagram", handle: "@asheilabruceaffair", connected: !this.key.includes("ig-missing") },
-      { id: "ch_youtube", platform: "youtube", handle: "Sheila Bruce", connected: true },
+      { id: "ch_instagram", platform: "instagram", handle: "@asheilabruceaffair", connected: !this.key.includes("ig-missing"), service_id: "17841400000000001", link: "https://instagram.com/asheilabruceaffair" },
+      { id: "ch_youtube", platform: "youtube", handle: "Sheila Bruce", connected: true, service_id: "UCfakeSheilaBruce000001", link: "https://www.youtube.com/channel/UCfakeSheilaBruce000001" },
     ];
     return { ok: true, channels, error: null, organizationId: "fake_org" };
   }
@@ -177,14 +181,16 @@ class RealBuffer implements BufferClient {
   async checkKey() {
     try {
       const org = await this.organization();
-      const data = await this.gql<{ channels: { id: string; name: string; service: string; displayName: string | null; isDisconnected: boolean; isQueuePaused: boolean }[] }>(
-        `query { channels(input: { organizationId: ${JSON.stringify(org)} }) { id name service displayName isDisconnected isQueuePaused } }`,
+      // serviceId / externalLink CONFIRMED on a live key 25 Sep 2026: YouTube's serviceId is the
+      // UC… channel id the Stats screen reads public numbers with (no Google sign-in).
+      const data = await this.gql<{ channels: { id: string; name: string; service: string; displayName: string | null; isDisconnected: boolean; isQueuePaused: boolean; serviceId: string | null; externalLink: string | null }[] }>(
+        `query { channels(input: { organizationId: ${JSON.stringify(org)} }) { id name service displayName isDisconnected isQueuePaused serviceId externalLink } }`,
       );
       const channels: BufferChannel[] = [];
       for (const ch of data.channels) {
         const platform = platformOf(ch.service);
         if (!platform || channels.some((c) => c.platform === platform)) continue;
-        channels.push({ id: ch.id, platform, handle: ch.displayName || ch.name, connected: !ch.isDisconnected, paused: ch.isQueuePaused });
+        channels.push({ id: ch.id, platform, handle: ch.displayName || ch.name, connected: !ch.isDisconnected, paused: ch.isQueuePaused, service_id: ch.serviceId ?? null, link: ch.externalLink ?? null });
       }
       return { ok: true, channels, error: null, organizationId: org };
     } catch (e) {

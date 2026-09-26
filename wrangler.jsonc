@@ -112,6 +112,12 @@
   //   JOB_SHARED_SECRET       HMAC between the Worker and GitHub Actions jobs
   //   GITHUB_DISPATCH_TOKEN   fine-grained PAT, contents:write on this repo, used only to start jobs
   //   RESEND_API_KEY          transactional email
+  //   YOUTUBE_API_KEY         YouTube Data API v3 key (API-restricted to youtube.googleapis.com,
+  //                           project sheilastudio-staging-p0) for the no-login Stats: public
+  //                           channel + video numbers, no Google sign-in. Not a reserved name:
+  //                           no SDK or runtime reads YOUTUBE_API_KEY on its own (unlike
+  //                           GOOGLE_API_KEY / GOOGLE_APPLICATION_CREDENTIALS), so it can never be
+  //                           picked up by something else. Vault: sheila-youtube-api-key.
   // Per-user connection keys (Buffer, OpenRouter, Firecrawl, Hunter, Meta, Google) are NOT
   // secrets here: she pastes them in Connect accounts and they are stored encrypted in D1.
 }

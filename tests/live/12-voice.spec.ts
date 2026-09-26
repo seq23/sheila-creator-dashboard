@@ -13,14 +13,11 @@ test.describe.configure({ mode: "serial" });
 
 test("12a · consent sample → voice job on Actions → narration plays → attach to a clip", async ({ page }) => {
   test.setTimeout(100 * 60_000);
+  page.setDefaultTimeout(60_000); // one stuck click must not sit out the 100-minute job budget
   expect(SAMPLE, "set LIVE_VOICE_SAMPLE to a 60 s+ wav").not.toBe("");
-  const me = await (await page.request.get("/api/auth/me")).json();
-  if (!me.features.voice) {
-    await page.goto("/settings");
-    await page.getByText("Voice narration", { exact: true }).click();
-    await expect.poll(async () => (await (await page.request.get("/api/auth/me")).json()).features.voice).toBe(true);
-  }
+  // Voice overs are always visible since #22 (no Settings switch any more).
   await page.goto("/voice");
+  await expect(page.getByRole("button", { name: "Delete my voice" }).or(page.getByRole("heading", { name: "Set up your voice in 5 steps" }))).toBeVisible(); // loaded
   if (await page.getByRole("button", { name: "Delete my voice" }).isVisible()) {
     await page.getByRole("button", { name: "Delete my voice" }).click();
     await page.getByRole("button", { name: "Yes, delete my voice" }).click();
@@ -53,7 +50,7 @@ test("12a · consent sample → voice job on Actions → narration plays → att
   expect(row!.engine).toBe("built-in");
 
   await page.reload();
-  const player = page.locator(`[data-narration="${narrationId}"]`).getByLabel("Play narration");
+  const player = page.locator(`[data-narration="${narrationId}"]`).getByLabel(/^Play (narration|voice over)$/);
   await expect(player).toBeVisible();
   const src = (await player.getAttribute("src"))!;
   const audio = await page.request.get(src);
