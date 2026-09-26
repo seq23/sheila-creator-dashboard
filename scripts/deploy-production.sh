@@ -13,6 +13,9 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# shellcheck source=lib/wrangler-retry.sh
+source scripts/lib/wrangler-retry.sh
+
 export CLOUDFLARE_ACCOUNT_ID="${CLOUDFLARE_ACCOUNT_ID:-8d147e242033699dd37c6f5a451f48d2}"
 PUBLIC_BASE_URL="${PUBLIC_BASE_URL:-https://sheilastudio.seq-taylor.workers.dev}"
 
@@ -20,10 +23,10 @@ echo "==> build client"
 npm run build
 
 echo "==> D1 migrations (remote)"
-npx wrangler d1 migrations apply sheila-creator-dashboard-db --remote
+wr d1 migrations apply sheila-creator-dashboard-db --remote
 
 echo "==> deploy worker"
-npx wrangler deploy --var FAKE_SERVICES:0 --var PUBLIC_BASE_URL:"$PUBLIC_BASE_URL"
+wr deploy --var FAKE_SERVICES:0 --var PUBLIC_BASE_URL:"$PUBLIC_BASE_URL"
 
 echo "==> smoke"
 # The edge can serve the previous version for a few seconds after a deploy (25 Sep 2026: the
