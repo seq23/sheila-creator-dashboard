@@ -7,8 +7,9 @@ Spec (worker/jobs/research.ts buildSpec):
   uploads        [{id, source_id, title, r2_key, ext}]   outside reports she uploaded
   baseline       section 10b: {slots, caps, sources}      the starting schedule and its studies
   features       {deeper_research}                        OpenRouter Perplexity search (paid, off by default)
-  keys           {openrouter, firecrawl}                  from her Connect screen (env fallback)
-  model, deeper_model, system, web_skipped_source_id
+  keys           {openrouter, firecrawl}                  from her Connect screen (env fallback); Firecrawl optional,
+                                                          the free keyless search runs without it (common.Web)
+  model, deeper_model, system
 
 Result: {"body": BriefBody, "sources": BriefSource[]} exactly as shared/types.ts. Posting times
 are built here from the 10b baseline (or her learned slots) so they always cite the studies;
@@ -26,7 +27,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-from common import WORK, Job, download_input, log, openrouter_content, run
+from common import WORK, Job, Web, download_input, log, openrouter_content, run
 from extract import Unreadable, extract_text, llm_json
 
 PLATFORMS = ("tiktok", "instagram", "youtube")
@@ -45,28 +46,14 @@ def claim(text: str, ids: list[str], basis: str, solid: bool = True) -> dict[str
 
 # ---------- web ----------
 
-def firecrawl_search(key: str, query: str, limit: int = 4) -> list[dict[str, str]]:
-    body = json.dumps({"query": query, "limit": limit, "scrapeOptions": {"formats": ["markdown"], "onlyMainContent": True}}).encode()
-    req = urllib.request.Request("https://api.firecrawl.dev/v1/search", data=body, method="POST", headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"})
-    for attempt in range(3):
-        try:
-            with urllib.request.urlopen(req, timeout=120) as res:
-                data = json.loads(res.read().decode())
-            out = []
-            for item in data.get("data") or []:
-                url = item.get("url") or (item.get("metadata") or {}).get("sourceURL")
-                if not url:
-                    continue
-                out.append({"url": url, "title": (item.get("title") or (item.get("metadata") or {}).get("title") or url)[:200], "text": (item.get("markdown") or item.get("description") or "")[:EXCERPT]})
-            return out
-        except urllib.error.HTTPError as e:
-            log("firecrawl.retry", status=e.code, attempt=attempt)
-            if e.code in (401, 402, 403):
-                return []
-        except (urllib.error.URLError, TimeoutError, json.JSONDecodeError):
-            log("firecrawl.retry", attempt=attempt)
-        time.sleep(3 * 2 ** attempt)
-    return []
+def web_search(web: Web, query: str, limit: int = 4) -> list[dict[str, str]]:
+    """Search, then read the top pages for excerpts (common.Web: Firecrawl if connected, else the
+    free keyless path). The model only sees text we actually fetched."""
+    out = []
+    for i, r in enumerate(web.search(query, limit)):
+        text = web.read(r["url"])[:EXCERPT] if i < 2 else ""
+        out.append({"url": r["url"], "title": (r.get("title") or r["url"])[:200], "text": text or r.get("description", "")[:EXCERPT]})
+    return out
 
 
 def queries_from_profile(profile: dict[str, str] | None) -> list[str]:
@@ -216,22 +203,19 @@ def main(job: Job, spec: dict[str, Any]) -> dict[str, Any]:
     log("research.uploads", count=sum(1 for s in sources if s["kind"] == "upload"))
 
     job.progress("searching the web", 1, 3)
-    if fc_key:
-        seen: set[str] = set()
-        n = 0
-        for q in queries_from_profile(profile):
-            for r in firecrawl_search(fc_key, q):
-                if r["url"] in seen:
-                    continue
-                seen.add(r["url"])
-                n += 1
-                sid = f"w{n}"
-                sources.append({"id": sid, "url": r["url"], "title": r["title"], "kind": "web"})
-                excerpts[sid] = r["text"]
-        log("research.web", sources=n)
-    else:
-        sources.append({"id": spec.get("web_skipped_source_id", "web_skipped"), "url": None, "title": "Web search was skipped: Firecrawl is not connected", "kind": "web"})
-        log("research.web.skipped")
+    web = Web(firecrawl_key=fc_key, jina_key=os.environ.get("JINA_API_KEY"))
+    seen: set[str] = set()
+    n = 0
+    for q in queries_from_profile(profile):
+        for r in web_search(web, q):
+            if r["url"] in seen:
+                continue
+            seen.add(r["url"])
+            n += 1
+            sid = f"w{n}"
+            sources.append({"id": sid, "url": r["url"], "title": r["title"], "kind": "web"})
+            excerpts[sid] = r["text"]
+    log("research.web", sources=n, calls=web.calls, firecrawl=web.used.get("firecrawl", 0), free=web.calls - web.used.get("firecrawl", 0))
 
     if (spec.get("features") or {}).get("deeper_research"):
         text, pages = deeper_search(or_key, spec.get("deeper_model", "perplexity/sonar"), profile)
@@ -242,7 +226,7 @@ def main(job: Job, spec: dict[str, Any]) -> dict[str, Any]:
         log("research.deeper", sources=len(pages))
 
     job.progress("writing the brief", 2, 3)
-    usable = [s for s in sources if s["id"] != spec.get("web_skipped_source_id", "web_skipped")]
+    usable = sources
     ids = {s["id"] for s in usable}
     listing = "\n\n".join(f"[{s['id']}] ({s['kind']}) {s['title']}\n{excerpts.get(s['id'], '')[:EXCERPT]}" for s in usable)
     user = f"BRAND PROFILE:\n{json.dumps(profile)[:6000]}\n\nSOURCES (cite by id):\n{listing}"

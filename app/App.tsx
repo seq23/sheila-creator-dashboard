@@ -16,6 +16,7 @@ import { Settings } from "./pages/Settings";
 import { Connect } from "./pages/Connect";
 import { Deals } from "./pages/Deals";
 import { MediaKit } from "./pages/MediaKit";
+import { MediaKitPrint } from "./pages/MediaKit";
 import { Help } from "./pages/Help";
 import { HelpGuide } from "./pages/HelpGuide";
 
@@ -26,6 +27,7 @@ export function App() {
   return (
     <Routes>
       <Route path="/kit/:slug" element={<MediaKit />} />
+      <Route path="/kit/:slug/print" element={<MediaKitPrint />} />
       {!me ? (
         <Route path="*" element={<Login />} />
       ) : (

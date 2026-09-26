@@ -180,7 +180,7 @@ export function Research() {
       {data?.webSkipped ? (
         <Notice tone="warn">
           <span>
-            Web search was skipped because Firecrawl isn’t connected, so this brief uses your data and the posting studies only. <Link to="/help/connect-firecrawl">Connect Firecrawl</Link>, then refresh.
+            This brief was made before web search was free, so it uses your data and the posting studies only. Press Refresh research to add web sources; no web account is needed.
           </span>
         </Notice>
       ) : null}

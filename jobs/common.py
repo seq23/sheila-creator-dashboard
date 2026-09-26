@@ -92,6 +92,148 @@ def json_object_in(text: str) -> bool:
         return False
 
 
+# ---------- Web search + page reading: the ONE place a job reaches the open web ----------
+# Firecrawl is optional (owner, 26 Sep 2026): the brand finder and the Research Brief must work
+# with no web-research key at all. Order, per call:
+#   search: Firecrawl (if her key is connected) -> Jina search (only answers with a key: it
+#           returned 401 AuthenticationRequiredError without one when checked on 25 Sep 2026,
+#           so it is skipped on 401) -> DuckDuckGo's HTML page (keyless).
+#   read:   Firecrawl (if connected) -> Jina reader r.jina.ai (keyless, ~20 requests a minute)
+#           -> a plain fetch with the tags stripped.
+# A Firecrawl 401/402 (bad key / out of credits) falls through to the free path and is counted,
+# so the job can tell the Worker to show the light instead of failing. The validator
+# `web-research-optional` keeps every job on this class and refuses a Firecrawl-only path.
+FIRECRAWL_URL = "https://api.firecrawl.dev/v1"
+JINA_SEARCH_URL = "https://s.jina.ai/"
+JINA_READ_URL = "https://r.jina.ai/"
+DDG_HTML_URL = "https://html.duckduckgo.com/html/"
+_UA = "Mozilla/5.0 (compatible; SheilaStudio/1.0; +https://github.com/seq23/sheila-creator-dashboard)"
+
+
+def _http(url: str, data: bytes | None = None, headers: dict[str, str] | None = None, timeout: float = 45) -> tuple[int, str]:
+    req = urllib.request.Request(url, data=data, method="POST" if data is not None else "GET", headers={"User-Agent": _UA, **(headers or {})})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return r.status, r.read(3_000_000).decode("utf-8", "replace")
+    except urllib.error.HTTPError as e:
+        return e.code, ""
+    except (urllib.error.URLError, TimeoutError, OSError):
+        return 0, ""
+
+
+def parse_ddg_html(html: str, limit: int) -> list[dict[str, str]]:
+    """Result links from DuckDuckGo's HTML page (the uddg= redirect holds the real url)."""
+    import html as _html
+    import re
+
+    out: list[dict[str, str]] = []
+    for m in re.finditer(r'<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>(.*?)</a>', html, re.S):
+        href = _html.unescape(m.group(1))
+        q = urllib.parse.parse_qs(urllib.parse.urlparse(href if "://" in href else f"https:{href}").query)
+        url = q.get("uddg", [href])[0]
+        if not url.startswith("http") or "duckduckgo.com/y.js" in url:
+            continue
+        title = re.sub(r"<[^>]+>", "", _html.unescape(m.group(2))).strip()
+        snippet_m = re.search(r'class="result__snippet"[^>]*>(.*?)</a>', html[m.end() : m.end() + 3000], re.S)
+        desc = re.sub(r"<[^>]+>", "", _html.unescape(snippet_m.group(1))).strip() if snippet_m else ""
+        out.append({"url": url, "title": title[:200], "description": desc[:400]})
+        if len(out) >= limit:
+            break
+    return out
+
+
+def strip_tags(html: str) -> str:
+    import html as _html
+    import re
+
+    links = re.findall(r'href="(https?://[^"]+)"', html)
+    text = re.sub(r"(?is)<(script|style|noscript)[^>]*>.*?</\1>", " ", html)
+    text = re.sub(r"(?s)<[^>]+>", " ", text)
+    text = re.sub(r"[ \t]+", " ", _html.unescape(text))
+    text = re.sub(r"\n\s*\n+", "\n", text)
+    return text.strip()[:60_000] + "\n" + "\n".join(links[:300])
+
+
+class Web:
+    """search(query) -> [{url, title, description}]; read(url) -> page text + its links."""
+
+    def __init__(self, firecrawl_key: str | None = None, jina_key: str | None = None) -> None:
+        self.firecrawl_key = firecrawl_key
+        self.jina_key = jina_key
+        self.calls = 0
+        self.used: dict[str, int] = {}
+        self.firecrawl_refused: str | None = None  # "key_invalid" | "out_of_credits"
+
+    def _count(self, provider: str) -> None:
+        self.calls += 1
+        self.used[provider] = self.used.get(provider, 0) + 1
+
+    def _firecrawl(self, path: str, body: dict[str, Any]) -> dict[str, Any] | None:
+        if not self.firecrawl_key or self.firecrawl_refused:
+            return None
+        self._count("firecrawl")
+        status, text = _http(f"{FIRECRAWL_URL}{path}", json.dumps(body).encode(), {"Authorization": f"Bearer {self.firecrawl_key}", "Content-Type": "application/json"}, 60)
+        if status == 401:
+            self.firecrawl_refused = "key_invalid"
+            log("web.firecrawl_refused", status=401)
+            return None
+        if status == 402:
+            self.firecrawl_refused = "out_of_credits"
+            log("web.firecrawl_refused", status=402)
+            return None
+        if status != 200:
+            log("web.firecrawl_error", status=status)
+            return None
+        try:
+            return json.loads(text)
+        except ValueError:
+            return None
+
+    def search(self, query: str, limit: int = 6) -> list[dict[str, str]]:
+        fc = self._firecrawl("/search", {"query": query, "limit": limit})
+        if fc and fc.get("data"):
+            return [{"url": d.get("url", ""), "title": d.get("title", ""), "description": d.get("description", "")} for d in fc["data"] if d.get("url")][:limit]
+        if self.jina_key:
+            self._count("jina_search")
+            status, text = _http(f"{JINA_SEARCH_URL}?q={urllib.parse.quote(query)}", None, {"Accept": "application/json", "Authorization": f"Bearer {self.jina_key}"})
+            if status == 200:
+                try:
+                    data = json.loads(text).get("data") or []
+                    rows = [{"url": d.get("url", ""), "title": d.get("title", ""), "description": d.get("description", "")} for d in data if d.get("url")]
+                    if rows:
+                        return rows[:limit]
+                except ValueError:
+                    pass
+            log("web.jina_search_skipped", status=status)
+        self._count("duckduckgo")
+        status, html = _http(f"{DDG_HTML_URL}?q={urllib.parse.quote_plus(query)}")
+        rows = parse_ddg_html(html, limit) if status == 200 else []
+        if not rows:
+            log("web.search_empty", status=status)
+        return rows
+
+    def read(self, url: str) -> str:
+        fc = self._firecrawl("/scrape", {"url": url, "formats": ["markdown", "links"], "onlyMainContent": False})
+        if fc and fc.get("data"):
+            d = fc["data"]
+            return (d.get("markdown") or "") + "\n" + "\n".join(str(x) for x in (d.get("links") or []))
+        self._count("jina_read")
+        status, text = _http(f"{JINA_READ_URL}{url}", None, {"Accept": "application/json", **({"Authorization": f"Bearer {self.jina_key}"} if self.jina_key else {})})
+        if status == 200:
+            try:
+                d = json.loads(text).get("data") or {}
+                content = d.get("content") or ""
+                links = d.get("links") or {}
+                link_list = list(links.values()) if isinstance(links, dict) else list(links)
+                if content.strip():
+                    return content + "\n" + "\n".join(str(x) for x in link_list)
+            except ValueError:
+                pass
+        self._count("plain")
+        status, html = _http(url)
+        return strip_tags(html) if status == 200 and html else ""
+
+
 @dataclass
 class Job:
     id: str

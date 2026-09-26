@@ -15,8 +15,8 @@ const TEN_B_URLS = [
 ];
 
 describe("fake brief", () => {
-  const plain = buildFakeBrief({ stats: {}, uploads: [], webSkipped: false });
-  const full = buildFakeBrief({ stats: { instagram: { videos: 18 }, tiktok: { videos: 40 } }, uploads: [{ id: "upl_1", title: "Deep research.pdf" }], webSkipped: true });
+  const plain = buildFakeBrief({ stats: {}, uploads: [] });
+  const full = buildFakeBrief({ stats: { instagram: { videos: 18 }, tiktok: { videos: 40 } }, uploads: [{ id: "upl_1", title: "Deep research.pdf" }] });
 
   it("matches the BriefBody shape exactly", () => {
     expect(shapeProblems(plain.body)).toEqual([]);
@@ -39,9 +39,11 @@ describe("fake brief", () => {
     expect(truthProblems(full.body, full.sources)).toEqual([]);
   });
 
-  it("uses her stats and uploads as sources when she has them, and says when web search was skipped", () => {
+  it("uses her stats and uploads as sources when she has them, and never marks web search as skipped (it is free now)", () => {
     const ids = full.sources.map((s) => s.id);
-    expect(ids).toEqual(expect.arrayContaining(["her_instagram", "her_tiktok", "up_upl_1", WEB_SKIPPED_SOURCE_ID]));
+    expect(ids).toEqual(expect.arrayContaining(["her_instagram", "her_tiktok", "up_upl_1"]));
+    // Firecrawl is optional since 26 Sep 2026: no brief is ever built with the "skipped" marker.
+    expect([...ids, ...plain.sources.map((s) => s.id)]).not.toContain(WEB_SKIPPED_SOURCE_ID);
     expect(ids).not.toContain("her_youtube");
     const usedUpload = allClaims(full.body).some((c) => c.claim.source_ids.includes("up_upl_1") && c.claim.basis === "upload");
     expect(usedUpload).toBe(true);

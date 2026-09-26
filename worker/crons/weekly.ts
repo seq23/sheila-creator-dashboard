@@ -7,6 +7,7 @@ import { log } from "../lib/log";
 import { readSettings } from "../routes/settings";
 import { emailFrame, sendEmail } from "../services/email";
 import { dispatchJob } from "../services/github";
+import { dueDealItems } from "../routes/deals";
 
 export async function weekly(env: Env): Promise<void> {
   const s = await readSettings(env);
@@ -15,7 +16,7 @@ export async function weekly(env: Env): Promise<void> {
   // Learning loop + brand finder only make sense once there is a locked profile.
   if (profileLocked) {
     await dispatchJob(env, "metrics", null);
-    await dispatchJob(env, "brand_finder", null);
+    await dispatchJob(env, "brand_finder", "full");
   }
 
   if (!s.features.weekly_recap) return;
@@ -30,13 +31,9 @@ export async function weekly(env: Env): Promise<void> {
   const thisWeek = weekBounds(new Date(), s.audience_timezone);
   const plannedN = (await env.DB.prepare("SELECT COUNT(*) AS n FROM posts WHERE status IN ('planned','in_buffer') AND scheduled_at >= ? AND scheduled_at < ?").bind(thisWeek.start, thisWeek.end).first<{ n: number }>())?.n ?? 0;
   const weeks = runwayWeeks(approved, weeklyNeed(s.weekly_caps));
-  // Brand-deal follow-ups she owes this week (or already owes): the same rows Home lists, over
-  // the coming seven days instead of the next two.
-  const { results: due } = await env.DB.prepare(
-    "SELECT b.name AS brand, p.next_followup_at AS dueAt FROM deals d JOIN brands b ON b.id = d.brand_id JOIN pitches p ON p.brand_id = d.brand_id WHERE d.stage IN ('sent','replied','negotiating') AND p.next_followup_at IS NOT NULL AND p.next_followup_at <= ? ORDER BY p.next_followup_at LIMIT 10",
-  )
-    .bind(new Date(Date.now() + 7 * 86400_000).toISOString())
-    .all<{ brand: string; dueAt: string }>();
+  // Deal emails she owes this week (or already owes): the same list Home shows, over the coming
+  // seven days instead of the next two (worker/routes/deals.ts dueDealItems).
+  const due = await dueDealItems(env, new Date(Date.now() + 7 * 86400_000));
   const followups = followupsDueLine(due, s.audience_timezone);
   const lines = [
     `Last week: ${postedN} posts went out.`,

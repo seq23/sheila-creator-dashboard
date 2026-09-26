@@ -1,6 +1,6 @@
 // Research Brief from her data + web + her uploads (BUILD_PLAN.md section 6). jobs/research.py
-// fetches this spec, searches the web with Firecrawl (skipped, and said so, when Firecrawl is
-// not connected), reads her uploaded reports, and asks an OpenRouter free model to draft a
+// fetches this spec, searches the web (jobs/common.py Web: Firecrawl when she connected it, else
+// the free keyless search, so it never needs a key), reads her uploaded reports, and asks an OpenRouter free model to draft a
 // BriefBody (shared/types.ts) citing only the sources it was given. The Worker then enforces
 // the truth rules (domain/brief.ts) before storing a new draft version.
 import type { JobHandler } from "./registry";
@@ -10,7 +10,7 @@ import type { BriefBody, BriefSource, Features } from "@shared/types";
 import { getConnectionSecret } from "../lib/connections";
 import { getSetting, parseJson, recordEvent } from "../lib/db";
 import { log } from "../lib/log";
-import { BASELINE_SOURCES, enforceTruth, shapeProblems, sourceProblems, WEB_SKIPPED_SOURCE_ID } from "../domain/brief";
+import { BASELINE_SOURCES, enforceTruth, shapeProblems, sourceProblems } from "../domain/brief";
 import { bucketByTime, historyDays } from "../domain/learning";
 import { FREE_MODEL } from "../services/openrouter";
 import { readSettings } from "../routes/settings";
@@ -66,11 +66,11 @@ async function buildSpec(env: Env, jobId: string) {
     uploads: present.map((u) => ({ id: u.id, source_id: `up_${u.id}`, title: u.file_name, r2_key: u.r2_key, ext: (u.file_name.split(".").pop() ?? "").toLowerCase().slice(0, 5) })),
     baseline: { basis: "BUILD_PLAN.md section 10b", slots: LAUNCH_SLOTS, caps: DEFAULT_WEEKLY_CAPS, sources: BASELINE_SOURCES },
     features: { deeper_research: !!features.deeper_research },
+    // Firecrawl is optional: without it the job searches with the free keyless path (jobs/common.py Web).
     keys: { openrouter: await getConnectionSecret(env, "openrouter"), firecrawl: await getConnectionSecret(env, "firecrawl") },
     model: FREE_MODEL,
     deeper_model: "perplexity/sonar",
     system: RESEARCH_SYSTEM,
-    web_skipped_source_id: WEB_SKIPPED_SOURCE_ID,
   };
 }
 
@@ -105,6 +105,6 @@ export const researchJob: JobHandler = {
     const spec = await buildSpec(env, jobId);
     const stats: Partial<Record<Platform, { videos: number }>> = {};
     for (const p of PLATFORMS) stats[p] = { videos: spec.her_data.summary[p].videos };
-    return buildFakeBrief({ stats, uploads: spec.uploads.map((u) => ({ id: u.id, title: u.title })), webSkipped: !spec.keys.firecrawl });
+    return buildFakeBrief({ stats, uploads: spec.uploads.map((u) => ({ id: u.id, title: u.title })) });
   },
 };

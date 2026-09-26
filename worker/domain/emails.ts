@@ -275,13 +275,13 @@ export const SCENARIOS: Record<ScenarioKey, Scenario> = {
       if (!t?.timeline) missing.push("the posting dates");
       if (!t?.payment) missing.push("payment terms");
       if (!t?.fee) missing.push("the budget");
-      const read = [t?.deliverables && `deliverables: ${t.deliverables}`, t?.fee != null && `fee: ${usd(t.fee)}`, t?.usage && `usage: ${t.usage}`, t?.timeline && `timing: ${t.timeline}`].filter(Boolean);
+      const read = [t?.deliverables && `deliverables: ${t.deliverables}`, t?.fee != null && `fee: ${usd(t.fee)}`, t?.usage && `usage: ${t.usage}`, t?.timeline && `timing: ${t.timeline}`, t?.payment && `payment: ${t.payment}`].filter(Boolean);
       return [
         { text: hello(f, tone), keep: "brief" },
         { text: tone === "short" ? `Thanks for thinking of me.` : `Thank you for reaching out, I'd love to work with ${f.brand.name}.`, keep: "brief" },
         ...(read.length ? [{ text: `To make sure I have it right: ${read.join("; ")}.`, keep: "brief" as Length }] : []),
         ...(missing.length ? [{ text: `Could you share ${missing.join(", ")}?`, keep: "brief" as Length }] : []),
-        { text: "Once I have those, I'll confirm my rate and the plan within a day. My packages and usage terms are on my kit.", keep: "standard" },
+        { text: `Once I have those, I'll confirm my rate and the plan within a day. My usual payment terms are net-${f.terms.netDays}; my packages and usage terms are on my kit.`, keep: "brief" },
         { text: kitLine(f), keep: "brief" },
         { text: signoff(f, tone), keep: "brief" },
       ];
@@ -298,7 +298,7 @@ export const SCENARIOS: Record<ScenarioKey, Scenario> = {
       { text: hello(f, tone), keep: "brief" },
       { text: tone === "warm" ? "So glad you're interested! So I can put together the right plan:" : "So I can put together the right plan:", keep: "brief" },
       { text: "1. Which platforms and how many videos (TikTok, Reels, Stories)?\n2. Your dates: when you'd like the draft and when it should post.\n3. Usage: will you repost or run it as an ad, and for how long?\n4. Do you need exclusivity, and in which category?\n5. What budget range are you working with?", keep: "brief" },
-      { text: "If you have a written brief, send it over and I'll reply with options within a day.", keep: "standard" },
+      { text: "I usually turn a video around within 7 days of an approved brief. If you have a written brief, send it over and I'll reply with options within a day.", keep: "brief" },
       { text: signoff(f, tone), keep: "brief" },
     ],
   },
@@ -332,6 +332,7 @@ export const SCENARIOS: Record<ScenarioKey, Scenario> = {
       { text: hello(f, tone), keep: "brief" },
       { text: tone === "warm" ? "Thank you for the offer, I really want to make this work." : "Thanks for the offer.", keep: "brief" },
       { text: f.counter?.line ?? (f.offer?.price != null ? `My rate for ${f.offer.name} is ${usd(f.offer.price)}.` : "Could you share the budget so I can suggest a scope that fits?"), keep: "brief" },
+      ...((f.terms.deliverables ?? f.offer?.what) && !/can't do all/.test(f.counter?.line ?? "") ? [{ text: `That's for ${lowerFirst(f.terms.deliverables ?? f.offer!.what)}.`, keep: "brief" as Length }] : []),
       { text: `That includes 30 days of reposting on your channels; longer usage or paid ads from my handle are priced separately. ${termsLine(f)}`, keep: "standard" },
       { text: "Let me know which works and I'll send the agreement details.", keep: "brief" },
       { text: signoff(f, tone), keep: "brief" },
@@ -500,7 +501,7 @@ export function allowedAmounts(f: EmailFacts): Set<number> {
 }
 
 export function amountsIn(text: string): number[] {
-  return [...text.matchAll(/\$\s?(\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(k)?/gi)].map((m) => Number(m[1].replace(/,/g, "")) * (m[2] ? 1000 : 1));
+  return [...text.matchAll(/\$\s?(\d{1,3}(?:,\d{3})+|\d+)(\.\d+)?\s?(k\b)?/gi)].map((m) => Math.round(Number(m[1].replace(/,/g, "") + (m[2] ?? "")) * (m[3] ? 1000 : 1)));
 }
 
 export function emailPrompt(key: ScenarioKey, f: EmailFacts, tone: Tone, length: Length): { system: string; user: string } {

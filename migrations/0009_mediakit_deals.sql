@@ -65,6 +65,8 @@ CREATE TABLE deals_new (
   delivery TEXT NOT NULL DEFAULT '{}',
   outcome_reason TEXT,
   invoice_number TEXT,
+  pitched_at TEXT,
+  replied_at TEXT,
   agreed_at TEXT,
   delivered_at TEXT,
   invoiced_at TEXT,
@@ -74,7 +76,7 @@ CREATE TABLE deals_new (
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
-INSERT INTO deals_new (id, brand_id, stage, terms_note, deliverables, paid_partnership, outcome_reason, agreed_at, closed_at, updated_at, created_at)
+INSERT INTO deals_new (id, brand_id, stage, terms_note, deliverables, paid_partnership, outcome_reason, pitched_at, replied_at, agreed_at, closed_at, updated_at, created_at)
   SELECT d.id, d.brand_id,
     CASE d.stage
       WHEN 'found' THEN CASE WHEN EXISTS (SELECT 1 FROM brand_contacts c WHERE c.brand_id = d.brand_id) THEN 'pitch' ELSE 'find_contact' END
@@ -87,6 +89,8 @@ INSERT INTO deals_new (id, brand_id, stage, terms_note, deliverables, paid_partn
     END,
     d.terms_note, d.deliverables, d.paid_partnership,
     CASE d.stage WHEN 'passed' THEN 'Passed before the deals overhaul' ELSE NULL END,
+    (SELECT MIN(p.sent_at) FROM pitches p WHERE p.brand_id = d.brand_id AND p.sent_at IS NOT NULL),
+    CASE WHEN d.stage IN ('replied', 'negotiating', 'won') THEN d.updated_at ELSE NULL END,
     CASE d.stage WHEN 'won' THEN d.updated_at ELSE NULL END,
     CASE d.stage WHEN 'passed' THEN d.updated_at ELSE NULL END,
     d.updated_at, d.created_at

@@ -41,7 +41,7 @@ export function extractTerms(text: string): OfferTerms {
   const t = text.replace(/\r/g, "");
   const lower = t.toLowerCase();
   // fee: the largest "$" amount near a pay word, else the largest "$" amount at all
-  const amounts = [...t.matchAll(/\$\s?(\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{2})?\s?(k\b)?|(\d{1,3}(?:,\d{3})+|\d+)\s?(usd|dollars)\b/gi)].map((m) => ({ n: Number((m[1] ?? m[3]).replace(/,/g, "")) * (m[2] ? 1000 : 1), i: m.index ?? 0 }));
+  const amounts = [...t.matchAll(/\$\s?(\d{1,3}(?:,\d{3})+|\d+)(\.\d+)?\s?(k\b)?|(\d{1,3}(?:,\d{3})+|\d+)\s?(usd|dollars)\b/gi)].map((m) => ({ n: Math.round(Number((m[1] ?? m[4]).replace(/,/g, "") + (m[1] ? (m[2] ?? "") : "")) * (m[3] ? 1000 : 1)), i: m.index ?? 0 }));
   const payNear = amounts.filter((a) => /(fee|budget|pay|rate|compensat|offer|flat|total)/i.test(t.slice(Math.max(0, a.i - 60), a.i + 40)));
   const pool = payNear.length ? payNear : amounts;
   const fee = pool.length ? Math.max(...pool.map((a) => a.n)) : null;

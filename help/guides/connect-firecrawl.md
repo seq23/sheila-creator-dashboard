@@ -1,9 +1,13 @@
 ---
-title: "Connect web research (Firecrawl)"
+title: "Connect faster web research (Firecrawl, optional)"
 group: getting_started
 screen: connect
-last_checked: 2026-09-25
+last_checked: 2026-09-26
 ---
+
+You do not need this. The dashboard searches the web for free on its own for your Research Brief
+and the brand finder. Firecrawl is an optional, faster search: its free plan has 1,000 credits a
+month.
 
 ## Step 1
 

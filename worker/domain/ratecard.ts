@@ -368,3 +368,24 @@ export function tiktokTypicalEngagement(followers: number): { rate: number; band
   if (followers >= 10_000 && followers < 50_000) return { rate: 3.9, band: "10K–50K followers", source: SOURCES.socialinsiderTikTok };
   return null;
 }
+
+// ---------- negotiation scripts, one per lever (docs/reviews/agency-pov.md "How we negotiate")
+
+export interface LeverScript {
+  key: "price" | "usage" | "exclusivity" | "payment" | "revisions" | "rush";
+  when: string;
+  say: string;
+  why: string;
+}
+
+/** What to say when they push on each lever. `t` fills her own terms into the lines. */
+export function leverScripts(t: AddOnTerms): LeverScript[] {
+  return [
+    { key: "price", when: "They push on price", say: "I can meet that budget by trimming the scope: one video instead of two, and 30 days of usage instead of 90. The rate per video stays the same.", why: "Trade scope, not price. Your per-video rate is what the next brand hears about." },
+    { key: "usage", when: "They want longer or wider usage", say: `My rate covers 30 days of reposting on your own channels. Longer usage is ${t.usagePctPer30d}% of the fee per extra 30 days, and ads from my handle are ${t.paidUsagePctPer30d}% per 30 days.`, why: "Usage is worth the most to them and costs you the least to give in a narrow form. Never perpetual." },
+    { key: "exclusivity", when: "They ask for exclusivity", say: `Happy to hold the category for you: exclusivity is ${t.exclusivityPctPerMonth}% of the fee per month, for your direct competitors only, named in writing.`, why: "Exclusivity stops you earning from others, so it is always paid and always narrow." },
+    { key: "payment", when: "They offer net-60 or longer", say: `My terms are net-${t.netDays}${t.upfrontPct ? `, with ${t.upfrontPct}% up front on projects over $${t.upfrontOver.toLocaleString("en-US")}` : ""}. Could your team do that?`, why: "Net-30 is the most common; longer terms are creeping in and cost you." },
+    { key: "revisions", when: "They want more rounds of changes", say: `The fee includes ${t.revisionRounds} rounds of changes. Extra rounds, or a reshoot, are quoted separately.`, why: "Unlimited revisions is unpaid work." },
+    { key: "rush", when: "They need it in under 7 days", say: t.rushPct ? `I can turn it around this week; a rush fee of ${t.rushPct}% applies under 7 days.` : "I can turn it around this week; for under 7 days I add a rush fee, so let me know your date and I'll confirm it.", why: "A rushed slot bumps other work; set your own rush fee on the rate card." },
+  ];
+}

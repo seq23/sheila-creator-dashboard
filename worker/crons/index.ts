@@ -11,6 +11,7 @@ import { bufferSync } from "./buffer-sync";
 import { dailyMaintenance } from "./daily";
 import { weekly } from "./weekly";
 import { briefDraftNotice, monthlyBriefRefresh, weeklyBriefAdjust } from "./brief";
+import { dailyBrandRefresh } from "./deals";
 
 export async function runCron(env: Env, cron: string): Promise<void> {
   const lane = cron === "0 * * * *" ? "buffer-sync" : cron === "30 13 * * *" ? "daily" : cron === "0 12 * * 1" ? "weekly" : "unknown";
@@ -22,6 +23,7 @@ export async function runCron(env: Env, cron: string): Promise<void> {
     } else if (lane === "daily") {
       await dailyMaintenance(env);
       await monthlyBriefRefresh(env);
+      await dailyBrandRefresh(env);
     } else if (lane === "weekly") {
       await weekly(env);
       await weeklyBriefAdjust(env);
