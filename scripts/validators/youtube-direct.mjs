@@ -38,7 +38,7 @@ export function checkYouTubeDirect(src) {
   check(/oauth\.get\("\/youtube\/start"/.test(oauth) && /u\.searchParams\.set\("scope", YT_UPLOAD_SCOPES\.join\(" "\)\)/.test(oauth) && /u\.searchParams\.set\("access_type", "offline"\)/.test(oauth) && /include_granted_scopes", "true"/.test(oauth), "worker/routes/oauth.ts: Connect YouTube must ask for the upload scopes, offline, incrementally");
   check(/await youtubeDirectSync\(env\);/.test(cron), "worker/crons/index.ts: the hourly lane must run youtubeDirectSync");
   const follows = (posts.match(/await followYouTube\(c\.env, /g) ?? []).length;
-  check(follows >= 3, `worker/routes/posts.ts: move, swap and take off must each follow YouTube (found ${follows})`);
+  check(follows >= 4, `worker/routes/posts.ts: place, move, swap and take off must each follow YouTube (found ${follows})`);
   check(/verifyReadBack\(intent, back\)/.test(lib), "worker/lib/youtubeDirect.ts must read every upload back and compare (verifyReadBack)");
   let fx = {};
   try {

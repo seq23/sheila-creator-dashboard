@@ -202,10 +202,16 @@ describe("upload → read back → follow the Calendar", () => {
     expect((await call("POST", `/api/posts/${v.post}/unschedule`)).status).toBe(200);
     expect((await readFake(env)).videos[id]).toMatchObject({ privacyStatus: "private", publishAt: null });
     expect(upload(v.clip)).toMatchObject({ status: "removed", privacy: "private", publish_at: null });
+    // the take-off is read back too: private, no publish time, and the post is not marked posted
+    const reads = db.raw.prepare("SELECT detail FROM events WHERE kind = 'ytdirect.readback' AND ref_id = ? ORDER BY rowid").all(v.clip) as { detail: string }[];
+    expect(JSON.parse(reads[reads.length - 1].detail)).toMatchObject({ video_id: id, privacyStatus: "private", publishAt: null });
+    expect(one<{ actual_privacy: string; actual_publish_at: string | null }>("SELECT actual_privacy, actual_publish_at FROM youtube_uploads WHERE clip_id = ?", v.clip)).toEqual({ actual_privacy: "private", actual_publish_at: null });
+    expect(one<{ status: string }>("SELECT status FROM posts WHERE id = ?", v.post).status).toBe("unscheduled");
     expect((await readFake(env)).calls).not.toContain("videos.delete");
-    db.raw.prepare("INSERT INTO posts (id, clip_id, platform, scheduled_at, status) VALUES ('pst_back', ?, 'youtube', ?, 'planned')").run(v.clip, later);
-    await youtubeDirectSync(env);
+    // put back through the Calendar: its time again on YouTube at once, read back
+    expect((await call("POST", "/api/posts", { clip_id: v.clip, platform: "youtube", scheduled_at: later })).status).toBe(200);
     expect(upload(v.clip).status).toBe("scheduled");
+    expect((await readFake(env)).videos[id]).toMatchObject({ privacyStatus: "private", publishAt: new Date(Math.floor(Date.parse(later) / 1000) * 1000).toISOString() });
     expect((await readFake(env)).calls.filter((c) => c === "videos.insert")).toHaveLength(1); // never a second upload
   });
 

@@ -226,6 +226,8 @@ posts.post("/", async (c) => {
   const id = newId("pst");
   await c.env.DB.prepare("INSERT INTO posts (id, clip_id, platform, scheduled_at, status) VALUES (?, ?, ?, ?, 'planned')").bind(id, body.clip_id, body.platform, at).run();
   await recordEvent(c.env.DB, "post.placed", id, { platform: body.platform }, c.get("user").email);
+  // A full video already on her channel (taken off earlier) gets its new time on YouTube at once.
+  await followYouTube(c.env, [body.clip_id]);
   return c.json({ ok: true, id });
 });
 
