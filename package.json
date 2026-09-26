@@ -13,6 +13,7 @@
     "test:watch": "vitest",
     "validate": "node scripts/validate.mjs",
     "validate:envs": "node scripts/validate.mjs envs-match",
+    "validate:looks": "node scripts/validate.mjs looks",
     "check": "npm run typecheck && npm run test && npm run validate && npm run build",
     "e2e": "playwright test",
     "e2e:live": "playwright test -c playwright.live.config.ts",

@@ -10,6 +10,7 @@ import { Card, Dot, Empty, HelpButton, PageHead, Skeleton, Stepper, Switch, useL
 import { useApp } from "../state";
 import { PLATFORMS, PLATFORM_LABEL } from "@shared/constants";
 import { Icon } from "../components/Icon";
+import { EditingCard } from "../components/EditingSettings";
 import "../styles/settings.css";
 
 export function Settings() {
@@ -154,6 +155,7 @@ export function Settings() {
         </div>
 
         <div className="settings-col">
+          <EditingCard owner={owner} />
           <HealthSection health={health.data} onChange={(rows) => health.setData(rows)} />
 
           <section className="section">

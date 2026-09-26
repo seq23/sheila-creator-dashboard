@@ -2,6 +2,8 @@
 // watermark "TikTok @texasgardenfairyx", went through the cutter unnoticed). The decision is
 // pure; the job's OCR parsing is driven in a real python3.
 import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { POSTABLE_CLIP_SQL, heldSentence, sameHandle, sourceVerdict } from "@worker/domain/sourceCheck";
 import { sourceUpdates } from "@worker/jobs/cut";
@@ -70,4 +72,33 @@ describe("jobs/cut.py parse_marks (OCR text of sampled frames)", () => {
   it("no watermark → nothing", () => {
     expect(parse(["TEST POST", "Sheila Studio"])).toBeNull();
   });
+  it("reads '@ handle', '© handle' and a bare handle beside the mark, the way tesseract prints them", () => {
+    expect(parse(["TikTok\n\n@ evahfourevah\n"])).toEqual({ platform: "tiktok", handles: ["evahfourevah"] });
+    expect(parse(["TikTOK\n\n© evahfourevah\n"])).toEqual({ platform: "tiktok", handles: ["evahfourevah"] });
+    expect(parse(["TikTok\n\nevahfourevah\n"])).toEqual({ platform: "tiktok", handles: ["evahfourevah"] });
+    // 2-letter noise next to the mark is never a handle
+    expect(parse(["TikTOK\n\ntt\n"])).toEqual({ platform: "tiktok", handles: [] });
+  });
+  it("a handle read on several frames wins; one-off misreads and caption @mentions are dropped", () => {
+    expect(parse(["TikTok\n@ texasgardenfairyx", "TiKTOK\ntrenasqirdenfairys", "@ texasgardenfairyx\nTikTok", "thanks @thevenue"])).toEqual({ platform: "tiktok", handles: ["texasgardenfairyx"] });
+  });
+});
+
+// Real OCR output from the staging test videos (Phase 0, 25 Sep 2026): the plain pass read the
+// "TikTok" word and no handle, so the held note could not say whose video it was.
+const OCR = JSON.parse(readFileSync(path.join(__dirname, "fixtures", "ocr-watermarks.json"), "utf8")) as { videos: { file: string; handle: string; texts: string[] }[] };
+
+describe("jobs/cut.py names the creator on the real staging videos", () => {
+  it("has both staging videos in the fixture", () => {
+    expect(OCR.videos.map((v) => v.handle)).toEqual(["evahfourevah", "texasgardenfairyx"]);
+  });
+  for (const v of OCR.videos) {
+    it(`${v.file} → @${v.handle}, and the held note names it`, () => {
+      const got = parse(v.texts) as { platform: string; handles: string[] };
+      expect(got).toEqual({ platform: "tiktok", handles: [v.handle] });
+      const verdict = sourceVerdict({ platform: "tiktok", handles: got.handles }, HERS);
+      expect(verdict).toEqual({ owner: "other", foreign: [v.handle] });
+      expect(heldSentence(verdict!.foreign, "tiktok")).toContain(`@${v.handle}`);
+    });
+  }
 });

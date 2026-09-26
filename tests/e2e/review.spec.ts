@@ -178,6 +178,35 @@ test("edit a caption, swap to the other hook, untick a platform, mark a paid par
   await expect(card.getByRole("button", { name: "Post to TikTok" })).toHaveAttribute("aria-pressed", "true");
 });
 
+test("reopening Edit right after Save shows the saved values, so a second Save keeps them", async ({ page }) => {
+  // Phase 0 live test, 25 Sep 2026: reopening within ~0.5 s showed the pre-save values while the
+  // list reloaded, and a second Save put the old ones back (paid partnership reverted once).
+  const dumpId = await readyDump(page.request);
+  const [clip] = await clipsOf(page.request, dumpId, "new", false);
+  await page.goto("/review");
+  const card = group(page, dumpId).locator(`[data-clip-id="${clip.id}"]`);
+  // hold the list reload back, so the reopen happens before it could have finished
+  await page.route("**/api/clips?*", async (route) => {
+    await new Promise((r) => setTimeout(r, 2500));
+    await route.continue();
+  });
+  await card.getByRole("button", { name: "Edit caption & hook" }).click();
+  let dialog = page.getByRole("dialog", { name: "Edit this clip" });
+  await dialog.getByLabel("Caption", { exact: true }).fill("Saved words, first save");
+  await dialog.getByText("Paid partnership", { exact: true }).click();
+  await dialog.getByRole("button", { name: "Save" }).click();
+  await expect(dialog).toHaveCount(0);
+  await card.getByRole("button", { name: "Edit caption & hook" }).click();
+  dialog = page.getByRole("dialog", { name: "Edit this clip" });
+  await expect(dialog.getByLabel("Caption", { exact: true })).toHaveValue("Saved words, first save");
+  await expect(dialog.getByRole("checkbox", { name: /Paid partnership/ })).toBeChecked();
+  await dialog.getByRole("button", { name: "Save" }).click();
+  await expect(dialog).toHaveCount(0);
+  await page.unroute("**/api/clips?*");
+  const [saved] = (await clipsOf(page.request, dumpId)).filter((c) => c.id === clip.id);
+  expect(saved).toMatchObject({ caption: "Saved words, first save #ad", paid_partnership: true });
+});
+
 test("delete asks to confirm, then removes the file for good", async ({ page }) => {
   const dumpId = await readyDump(page.request);
   const [clip] = await clipsOf(page.request, dumpId, "new", false);

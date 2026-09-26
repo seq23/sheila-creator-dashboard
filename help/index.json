@@ -45,6 +45,8 @@
     { "slug": "recycle-old-videos", "title": "Recycle old videos", "group": "everyday", "screen": "dump" },
     { "slug": "review-and-approve-clips", "title": "Review and approve clips", "group": "everyday", "screen": "review" },
     { "slug": "edit-a-caption", "title": "Edit a caption", "group": "everyday", "screen": "review" },
+    { "slug": "looks-and-styles", "title": "Looks: change how a clip looks", "group": "everyday", "screen": "review" },
+    { "slug": "grid-looks", "title": "The grid looks, picture by picture", "group": "everyday", "screen": "review" },
     { "slug": "move-or-remove-a-post", "title": "Move or remove a post", "group": "everyday", "screen": "calendar" },
     { "slug": "what-runway-means", "title": "What \"runway\" means", "group": "everyday", "screen": "home" },
     { "slug": "change-posts-per-week", "title": "Change posts per week", "group": "everyday", "screen": "settings" },

@@ -11,13 +11,22 @@ import { fmtDate, fmtSeconds, plural } from "../lib/format";
 import { Empty, HelpButton, Modal, PageHead, Skeleton, Switch, useLoad, useToast } from "../components/ui";
 import { useApp } from "../state";
 import { HeldNotice } from "../components/HeldNotice";
+import { LookModal } from "../components/LookPicker";
 import "../styles/review.css";
 
 type Tab = "new" | "approved" | "rejected";
 
-interface ReviewClip extends ClipRow {
+export interface ReviewClip extends ClipRow {
   reviewed_at: string | null;
   purge_at: string | null;
+  look: string | null;
+  look_name: string | null;
+  layout: { cells: ({ kind: "self" } | { kind: "clip"; clip_id: string } | { kind: "zoom"; zoom: number })[]; voice: number } | null;
+  pending_look: string | null;
+  pending_look_name: string | null;
+  rerender_error: string | null;
+  source_available: boolean;
+  edited_with: string | null;
   /** Her voice over on this clip: being added, in it (the video plays with it), or it did not work. */
   voice_over: "mixing" | "ready" | "failed" | null;
 }
@@ -51,6 +60,7 @@ export function Review() {
   const [editing, setEditing] = useState<ReviewClip | null>(null);
   const [rejecting, setRejecting] = useState<string[] | null>(null);
   const [deleting, setDeleting] = useState<ReviewClip | null>(null);
+  const [restyling, setRestyling] = useState<ReviewClip | null>(null);
   const [busy, setBusy] = useState(false);
 
   const query = useMemo(() => {
@@ -64,6 +74,20 @@ export function Review() {
   const list = useLoad(() => get<ReviewList>(`/api/clips?${query}`), [query]);
 
   useEffect(() => setSelected(new Set()), [query]);
+
+  // A clip getting a new look re-renders on the runner (about a minute): check back every 15 s
+  // until none is pending, so the new version appears without a manual refresh.
+  const pending = (list.data?.groups ?? []).some((g) => g.clips.some((c) => c.pending_look));
+  useEffect(() => {
+    if (!pending) return;
+    const t = window.setInterval(() => list.reload(), 15_000);
+    return () => window.clearInterval(t);
+  }, [pending, list.reload]);
+
+  /** Put one clip's fresh copy (a PATCH or Change look answer) into the list right away. */
+  function replaceClip(updated: ReviewClip) {
+    list.setData((d) => (d ? { ...d, groups: d.groups.map((g) => ({ ...g, clips: g.clips.map((x) => (x.id === updated.id ? { ...x, ...updated } : x)) })) } : d));
+  }
 
   const visible = useMemo(() => (list.data?.groups ?? []).flatMap((g) => g.clips), [list.data]);
   const counts = list.data?.counts ?? { new: 0, approved: 0, rejected: 0, hidden: 0 };
@@ -213,6 +237,7 @@ export function Review() {
                 onReject={() => setRejecting([c.id])}
                 onRestore={() => restore(c.id)}
                 onEdit={() => setEditing(c)}
+                onRestyle={() => setRestyling(c)}
                 onDelete={() => setDeleting(c)}
                 onPlatform={(p) => togglePlatform(c, p)}
               />
@@ -277,9 +302,25 @@ export function Review() {
         <EditModal
           clip={editing}
           onClose={() => setEditing(null)}
-          onSaved={() => {
+          onSaved={(updated) => {
+            // The card shows the saved values before the sheet closes: reopening it at once (live
+            // test, 25 Sep 2026) showed the old values while the list reloaded, and a second Save
+            // undid the first.
+            if (updated) replaceClip(updated);
             setEditing(null);
             after("Saved.");
+          }}
+        />
+      ) : null}
+      {restyling ? (
+        <LookModal
+          clip={restyling}
+          onClose={() => setRestyling(null)}
+          onQueued={(updated) => {
+            if (updated) replaceClip(updated);
+            setRestyling(null);
+            toast.ok("Re-rendering, about a minute. The current version stays until the new one is ready.");
+            list.reload();
           }}
         />
       ) : null}
@@ -298,6 +339,7 @@ function ClipCard(props: {
   onReject: () => void;
   onRestore: () => void;
   onEdit: () => void;
+  onRestyle: () => void;
   onDelete: () => void;
   onPlatform: (p: Platform) => void;
 }) {
@@ -323,6 +365,19 @@ function ClipCard(props: {
           {c.voice_over === "mixing" ? <span className="pill" data-voice-over="mixing">Adding your voice over…</span> : null}
           {c.voice_over === "failed" ? <span className="pill warn" data-voice-over="failed">Voice over not added · attach it again on Voice overs</span> : null}
         </div>
+        <div className="clip-look">
+          {c.look_name ? (
+            <span className="pill look-chip" data-look={c.look ?? undefined}>
+              Look: {c.look_name}
+            </span>
+          ) : null}
+          {c.pending_look ? (
+            <span className="pill warn look-pending" role="status">
+              Re-rendering as {c.pending_look_name ?? "a new look"}, about a minute
+            </span>
+          ) : null}
+        </div>
+        {c.rerender_error ? <p className="hint look-error">{c.rerender_error}</p> : null}
         <div className="clip-hook">{c.hook_text}</div>
         {c.caption ? <p className="clip-caption">{c.caption}</p> : null}
         {c.hashtags ? <p className="clip-tags hint">{c.hashtags}</p> : null}
@@ -375,6 +430,11 @@ function ClipCard(props: {
               Edit caption & hook
             </button>
           ) : null}
+          {tab !== "rejected" ? (
+            <button className="link-btn" onClick={props.onRestyle} disabled={!!c.pending_look}>
+              Change look
+            </button>
+          ) : null}
           <button className="link-btn danger-text" onClick={props.onDelete}>
             Delete this clip
           </button>
@@ -407,7 +467,7 @@ function RejectModal({ count, onPick, onClose }: { count: number; onPick: (reaso
   );
 }
 
-function EditModal({ clip, onSaved, onClose }: { clip: ReviewClip; onSaved: () => void; onClose: () => void }) {
+function EditModal({ clip, onSaved, onClose }: { clip: ReviewClip; onSaved: (updated: ReviewClip | null) => void; onClose: () => void }) {
   const toast = useToast();
   const [hook, setHook] = useState(clip.hook_text);
   const [hookAlt, setHookAlt] = useState(clip.hook_alt);
@@ -436,8 +496,8 @@ function EditModal({ clip, onSaved, onClose }: { clip: ReviewClip; onSaved: () =
     setSaving(true);
     try {
       const swapped = hookAlt !== clip.hook_alt && hook === clip.hook_alt;
-      await patch(`/api/clips/${clip.id}`, swapped ? { swap_hook: true, caption, hashtags, platforms, paid_partnership: paid } : { hook_text: hook, caption, hashtags, platforms, paid_partnership: paid });
-      onSaved();
+      const updated = await patch<ReviewClip | { ok: true }>(`/api/clips/${clip.id}`, swapped ? { swap_hook: true, caption, hashtags, platforms, paid_partnership: paid } : { hook_text: hook, caption, hashtags, platforms, paid_partnership: paid });
+      onSaved("id" in updated ? updated : null);
     } catch (e) {
       toast.bad(e);
     } finally {

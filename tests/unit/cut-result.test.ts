@@ -5,6 +5,7 @@ import fixtureJson from "./fixtures/cut-result.sample.json";
 import { describe, expect, it } from "vitest";
 import { allowedPlatformsFor, CutResultError, MAX_CLIPS_PER_DUMP, normalizeHashtags, parseCutResult, plainFailure, targetClips, type CutResultClip } from "@worker/jobs/cut";
 import { PLATFORMS, QUALITY_BAR, type Platform } from "@shared/constants";
+import { cellCount, isGridLook } from "@worker/domain/looks";
 
 const fixture = fixtureJson as unknown as {
   dump_id: string;
@@ -30,6 +31,16 @@ describe("cut result from the real pipeline", () => {
     expect(new Set(fixture.result.clips.map((c) => c.recipe)).size).toBeGreaterThanOrEqual(3);
     for (const k of ["transcript", "picker", "crop", "subtitles"]) expect(fixture.result.engine[k], k).toBeTruthy();
     expect(fixture.result.assets[0].duration_s).toBeGreaterThan(50);
+  });
+
+  it("every clip comes back in a Look, with its parts; the dump's clips use several Looks", () => {
+    const looks = fixture.result.clips.map((c) => c.look);
+    expect(looks.every((l) => typeof l === "string" && l.length > 0)).toBe(true);
+    expect(new Set(looks).size).toBe(fixture.result.clips.length);
+    for (const c of fixture.result.clips) expect(Array.isArray(c.parts) && c.parts!.length >= 1, c.id).toBe(true);
+    const { clips } = parseCutResult(fixture.result, ctx());
+    expect(clips.map((c) => c.look)).toEqual(looks);
+    for (const c of clips) expect(c.look && isGridLook(c.look) ? c.layout?.cells.length : null, c.id).toBe(c.look && isGridLook(c.look) ? cellCount(c.look) : null);
   });
 
   it("the Worker accepts every clip the pipeline made, unchanged in substance", () => {

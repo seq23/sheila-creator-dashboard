@@ -8,6 +8,10 @@
 //   PATCH  /api/clips/:id             {caption, hashtags, hook_text, swap_hook, platforms, paid_partnership}
 //   DELETE /api/clips/:id             permanent: removes the clip and cover from R2
 //   POST   /api/clips/bulk            {action: approve|reject|delete, ids[], reason?}
+//   POST   /api/clips/:id/look        {look, layout?}  Change look: queues a re-render of this clip
+//                                     (a cut job with ref "<dump>/<clip>"); the old file stays live
+//   GET    /api/clips/:id/cells       what a grid cell can show: this dump's other clips, approved
+//                                     clips from her library, this moment closer
 //
 // Nothing reaches the Calendar without approval (worker/domain/approval.ts decides every move).
 // Every decision is an event, so the learning loop reads one table.
@@ -21,6 +25,8 @@ import { log } from "../lib/log";
 import { canTransition, type ClipStatus } from "../domain/approval";
 import { PLATFORMS, RECIPES, REJECT_REASONS, REJECTED_RETENTION_DAYS, type Platform, type Recipe } from "@shared/constants";
 import type { ClipRow } from "@shared/types";
+import { cellCount, cleanGridLayout, defaultGridLayout, isGridLook, isLookId, lookById, ZOOMS, type GridLayout, type LookId } from "../domain/looks";
+import { dispatchJob } from "../services/github";
 
 export const clips = new Hono<{ Bindings: Env; Variables: Vars }>();
 clips.use("*", requireUser);
@@ -66,6 +72,20 @@ export function purgeAt(reviewedAt: string | null): string | null {
 export interface ReviewClip extends ClipRow {
   reviewed_at: string | null;
   purge_at: string | null;
+  /** The Look it is rendered in, and its name; null for clips made before Looks. */
+  look: string | null;
+  look_name: string | null;
+  /** Grid Looks: which moment is in each cell and whose sound plays. */
+  layout: GridLayout | null;
+  /** A re-render in progress ("Re-rendering, about a minute"); the old file plays meanwhile. */
+  pending_look: string | null;
+  pending_look_name: string | null;
+  /** The plain sentence when the last re-render failed. */
+  rerender_error: string | null;
+  /** False once the original upload was cleared (7 days): its look can no longer change. */
+  source_available: boolean;
+  /** Made in another editor (her own edit uploaded back, or a connected editor). */
+  edited_with: string | null;
   /** Her voice over on this clip: being added, in it (the video plays with it), or it did not work. */
   voice_over: "mixing" | "ready" | "failed" | null;
 }
@@ -108,8 +128,21 @@ interface ClipDb {
   dump_status: string;
   source_owner: string | null;
   source_note: string | null;
+  look: string | null;
+  layout: string | null;
+  pending_look: string | null;
+  rerender_error: string | null;
+  media_version: number;
+  edited_with: string | null;
+  raw_deleted_at: string | null;
   voice_mix: string | null;
   voice_nid: string | null;
+}
+
+/** "?v=<file version>.<voice over>": changes when the file is swapped or a voice over is mixed in. */
+export function mediaVersion(r: { media_version: number; voice_mix: string | null; voice_nid: string | null }): string {
+  const parts = [r.media_version ? String(r.media_version) : "", r.voice_mix === "ready" && r.voice_nid ? r.voice_nid : ""].filter(Boolean);
+  return parts.length ? `?v=${parts.join(".")}` : "";
 }
 
 function toView(r: ClipDb): ReviewClip {
@@ -131,19 +164,29 @@ function toView(r: ClipDb): ReviewClip {
     paid_partnership: !!r.paid_partnership,
     hidden: !!r.hidden,
     created_at: r.created_at,
-    // ?v= changes when a voice over is mixed in, so a player never keeps the old video cached
-    media_url: r.media_token ? `/media/${r.media_token}${r.voice_mix === "ready" && r.voice_nid ? `?v=${r.voice_nid}` : ""}` : "",
-    cover_url: r.media_token && r.cover_r2_key ? `/media/${r.media_token}?cover=1` : null,
+    // ?v= changes whenever the file is swapped (a new look, her edit) or a voice over is mixed in,
+    // so a player never keeps an old version cached.
+    media_url: r.media_token ? `/media/${r.media_token}${mediaVersion(r)}` : "",
+    cover_url: r.media_token && r.cover_r2_key ? `/media/${r.media_token}?cover=1${r.media_version ? `&v=${r.media_version}` : ""}` : null,
     source_file: r.source_file,
     door: r.door,
     reviewed_at: r.reviewed_at,
     purge_at: r.status === "rejected" ? purgeAt(r.reviewed_at) : null,
+    look: r.look,
+    look_name: lookById(r.look)?.name ?? null,
+    layout: parseJson<GridLayout | null>(r.layout, null),
+    pending_look: r.pending_look,
+    pending_look_name: lookById(r.pending_look)?.name ?? null,
+    rerender_error: r.rerender_error,
+    source_available: !r.raw_deleted_at,
+    edited_with: r.edited_with,
     voice_over: r.voice_mix === "mixing" || r.voice_mix === "ready" || r.voice_mix === "failed" ? r.voice_mix : null,
   };
 }
 
 const CLIP_SELECT = `SELECT c.id, c.asset_id, c.dump_id, c.start_s, c.end_s, c.recipe, c.hook_text, c.hook_alt, c.caption, c.hashtags,
   c.platforms, c.score, c.status, c.reject_reason, c.paid_partnership, c.hidden, c.created_at, c.reviewed_at, c.media_token, c.cover_r2_key,
+  c.look, c.layout, c.pending_look, c.rerender_error, c.media_version, c.edited_with, a.raw_deleted_at,
   a.file_name AS source_file, a.source_owner, a.source_note,
   (SELECT n.mix_status FROM narrations n WHERE n.clip_id = c.id AND n.mix_status IS NOT NULL ORDER BY n.created_at DESC LIMIT 1) AS voice_mix,
   (SELECT n.id FROM narrations n WHERE n.clip_id = c.id AND n.mix_status IS NOT NULL ORDER BY n.created_at DESC LIMIT 1) AS voice_nid, d.door, d.created_at AS dump_created_at, d.ready_at AS dump_ready_at, d.status AS dump_status
@@ -368,4 +411,113 @@ clips.patch("/:id", async (c) => {
   log.info("clip.edit", { fields: fields.length });
   const row = await c.env.DB.prepare(`${CLIP_SELECT} WHERE c.id = ?`).bind(id).first<ClipDb>();
   return c.json(row ? toView(row) : { ok: true });
+});
+
+// ---------------------------------------------------------------- Change look (re-render one clip)
+
+export interface LookChangeState {
+  status: ClipStatus;
+  look: string | null;
+  pending_look: string | null;
+  raw_deleted_at: string | null;
+  in_buffer: boolean;
+}
+
+/**
+ * Why a clip's look can't change right now, as the sentence she sees, or null when it can.
+ * Pure (unit-tested): the route only loads the state and acts on the answer.
+ */
+export function lookChangeRefusal(clip: LookChangeState | null, look: unknown, sameLayout: boolean): { status: 404 | 409 | 422; error: string } | null {
+  if (!clip || clip.status === "deleted") return { status: 404, error: "That clip is gone." };
+  if (!isLookId(look)) return { status: 422, error: "Pick one of the looks in the list." };
+  if (clip.in_buffer) return { status: 409, error: "This clip is already loaded into Buffer. Remove it from the Calendar first, then change its look." };
+  if (clip.pending_look) return { status: 409, error: "This clip is already getting a new look. It will be ready in about a minute." };
+  if (clip.raw_deleted_at) return { status: 409, error: "The original video for this clip was cleared after 7 days, so its look can't change. Dump that video again to get new looks." };
+  if (clip.look === look && (!isGridLook(look) || sameLayout)) return { status: 409, error: "It already has that look. Pick a different one." };
+  return null;
+}
+
+interface CellClipDb {
+  id: string;
+  dump_id: string;
+  hook_text: string;
+  start_s: number;
+  end_s: number;
+  look: string | null;
+  media_token: string | null;
+  cover_r2_key: string | null;
+  media_version: number;
+  status: ClipStatus;
+}
+
+export interface CellOption {
+  id: string;
+  hook_text: string;
+  seconds: number;
+  look_name: string | null;
+  cover_url: string | null;
+}
+
+function cellOption(r: CellClipDb): CellOption {
+  return {
+    id: r.id,
+    hook_text: r.hook_text,
+    seconds: Math.round((r.end_s - r.start_s) * 10) / 10,
+    look_name: lookById(r.look)?.name ?? null,
+    cover_url: r.media_token && r.cover_r2_key ? `/media/${r.media_token}?cover=1${r.media_version ? `&v=${r.media_version}` : ""}` : null,
+  };
+}
+
+const CELL_SELECT = "SELECT id, dump_id, hook_text, start_s, end_s, look, media_token, cover_r2_key, media_version, status FROM clips";
+
+/** What a grid cell can show: this dump's other clips, approved clips from her library, this moment closer. */
+clips.get("/:id/cells", async (c) => {
+  const clip = await c.env.DB.prepare(`${CELL_SELECT} WHERE id = ?`).bind(c.req.param("id")).first<CellClipDb>();
+  if (!clip || clip.status === "deleted") return fail(c, 404, "That clip is gone.");
+  const { results: same } = await c.env.DB.prepare(`${CELL_SELECT} WHERE dump_id = ? AND id != ? AND status != 'deleted' ORDER BY score DESC LIMIT 40`).bind(clip.dump_id, clip.id).all<CellClipDb>();
+  const { results: library } = await c.env.DB.prepare(`${CELL_SELECT} WHERE dump_id != ? AND status = 'approved' ORDER BY reviewed_at DESC LIMIT 40`).bind(clip.dump_id).all<CellClipDb>();
+  return c.json({ self: cellOption(clip), dump: same.map(cellOption), library: library.map(cellOption), zooms: ZOOMS });
+});
+
+clips.post("/:id/look", async (c) => {
+  const id = c.req.param("id");
+  const body = await readJson<{ look?: string; layout?: unknown }>(c);
+  const row = await c.env.DB.prepare(
+    "SELECT c.id, c.dump_id, c.status, c.look, c.layout, c.pending_look, a.raw_deleted_at FROM clips c JOIN assets a ON a.id = c.asset_id WHERE c.id = ?",
+  )
+    .bind(id)
+    .first<{ id: string; dump_id: string; status: ClipStatus; look: string | null; layout: string | null; pending_look: string | null; raw_deleted_at: string | null }>();
+  const look = body?.look;
+  let layout: GridLayout | null = null;
+  if (row && isLookId(look) && isGridLook(look)) {
+    if (body?.layout !== undefined) {
+      layout = cleanGridLayout(look, body.layout);
+      if (!layout) return fail(c, 422, `Pick something for all ${cellCount(look)} cells, with this clip in at least one of them.`, "looks-and-styles");
+      for (const cell of layout.cells) {
+        if (cell.kind !== "clip") continue;
+        const other = await c.env.DB.prepare("SELECT dump_id, status FROM clips WHERE id = ?").bind(cell.clip_id).first<{ dump_id: string; status: ClipStatus }>();
+        if (!other || other.status === "deleted" || (other.dump_id !== row.dump_id && other.status !== "approved"))
+          return fail(c, 422, "One of the cells points at a clip that is gone. Pick it again.", "looks-and-styles");
+      }
+    } else {
+      const { results } = await c.env.DB.prepare("SELECT id FROM clips WHERE dump_id = ? AND id != ? AND status != 'deleted' ORDER BY score DESC LIMIT 8").bind(row.dump_id, row.id).all<{ id: string }>();
+      layout = defaultGridLayout(look, results.map((r) => r.id));
+    }
+  }
+  const state = row ? { ...row, in_buffer: await lockedByBuffer(c.env, id) } : null;
+  const sameLayout = !!row && JSON.stringify(parseJson(row.layout, null)) === JSON.stringify(layout);
+  const refused = lookChangeRefusal(state, look, sameLayout);
+  if (refused) return fail(c, refused.status, refused.error, "looks-and-styles");
+  // The old file stays live; the job writes <clip>-v<n+1>.mp4 and applyRerender swaps it in.
+  await c.env.DB.prepare("UPDATE clips SET pending_look = ?, pending_layout = ?, rerender_error = NULL WHERE id = ?").bind(look as LookId, layout ? JSON.stringify(layout) : null, id).run();
+  const job = await dispatchJob(c.env, "cut", `${row!.dump_id}/${id}`);
+  if (!job.dispatched) {
+    await c.env.DB.prepare("UPDATE clips SET pending_look = NULL, pending_layout = NULL, rerender_error = ? WHERE id = ?").bind("We couldn't start the new look. Try again in a minute.", id).run();
+    return fail(c, 502, "We couldn't start the new look. Try again in a minute.", "reconnect-github");
+  }
+  await c.env.DB.prepare("UPDATE clips SET rerender_job_id = ? WHERE id = ?").bind(job.jobId, id).run();
+  await recordEvent(c.env.DB, "clip.look_requested", id, { look, from: row!.look }, c.get("user").email);
+  log.info("clip.look", { grid: !!layout });
+  const updated = await c.env.DB.prepare(`${CLIP_SELECT} WHERE c.id = ?`).bind(id).first<ClipDb>();
+  return c.json({ jobId: job.jobId, clip: updated ? toView(updated) : null });
 });

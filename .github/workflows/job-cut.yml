@@ -12,6 +12,8 @@ on:
   pull_request:
     paths:
       - jobs/cut.py
+      - jobs/looks.py
+      - jobs/looks.json
       - jobs/common.py
       - jobs/selftest_cut.py
       - .github/workflows/job-cut.yml
@@ -69,7 +71,7 @@ jobs:
   selftest:
     if: github.event_name != 'repository_dispatch'
     runs-on: ubuntu-latest
-    timeout-minutes: 25    # fault detector (~4x a normal run), never a budget
+    timeout-minutes: 35    # fault detector (~4x a normal run: the dump runs plus every Look twice), never a budget
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -86,5 +88,27 @@ jobs:
           key: whisper-${{ env.WHISPER_MODEL }}-v1
       - name: System tools (ffmpeg with libass; GLES/EGL for MediaPipe; espeak-ng for a spoken sample)
         run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg libgles2 libegl1 espeak-ng > /dev/null
-      - name: Pipeline self-test (synthetic footage, no secrets)
-        run: python3 jobs/selftest_cut.py --require-heavy
+      - name: Pipeline self-test (synthetic footage, no secrets; the Looks run in selftest-looks)
+        run: python3 jobs/selftest_cut.py --require-heavy --skip-looks
+
+  # Every Look rendered and checked (jobs/looks.json), in two halves side by side so the PR gate
+  # stays short. Only ffmpeg with libass is needed: no whisper, no MediaPipe (JOB_HEAVY off).
+  selftest-looks:
+    if: github.event_name != 'repository_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30    # fault detector (~4x a normal run), never a budget
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [single, grid]
+    env:
+      JOB_HEAVY: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: System tools (ffmpeg with libass)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg > /dev/null
+      - name: Every Look (${{ matrix.kind }}), rendered and checked
+        run: python3 jobs/selftest_cut.py --looks-only --looks-kind ${{ matrix.kind }} --require-libass
