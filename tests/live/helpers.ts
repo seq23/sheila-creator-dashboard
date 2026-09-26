@@ -85,13 +85,22 @@ export async function emailsSince(subject: RegExp, sinceMs: number): Promise<Res
 
 /** Read-only SQL against the staging D1 (setup, evidence and cleanup checks only). */
 export function d1<T = Record<string, unknown>>(sql: string): T[] {
-  const out = execFileSync("npx", ["wrangler", "d1", "execute", STAGING_DB, "--remote", "--env", "staging", "--json", "--command", sql], {
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"],
-    timeout: 60_000,
-  });
-  const parsed = JSON.parse(out) as { results: T[] }[];
-  return parsed[parsed.length - 1]?.results ?? [];
+  // wrangler's remote call fails now and then on the network (7c lost 25 minutes to one blip):
+  // three tries, then the error.
+  for (let attempt = 1; ; attempt++) {
+    try {
+      const out = execFileSync("npx", ["wrangler", "d1", "execute", STAGING_DB, "--remote", "--env", "staging", "--json", "--command", sql], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+        timeout: 60_000,
+      });
+      const parsed = JSON.parse(out) as { results: T[] }[];
+      return parsed[parsed.length - 1]?.results ?? [];
+    } catch (e) {
+      if (attempt >= 3) throw e;
+      execFileSync("sleep", [String(5 * attempt)]);
+    }
+  }
 }
 
 /** Poll a D1 query until `done` says yes (bounded). */

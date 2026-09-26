@@ -141,7 +141,7 @@
     "taken_off_post": "pst_9gsnezrd5yin",
     "fill_screenshot": "docs/design/live/07-calendar-filled.jpg",
     "taken_off_screenshot": "docs/design/live/07-calendar-taken-off.jpg",
-    "at": "2026-09-26T03:12:55.065Z",
+    "at": "2026-09-26T04:01:32.665Z",
     "buffer_readback": {
       "youtube": {
         "buffer_post_id": "6ab7357a84e8fc26af1e8026",
@@ -161,7 +161,28 @@
         "externalLink": "https://www.instagram.com/reel/DdvCgMMFRhk/",
         "error": null
       }
-    }
+    },
+    "dashboard_posted": [
+      {
+        "platform": "youtube",
+        "status": "posted",
+        "url": "https://www.youtube.com/shorts/lFDhkdWMj0w",
+        "error": null
+      },
+      {
+        "platform": "tiktok",
+        "status": "posted",
+        "url": "https://tiktok.com/@iamcindymercer/video/7689660837077847309",
+        "error": null
+      },
+      {
+        "platform": "instagram",
+        "status": "posted",
+        "url": "https://www.instagram.com/reel/DdvCgMMFRhk/",
+        "error": null
+      }
+    ],
+    "posted_screenshot": "docs/design/live/07-calendar-posted.jpg"
   },
   "9-stats": {
     "youtube_job": "job_3oyrlrqpauh6",
