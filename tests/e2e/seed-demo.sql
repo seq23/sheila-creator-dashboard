@@ -3,6 +3,7 @@
 -- so tests/e2e/demo.ts can remove it again; brands/pitches/deals/narrations are reset whole
 -- because only these specs create them. Idempotent: it clears before it inserts.
 
+DELETE FROM posts WHERE id LIKE 'demo_%';
 DELETE FROM narrations;
 DELETE FROM pitches;
 DELETE FROM deals;
@@ -29,6 +30,12 @@ INSERT INTO clips (id, asset_id, dump_id, start_s, end_s, recipe, hook_text, cap
 INSERT INTO clips (id, asset_id, dump_id, start_s, end_s, recipe, hook_text, caption, hashtags, score, r2_key, media_token, status, reviewed_at) VALUES ('demo_clip_6', 'demo_ast', 'demo_dump', 150, 178, 'hook_first', 'How I reset after guests leave', 'Demo caption for: How I reset after guests leave', '#hosting #tablescape', 0.75, 'clips/demo_clip_6.mp4', 'demotoken5xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', 'approved', '2026-09-22T17:00:00.000Z');
 INSERT INTO clips (id, asset_id, dump_id, start_s, end_s, recipe, hook_text, caption, hashtags, score, r2_key, media_token, status, reviewed_at) VALUES ('demo_clip_7', 'demo_ast', 'demo_dump', 180, 208, 'hook_first', 'The easiest centerpiece ever', 'Demo caption for: The easiest centerpiece ever', '#hosting #tablescape', 0.71, 'clips/demo_clip_7.mp4', 'demotoken6xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', 'approved', '2026-09-22T17:00:00.000Z');
 INSERT INTO clips (id, asset_id, dump_id, start_s, end_s, recipe, hook_text, caption, hashtags, score, r2_key, media_token, status, reviewed_at) VALUES ('demo_clip_8', 'demo_ast', 'demo_dump', 210, 238, 'hook_first', 'My go-to hosting playlist trick', 'Demo caption for: My go-to hosting playlist trick', '#hosting #tablescape', 0.67, 'clips/demo_clip_8.mp4', 'demotoken7xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', 'approved', '2026-09-22T17:00:00.000Z');
+-- Looks (jobs/looks.json): every demo clip was made in one, and two new ones wait in Review, so
+-- the Looks guides picture the Look chip, Change look and a grid.
+UPDATE clips SET look = CASE id WHEN 'demo_clip_1' THEN 'bold_hook' WHEN 'demo_clip_2' THEN 'clean' WHEN 'demo_clip_3' THEN 'cinematic' WHEN 'demo_clip_4' THEN 'brand_card' WHEN 'demo_clip_5' THEN 'split' WHEN 'demo_clip_6' THEN 'reaction' ELSE 'hero_strip' END, parts = '[[0,28]]' WHERE id LIKE 'demo_clip_%';
+UPDATE clips SET layout = '{"cells":[{"kind":"self"},{"kind":"clip","clip_id":"demo_clip_1"}],"voice":0}' WHERE id = 'demo_clip_5';
+INSERT INTO clips (id, asset_id, dump_id, start_s, end_s, recipe, hook_text, caption, hashtags, score, r2_key, media_token, status, look, parts) VALUES ('demo_look_1', 'demo_ast', 'demo_dump', 210, 240, 'talking_head', 'Brunch for six in three moves', 'Demo caption for: Brunch for six in three moves', '#hosting #brunch', 0.93, 'clips/demo_clip_8.mp4', 'demolooks8xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', 'draft', 'karaoke', '[[210,240]]');
+INSERT INTO clips (id, asset_id, dump_id, start_s, end_s, recipe, hook_text, caption, hashtags, score, r2_key, media_token, status, look, parts, layout) VALUES ('demo_look_2', 'demo_ast', 'demo_dump', 240, 270, 'montage', 'Four tables, one weekend', 'Demo caption for: Four tables, one weekend', '#tablescape', 0.88, 'clips/demo_clip_9.mp4', 'demolooks9xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', 'draft', 'grid_four', '[[240,270]]', '{"cells":[{"kind":"self"},{"kind":"clip","clip_id":"demo_clip_2"},{"kind":"clip","clip_id":"demo_clip_3"},{"kind":"zoom","zoom":1.35}],"voice":0}');
 INSERT INTO account_stats (id, platform, captured_at, followers, avg_views, source) VALUES ('demo_stats_tiktok', 'tiktok', '2026-09-24T12:00:00.000Z', 12400, 3100, 'api');
 INSERT INTO account_stats (id, platform, captured_at, followers, avg_views, source) VALUES ('demo_stats_instagram', 'instagram', '2026-09-24T12:00:00.000Z', 8200, 1900, 'api');
 INSERT INTO account_stats (id, platform, captured_at, followers, avg_views, source) VALUES ('demo_stats_youtube', 'youtube', '2026-09-24T12:00:00.000Z', 2100, 900, 'api');

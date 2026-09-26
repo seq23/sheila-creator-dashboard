@@ -31,6 +31,10 @@ import {
 import { clipParts, clipSource, cleanParts, parseCutRef, parseCutResult, parseRerender, rerenderKeys, CutResultError, type CutResultClip } from "@worker/jobs/cut";
 import { jobStorageScope, mayRead, mayWrite } from "@worker/lib/jobStorage";
 import { lookChangeRefusal } from "@worker/routes/clips";
+import { sqliteD1 } from "./helpers/sqlite-d1";
+import { memoryR2 } from "./helpers/r2-memory";
+import { cutJob } from "@worker/jobs/cut";
+import type { Env } from "@worker/env";
 
 const json = JSON.parse(readFileSync(path.join(__dirname, "../../jobs/looks.json"), "utf8")) as {
   frame: typeof FRAME;
@@ -284,5 +288,49 @@ describe("re-rendering one clip", () => {
     // the same grid with different cells is a real change
     expect(lookChangeRefusal({ ...ok, look: "grid_four" }, "grid_four", false)).toBeNull();
     expect(lookChangeRefusal({ ...ok, look: "grid_four" }, "grid_four", true)?.status).toBe(409);
+  });
+});
+
+// ---------------------------------------------------------------- a Change look, end to end on the real schema
+
+
+describe("a re-render swaps the file in, keeps the old one until then, and re-mixes her voice over", () => {
+  it("fake re-render → new file live, version bumped, old files gone, the attached voice over mixed again", async () => {
+    const db = sqliteD1();
+    const r2 = memoryR2();
+    const env = { DB: db.DB, FILES: r2.FILES, FAKE_SERVICES: "1", PUBLIC_BASE_URL: "http://w.example", SECRETS_KEY: "YcLVEjArFviauClfN6thsYumeyr3wqfUT9D2VnMNTm0=", OWNER_EMAIL: "o@example.com" } as unknown as Env;
+    db.raw.exec(`INSERT INTO dumps (id, door, notes, status) VALUES ('dmp_r1', 'new', '', 'ready');
+      INSERT INTO assets (id, dump_id, file_name, mime_type, r2_key, upload_status) VALUES ('ast_r1', 'dmp_r1', 'a.mp4', 'video/mp4', 'raw/dmp_r1/ast_r1', 'uploaded');
+      INSERT INTO clips (id, asset_id, dump_id, start_s, end_s, recipe, hook_text, score, r2_key, cover_r2_key, media_token, status, look, pending_look, parts)
+        VALUES ('clp_rrrrrrrrrrrr', 'ast_r1', 'dmp_r1', 5, 35, 'talking_head', 'Hook', 0.8, 'clips/dmp_r1/clp_rrrrrrrrrrrr.mp4', 'clips/dmp_r1/clp_rrrrrrrrrrrr.jpg', '${"t".repeat(40)}', 'draft', 'clean', 'karaoke', '[[5,35]]');
+      INSERT INTO narrations (id, script, status, r2_key, clip_id, mixed_r2_key, mix_status) VALUES ('nar_r1', 'hi', 'ready', 'voice/narrations/nar_r1.wav', 'clp_rrrrrrrrrrrr', 'voice/mixed/nar_r1.mp4', 'ready');`);
+    for (const k of ["clips/dmp_r1/clp_rrrrrrrrrrrr.mp4", "clips/dmp_r1/clp_rrrrrrrrrrrr.jpg", "voice/mixed/nar_r1.mp4"]) await r2.FILES.put(k, new Uint8Array(8));
+    const spec = (await cutJob.buildSpec(env, "job_r1", "dmp_r1/clp_rrrrrrrrrrrr")) as { mode: string; look_id: string; parts: { src: string; start: number; end: number }[]; output_key: string };
+    expect(spec).toMatchObject({ mode: "rerender", look_id: "karaoke", parts: [{ src: "raw/dmp_r1/ast_r1", start: 5, end: 35 }], output_key: "clips/dmp_r1/clp_rrrrrrrrrrrr-v1.mp4" });
+    const result = await cutJob.fakeRun!(env, "job_r1", "dmp_r1/clp_rrrrrrrrrrrr", {});
+    await cutJob.applyResult(env, "job_r1", "dmp_r1/clp_rrrrrrrrrrrr", result);
+    const c = db.raw.prepare("SELECT look, pending_look, r2_key, media_version FROM clips").get();
+    expect(c).toEqual({ look: "karaoke", pending_look: null, r2_key: "clips/dmp_r1/clp_rrrrrrrrrrrr-v1.mp4", media_version: 1 });
+    expect(r2.objects.has("clips/dmp_r1/clp_rrrrrrrrrrrr.mp4")).toBe(false);
+    expect(r2.objects.has("clips/dmp_r1/clp_rrrrrrrrrrrr-v1.mp4")).toBe(true);
+    expect(db.raw.prepare("SELECT mix_status, mixed_r2_key FROM narrations").get()).toEqual({ mix_status: "mixing", mixed_r2_key: null });
+    expect(r2.objects.has("voice/mixed/nar_r1.mp4")).toBe(false);
+    expect(db.raw.prepare("SELECT type, ref_id FROM jobs WHERE type = 'voice'").get()).toEqual({ type: "voice", ref_id: "nar_r1" });
+  });
+
+  it("a failed re-render keeps the old file and says so on the clip", async () => {
+    const db = sqliteD1();
+    const env = { DB: db.DB, FILES: memoryR2().FILES, FAKE_SERVICES: "1" } as unknown as Env;
+    db.raw.exec(`INSERT INTO dumps (id, door, notes, status) VALUES ('dmp_r2', 'new', '', 'ready');
+      INSERT INTO assets (id, dump_id, file_name, mime_type, r2_key, upload_status) VALUES ('ast_r2', 'dmp_r2', 'a.mp4', 'video/mp4', 'raw/dmp_r2/ast_r2', 'uploaded');
+      INSERT INTO clips (id, asset_id, dump_id, start_s, end_s, recipe, hook_text, score, r2_key, media_token, status, look, pending_look, rerender_job_id)
+        VALUES ('clp_ssssssssssss', 'ast_r2', 'dmp_r2', 0, 20, 'talking_head', 'Hook', 0.8, 'clips/dmp_r2/clp_ssssssssssss.mp4', '${"u".repeat(40)}', 'draft', 'clean', 'grid_four', 'job_r2');`);
+    await cutJob.onFailure(env, "job_r2", "dmp_r2/clp_ssssssssssss", "ffmpeg exited 1");
+    expect(db.raw.prepare("SELECT look, pending_look, r2_key, rerender_error FROM clips").get()).toEqual({
+      look: "clean",
+      pending_look: null,
+      r2_key: "clips/dmp_r2/clp_ssssssssssss.mp4",
+      rerender_error: "The new look didn't finish, so your clip is unchanged. Try Change look again.",
+    });
   });
 });

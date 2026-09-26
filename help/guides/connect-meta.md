@@ -9,6 +9,8 @@ last_checked: 2026-09-25
 
 ![Step 1](/help/screenshots/connect-meta-1.png)
 
+This is **optional extra detail**. Your numbers already show on **Stats** without signing in. Meta may show a warning until the app is approved; that is expected.
+
 Make sure your Instagram is a Professional account (Creator or Business): in Instagram, open **Settings → Account type and tools**.
 
 ## Step 2

@@ -133,6 +133,20 @@ export function parseDate(v: string | undefined): string | null {
   return null;
 }
 
+/**
+ * The post time a TikTok video id carries: its top 32 bits are the Unix seconds it was posted
+ * (every TikTok id is a snowflake). The real Studio export (25 Sep 2026) writes "Post time" as
+ * "September 4", with no year and no hour, so the id is the exact time. Null for an id that is
+ * not a plausible TikTok id (before 2016 or in the future).
+ */
+export function tiktokIdTime(id: string | null, now = Date.now()): string | null {
+  if (!id || !/^\d{15,20}$/.test(id)) return null;
+  const secs = Number(BigInt(id) >> 32n);
+  const ms = secs * 1000;
+  if (ms < Date.UTC(2016, 0, 1) || ms > now + 86_400_000) return null;
+  return new Date(ms).toISOString();
+}
+
 export function tiktokVideoId(url: string | null): string | null {
   if (!url) return null;
   const m = url.match(/\/video\/(\d{6,})/);
@@ -174,7 +188,9 @@ export function parseTikTokExport(text: string): ImportResult {
   let skipped = 0;
   for (const r of rows.slice(1)) {
     const url = cell(r, "link")?.trim() || null;
-    const posted_at = parseDate(cell(r, "posted"));
+    // The written date when it is a full date; otherwise ("September 4", no year) the time the
+    // video's own id carries, exact to the second.
+    const posted_at = parseDate(cell(r, "posted")) ?? tiktokIdTime(tiktokVideoId(url));
     const title = cell(r, "title")?.trim() || null;
     if (!url && !posted_at) {
       skipped++;

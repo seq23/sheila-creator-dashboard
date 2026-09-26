@@ -44,7 +44,12 @@ export function jobStorageScope(type: JobRow["type"], jobId: string, refId: stri
     case "voice":
       scope.read.push("voice/sample/", "voice/model/");
       scope.write.push("voice/model/");
-      if (refId) scope.write.push(`voice/narrations/${refId}`);
+      if (refId) {
+        scope.write.push(`voice/narrations/${refId}`);
+        // mix mode: its own voice over + the clip it is attached to, into its own mixed file
+        scope.read.push(`voice/narrations/${refId}`, "clips/");
+        scope.write.push(`voice/mixed/${refId}`);
+      }
       break;
     default:
       break;

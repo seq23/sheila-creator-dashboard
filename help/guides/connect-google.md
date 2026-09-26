@@ -9,6 +9,8 @@ last_checked: 2026-09-25
 
 ![Step 1](/help/screenshots/connect-google-1.png)
 
+This is **optional extra detail**. Your numbers already show on **Stats** without signing in. Google may show an "unverified app" warning until the app is approved; that is expected.
+
 In the dashboard, tap **Settings → Connections**.
 
 ## Step 2

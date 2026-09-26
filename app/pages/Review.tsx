@@ -27,6 +27,8 @@ export interface ReviewClip extends ClipRow {
   rerender_error: string | null;
   source_available: boolean;
   edited_with: string | null;
+  /** Her voice over on this clip: being added, in it (the video plays with it), or it did not work. */
+  voice_over: "mixing" | "ready" | "failed" | null;
 }
 interface ReviewGroup {
   /** held_note: "Looks like someone else's video" (worker/domain/sourceCheck.ts), or null. */
@@ -359,6 +361,9 @@ function ClipCard(props: {
           {c.door === "recycle" ? <span className="pill">Recycled</span> : null}
           {c.hidden ? <span className="pill warn">Under the quality bar</span> : null}
           {c.paid_partnership ? <span className="pill ok">Paid partnership</span> : null}
+          {c.voice_over === "ready" ? <span className="pill ok" data-voice-over="ready">With your voice over</span> : null}
+          {c.voice_over === "mixing" ? <span className="pill" data-voice-over="mixing">Adding your voice over…</span> : null}
+          {c.voice_over === "failed" ? <span className="pill warn" data-voice-over="failed">Voice over not added · attach it again on Voice overs</span> : null}
         </div>
         <div className="clip-look">
           {c.look_name ? (

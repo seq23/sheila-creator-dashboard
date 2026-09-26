@@ -6,6 +6,9 @@ on:
   pull_request:
   push:
     branches: [main]
+  # A pull request opened by a workflow (GITHUB_TOKEN) triggers no pull_request run, so it could
+  # never show green; such workflows dispatch this one on their branch (validator bot-prs-get-checks).
+  workflow_dispatch:
 
 concurrency:
   group: check-${{ github.ref }}

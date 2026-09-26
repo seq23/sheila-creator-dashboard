@@ -331,7 +331,33 @@
   min-width: 0;
 }
 
-@media (max-width: 1100px) {
+/* Desktop week: a day column is ~90 px beside the pool, too narrow for a cover and text side by
+   side (the hook wrapped one letter per line, Phase 0 live test 26 Sep 2026). Stack them and keep
+   the hook to three lines. The phone layout (one day per row) keeps the side-by-side card. */
+@media (min-width: 901px) {
+  .cal-week .cal-post-main {
+    flex-direction: column;
+  }
+  .cal-week .cal-post-main img,
+  .cal-week .cal-cover {
+    width: 100%;
+    height: 48px;
+  }
+  .cal-week .cal-post-text {
+    width: 100%;
+  }
+  .cal-week .cal-hook {
+    overflow-wrap: break-word;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
+
+/* The pool sits beside the week only when the week still gets ~130 px a day; below that it goes
+   under the week (at 1280 px it squeezed each day to ~70 px). */
+@media (max-width: 1400px) {
   .cal-layout {
     grid-template-columns: minmax(0, 1fr);
   }

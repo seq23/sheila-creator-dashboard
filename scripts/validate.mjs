@@ -11,6 +11,7 @@ import path from "node:path";
 // name → why it hard-fails. A validator not listed here is refused; a listed one that is
 // missing on disk fails the run.
 export const REGISTER = {
+  "bot-prs-get-checks": "a PR opened by a workflow gets no checks, so land can never see it green (help-screenshots PR #21, live test 26 Sep 2026)",
   "design-tokens": "a raw colour, font or off-scale size outside tokens.css is how screens drift apart (docs/design/DESIGN.md)",
   "envs-match": "staging is production's twin: a config drift or a job workflow without the env mapping sends staging jobs to Sheila's bucket and secret",
   "help-guides-exist": "every screen's ? button and every fix_guide slug must open a real guide (section 12c)",
@@ -23,6 +24,7 @@ export const REGISTER = {
   "no-secrets": "a key in the repo is public the moment it is pushed",
   "routes-mounted": "a route file nothing mounts is code that exists but nothing invokes",
   "screens-registered": "every page file must be routed in App.tsx or it is unreachable",
+  "stats-no-login": "the owner's rule (25 Sep 2026): Stats never needs a Google or Meta sign-in; TikTok's zip export was refused as Excel, and a sign-in-only path left the panel blank",
   "voice-engines": "a narration row without its engine, or an ElevenLabs call that drops a 401 / 402 / 429, shows her the wrong voice tag or a failure with no fallback",
   "voice-script": "the read-aloud script must stay about 3 minutes with a question and a number, and the Voice screen must show it, or her sample makes a thin voice",
   "workflows-dispatchable": "every job type must have an Actions workflow listening for its repository_dispatch event",

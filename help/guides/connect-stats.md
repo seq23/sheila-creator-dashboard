@@ -9,19 +9,19 @@ last_checked: 2026-09-25
 
 ![Step 1](/help/screenshots/connect-stats-1.png)
 
-Tap **Settings**, then **Connections**.
+You don't need to sign in anywhere for your numbers. Open **Stats**: YouTube's numbers are read on their own (your channel is found through Buffer), and Instagram shows a short **Your Instagram numbers** form you fill in whenever you like.
 
 ## Step 2
 
 ![Step 2](/help/screenshots/connect-stats-2.png)
 
-Under **Stats · for research**, tap **Connect with Instagram** and log in on Instagram's own page (see **Connect Instagram stats**).
+Optional extra detail: under **Settings → Connections → Stats**, **Connect with Instagram** adds per-video reach. Instagram may show a warning until the app is approved (see **Connect Instagram stats**).
 
 ## Step 3
 
 ![Step 3](/help/screenshots/connect-stats-3.png)
 
-Tap **Connect with Google** and pick the Google account that owns your YouTube channel (see **Connect YouTube stats**).
+Optional extra detail: **Connect with Google** adds average watch time. Google may show an "unverified app" warning until the app is approved (see **Connect YouTube stats**).
 
 ## Step 4
 
@@ -33,7 +33,7 @@ For TikTok, tap **Upload TikTok export**; it opens Stats (see **Upload your TikT
 
 ![Step 5](/help/screenshots/connect-stats-5.png)
 
-Each row turns green with the account name. Your numbers are read once a week; open **Stats** and tap **Update numbers** any time.
+Your numbers refresh every day; open **Stats** and tap **Update numbers** any time. Nothing on Stats waits for a sign-in.
 
 ## Did this work?
 

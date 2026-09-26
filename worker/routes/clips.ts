@@ -86,6 +86,8 @@ export interface ReviewClip extends ClipRow {
   source_available: boolean;
   /** Made in another editor (her own edit uploaded back, or a connected editor). */
   edited_with: string | null;
+  /** Her voice over on this clip: being added, in it (the video plays with it), or it did not work. */
+  voice_over: "mixing" | "ready" | "failed" | null;
 }
 export interface ReviewGroup {
   /** held_note: "Looks like someone else's video" (worker/domain/sourceCheck.ts), or null. */
@@ -133,6 +135,14 @@ interface ClipDb {
   media_version: number;
   edited_with: string | null;
   raw_deleted_at: string | null;
+  voice_mix: string | null;
+  voice_nid: string | null;
+}
+
+/** "?v=<file version>.<voice over>": changes when the file is swapped or a voice over is mixed in. */
+export function mediaVersion(r: { media_version: number; voice_mix: string | null; voice_nid: string | null }): string {
+  const parts = [r.media_version ? String(r.media_version) : "", r.voice_mix === "ready" && r.voice_nid ? r.voice_nid : ""].filter(Boolean);
+  return parts.length ? `?v=${parts.join(".")}` : "";
 }
 
 function toView(r: ClipDb): ReviewClip {
@@ -154,8 +164,9 @@ function toView(r: ClipDb): ReviewClip {
     paid_partnership: !!r.paid_partnership,
     hidden: !!r.hidden,
     created_at: r.created_at,
-    // ?v= changes whenever the file is swapped, so a cached old version never plays.
-    media_url: r.media_token ? `/media/${r.media_token}${r.media_version ? `?v=${r.media_version}` : ""}` : "",
+    // ?v= changes whenever the file is swapped (a new look, her edit) or a voice over is mixed in,
+    // so a player never keeps an old version cached.
+    media_url: r.media_token ? `/media/${r.media_token}${mediaVersion(r)}` : "",
     cover_url: r.media_token && r.cover_r2_key ? `/media/${r.media_token}?cover=1${r.media_version ? `&v=${r.media_version}` : ""}` : null,
     source_file: r.source_file,
     door: r.door,
@@ -169,13 +180,16 @@ function toView(r: ClipDb): ReviewClip {
     rerender_error: r.rerender_error,
     source_available: !r.raw_deleted_at,
     edited_with: r.edited_with,
+    voice_over: r.voice_mix === "mixing" || r.voice_mix === "ready" || r.voice_mix === "failed" ? r.voice_mix : null,
   };
 }
 
 const CLIP_SELECT = `SELECT c.id, c.asset_id, c.dump_id, c.start_s, c.end_s, c.recipe, c.hook_text, c.hook_alt, c.caption, c.hashtags,
   c.platforms, c.score, c.status, c.reject_reason, c.paid_partnership, c.hidden, c.created_at, c.reviewed_at, c.media_token, c.cover_r2_key,
   c.look, c.layout, c.pending_look, c.rerender_error, c.media_version, c.edited_with, a.raw_deleted_at,
-  a.file_name AS source_file, a.source_owner, a.source_note, d.door, d.created_at AS dump_created_at, d.ready_at AS dump_ready_at, d.status AS dump_status
+  a.file_name AS source_file, a.source_owner, a.source_note,
+  (SELECT n.mix_status FROM narrations n WHERE n.clip_id = c.id AND n.mix_status IS NOT NULL ORDER BY n.created_at DESC LIMIT 1) AS voice_mix,
+  (SELECT n.id FROM narrations n WHERE n.clip_id = c.id AND n.mix_status IS NOT NULL ORDER BY n.created_at DESC LIMIT 1) AS voice_nid, d.door, d.created_at AS dump_created_at, d.ready_at AS dump_ready_at, d.status AS dump_status
   FROM clips c JOIN assets a ON a.id = c.asset_id JOIN dumps d ON d.id = c.dump_id`;
 
 clips.get("/", async (c) => {

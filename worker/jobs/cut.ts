@@ -47,6 +47,7 @@ import {
 } from "../domain/looks";
 import { getSetting } from "../lib/db";
 import { CUT_REF } from "../lib/jobStorage";
+import { dispatchJob } from "../services/github";
 
 /** A cut job's ref: a dump ("dmp_…"), or one clip of it to re-render ("dmp_…/clp_…"). */
 export function parseCutRef(refId: string | null): { dumpId: string; clipId: string | null } | null {
@@ -622,6 +623,25 @@ export function parseRerender(result: unknown, expect: { clipId: string; look: s
   return { duration_s: Number.isFinite(d) && d > 0 ? d : null, voice: Number.isInteger(v) && v >= 0 ? v : null };
 }
 
+/**
+ * The clip's file was swapped (a new Look, or her own edit): a voice over mixed into the old file
+ * is out of date. The link goes back to the new file at once and the voice job mixes her voice
+ * into it again (the same steps as attaching it on Voice overs, worker/routes/voice.ts).
+ */
+export async function remixVoiceOver(env: Env, clipId: string): Promise<number> {
+  const { results } = await env.DB.prepare("SELECT id, mixed_r2_key FROM narrations WHERE clip_id = ? AND status = 'ready' AND r2_key IS NOT NULL AND mix_status IS NOT NULL")
+    .bind(clipId)
+    .all<{ id: string; mixed_r2_key: string | null }>();
+  for (const n of results) {
+    if (n.mixed_r2_key) await env.FILES.delete(n.mixed_r2_key);
+    await env.DB.prepare("UPDATE narrations SET mixed_r2_key = NULL, mix_status = 'mixing' WHERE id = ?").bind(n.id).run();
+    const job = await dispatchJob(env, "voice", n.id);
+    if (!job.dispatched) await env.DB.prepare("UPDATE narrations SET mix_status = 'failed' WHERE id = ?").bind(n.id).run();
+  }
+  if (results.length) log.info("cut.voice_remix", { narrations: results.length });
+  return results.length;
+}
+
 /** The sentence on the clip when a re-render fails; the old version stays. */
 export const RERENDER_FAILED = "The new look didn't finish, so your clip is unchanged. Try Change look again.";
 
@@ -656,6 +676,7 @@ async function applyRerender(env: Env, _jobId: string, dumpId: string, clipId: s
     .run();
   const old = [clip.r2_key, clip.cover_r2_key].filter((k): k is string => !!k && k !== keys.mp4 && k !== keys.jpg);
   if (old.length) await env.FILES.delete(old);
+  await remixVoiceOver(env, clipId);
   await recordEvent(env.DB, "clip.look_changed", clipId, { look: clip.pending_look });
   log.info("cut.rerender.apply", {});
 }

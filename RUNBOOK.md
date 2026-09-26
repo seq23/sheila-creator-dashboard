@@ -37,8 +37,10 @@ Repository permissions → Contents: Read and write (Metadata: Read comes with i
 `pbpaste | npx wrangler secret put GITHUB_DISPATCH_TOKEN --env staging`, then press "Check
 everything now" on Settings (the `Job runner (GitHub)` light) or start any job to confirm a 204.
 
-Worker, optional (stats sign-in on Connections; without them the Instagram / YouTube buttons
-stay disabled with a fix guide): `META_APP_ID`, `META_APP_SECRET` (a Meta app with Instagram
+`YOUTUBE_API_KEY` (production and staging): the no-login YouTube numbers (see "Stats: no-login").
+
+Worker, optional (the optional stats sign-ins on Connections and Stats, "extra detail"; without
+them the buttons stay visible and the sign-in page explains it is not set up): `META_APP_ID`, `META_APP_SECRET` (a Meta app with Instagram
 Login), `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` (a Google Cloud OAuth client, project "In
 production", YouTube Data + Analytics APIs on). Register these redirect URIs on each app:
 `<PUBLIC_BASE_URL>/api/oauth/meta/callback` and `<PUBLIC_BASE_URL>/api/oauth/google/callback`.
@@ -226,7 +228,9 @@ Worker (`worker_url` in the payload), so it can only ever touch the staging buck
 | Buffer | Real: the owner's test Buffer account (seq.taylor@gmail.com, free plan, 3 of 3 channels): TikTok `@iamcindymercer`, Instagram `seq23`, YouTube "Sequoia Taylor". All three are her **test channels** (her word, 25 Sep 2026); the Phase 0 TEST POST goes to all three. Key: vault `buffer-access-token`, created 25 Sep 2026, **expires 25 Sep 2027** (Buffer → Settings → API; the free plan allows ONE key per account, so this key is shared with `authority-backlink-network`'s `BUFFER_ACCESS_TOKEN` secret; renewing it means Regenerate there, then `vault set buffer-access-token --from-file`, `gh secret set BUFFER_ACCESS_TOKEN -R seq23/authority-backlink-network`, and paste on staging's Connect). The account's 3,000 requests / 30 days are shared too; the dashboard's own idle spend is 20 a day (`tests/unit/buffer-budget.test.ts`). |
 | Email (Resend) | Real: the West Peek Resend key sends from `onboarding@resend.dev` to its own account owner, `sequoia@westpeek.ventures`, which is staging's OWNER_EMAIL. Login codes and every staging email land there. Production's OWNER_EMAIL and sender are unchanged. |
 | Jobs (cut, extract, research, metrics, brand finder, voice) | Real: dispatch with `GITHUB_DISPATCH_TOKEN`; the job fetches its spec and files from the staging Worker and writes its outputs back through it (no storage keys anywhere). |
-| OpenRouter, Firecrawl, Hunter, Instagram/YouTube stats | Not connected by design (Sheila's Hunter key stays hers). Connect shows "Not connected" with a guide; research and the brand finder refuse with the connect guide. The cut job falls back to its deterministic moment picker without OpenRouter. |
+| YouTube stats | Real, no sign-in: `YOUTUBE_API_KEY` set; channel from Buffer's serviceId (see "Stats: no-login"). A Google sign-in is also connected on staging (optional extra detail). |
+| Instagram stats | The form path (public profile login-walled from the Worker); a Meta app is not set up (optional) |
+| OpenRouter, Firecrawl, Hunter | Not connected by design (Sheila's Hunter key stays hers). Connect shows "Not connected" with a guide; research and the brand finder refuse with the connect guide. The cut job falls back to its deterministic moment picker without OpenRouter. |
 
 ### Staging: named stops
 
@@ -273,12 +277,77 @@ check that proves it.
 | 3 | Dump a neutral test clip from the phone | `jobs` row `type='cut'` `status='done'`; health `Clip cutting` green; clips appear in Review |
 | 4 | Approve one clip, put it on the Calendar for the next hour: a real Buffer post | `posts.status='posted'` with a `url`; the post is on the throwaway accounts (then delete it there) |
 | 5 | Client Brain: upload a real scanned PDF | `jobs` row `type='extract'` `status='done'`; the draft profile shows the PDF's text (OCR) |
-| 6 | Connect → Instagram and YouTube sign-in (needs a Meta app with Instagram Login and a Google project "In production"; set `META_APP_ID`/`META_APP_SECRET`/`GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` with `--env staging`) | health `Instagram stats` / `YouTube stats` green; `account_stats` rows with `source='api'` |
-| 7 | Stats → upload a real TikTok Studio CSV export | `platform_videos` rows `platform='tiktok'` `source='import'`; health `TikTok stats` green |
+| 6 | Stats → Update numbers (no sign-in); type the Instagram numbers in "Your Instagram numbers". Optional extra: the Google / Instagram sign-ins | `settings.youtube_public.state='ok'`, `account_stats` youtube `source='api'`; instagram `source='manual'`; health `YouTube stats` / `Instagram stats` green |
+| 7 | Stats → upload the TikTok Studio export as downloaded (the zip) | `platform_videos` rows `platform='tiktok'` `source='import'` with post times; health `TikTok stats` green |
 | 8 | Research → Refresh research, then Approve (needs OpenRouter connected) | `jobs` row `type='research'` `status='done'`; `research_briefs` row `status='approved'` |
 | 9 | Settings → Voice on, record a sample, narrate a clip (Chatterbox on the Actions CPU) | `jobs` row `type='voice'` `status='done'`; health `Voice` green |
 | 10 | Deals → Find brands now with Firecrawl + OpenRouter connected, on real brand sites | `jobs` row `type='brand_finder'` `status='done'`; `brands` rows with a public contact; health `Brand finder` green |
 | 11 | Wait for the 1st of the month (or run the daily lane): the monthly brief refresh | health `Monthly brief refresh` green "started"; `emails_sent` row `brief_ready`; the approved brief is still `approved` |
+
+## Stats: no-login
+
+Owner decision (25 Sep 2026, 20:40 CT): production Stats never needs a login. Sheila never sees a
+Google or Meta consent screen (Google OAuth in Testing shows "unverified app" and drops after 7
+days; Instagram Login needs Meta App Review). The Google / Instagram sign-ins stay visible on
+Stats and Connections, labelled optional extra detail with the sentence that Google or Meta may
+show a warning until the app is approved; nothing is gated behind them. Code:
+`worker/lib/publicStats.ts`, `worker/services/youtube.ts`, `worker/services/instagramPublic.ts`,
+`worker/lib/unzip.ts`; guards: `tests/unit/stats-no-login.test.ts`, validator `stats-no-login`.
+
+**Which path is active (measured on staging 25 Sep 2026):**
+
+| Platform | Active path | Why |
+| --- | --- | --- |
+| YouTube | Public numbers with `YOUTUBE_API_KEY` (Data API v3: channels, playlistItems, videos; 3 to 5 quota units a run) | Public data needs no sign-in. Channel = Buffer's YouTube `serviceId` (the UC… id), or what she types on Stats ("Your YouTube channel"). Staging read `UC7O1lQikHSc77s7gNnj9htQ` (Sequoia Taylor): 1 subscriber, 0 views, 0 videos. |
+| Instagram | **The form** ("Your Instagram numbers" on Stats: followers + average reach or views, 3-step guide, "Remind me monthly") | From the Worker, the keyless profile JSON answers 401 and the profile page 302 → login (handle seq23). The public read still runs at most once a day and switches itself on if Instagram ever answers. |
+| TikTok | The TikTok Studio export upload | Unchanged; the zip TikTok hands her is read (below). |
+
+The active path is stored in D1 settings (`youtube_public.state`, `instagram_public.path` =
+`public` / `manual` / `oauth`) and logged as `stats.youtube.path` / `stats.instagram.path`:
+
+```bash
+npx wrangler d1 execute sheila-creator-dashboard-db --remote --command "SELECT key, value FROM settings WHERE key IN ('youtube_public','youtube_channel','instagram_public','instagram_manual','instagram_reminder')"
+```
+
+When it runs: every "Update numbers" (never refused for a missing sign-in), the daily lane
+(YouTube; Instagram at most once a day) and the Monday lane. The metrics job (the sign-in path)
+is dispatched only when a Google / Instagram sign-in is connected. With a Google sign-in
+connected, that sign-in owns the `YouTube stats` light; the public numbers still land.
+"Remind me monthly" adds one line to the Monday recap once her typed numbers are 30+ days old
+(at most every 4 weeks); it rides the recap, so it needs "Weekly recap" on (the default).
+
+**Rotate `YOUTUBE_API_KEY`** (Google Cloud project `sheilastudio-staging-p0`, account
+seq.taylor@gmail.com; key "Sheila Studio YouTube public stats", API-restricted to
+`youtube.googleapis.com`). Create the new one, put it everywhere, then delete the old one:
+
+```bash
+S=$(mktemp) && chmod 600 "$S"
+N=$(gcloud --account seq.taylor@gmail.com services api-keys create --project sheilastudio-staging-p0 \
+  --display-name "Sheila Studio YouTube public stats" --api-target=service=youtube.googleapis.com \
+  --format='value(response.name)')
+gcloud --account seq.taylor@gmail.com services api-keys get-key-string "$N" --format='value(keyString)' | tr -d '\n' > "$S"
+npx wrangler secret put YOUTUBE_API_KEY < "$S"                 # production (sheilastudio)
+npx wrangler secret put YOUTUBE_API_KEY --env staging < "$S"
+(cd ~/repo-tools/agent && python3 -m repo_operator.cli vault set sheila-youtube-api-key --class APPLICATION_SECRET --provider google --from-file "$S")
+rm -P "$S"
+# press Update numbers on Stats (YouTube card: "Public numbers, no sign-in"), then delete the old key:
+gcloud --account seq.taylor@gmail.com services api-keys list --project sheilastudio-staging-p0
+gcloud --account seq.taylor@gmail.com services api-keys delete <old key name> --project sheilastudio-staging-p0
+```
+
+A refused key shows `YouTube stats` yellow "YouTube refused this dashboard's key" (guide
+`your-youtube-numbers`); a missing key shows "not set up on this dashboard yet". Quota answers
+wait until the next day. `gcloud` on this Mac defaults to another account: always pass
+`--account seq.taylor@gmail.com`.
+
+**TikTok zip:** TikTok Studio's "Download data → CSV" hands her a zip (e.g.
+`Content_<handle>.zip` holding `Content.csv`, header `"Time","Video title","Video link","Post
+time","Total likes","Total comments","Total shares","Total views"`). The Worker opens it
+(`worker/lib/unzip.ts`, stored or deflate via `DecompressionStream`) and reads the CSV inside; she
+may upload the zip or the CSV. Only a real Excel workbook (a zip with `[Content_Types].xml`) gets
+"That is an Excel file". "Post time" in that export has no year ("September 4"), so the post
+time comes from the TikTok video id (its top 32 bits are the Unix seconds it was posted).
+Proven on staging 25 Sep 2026: the real zip imported 5 videos with exact post times.
 
 ## When something is red
 

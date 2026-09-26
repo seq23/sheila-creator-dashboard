@@ -1,4 +1,8 @@
-// Monday lane: weekly recap email (optional), learning update, brand finder job, metrics job.
+// Monday lane: weekly recap email (optional), learning update, brand finder job, stats.
+// Stats are no-login first (owner decision 25 Sep 2026): YouTube's public numbers with the API
+// key and Instagram's public numbers (or her typed ones) are read here every week, whether or
+// not a Google / Instagram sign-in exists. The metrics job (the sign-in path) is dispatched
+// only when a sign-in is connected; without one it would have nothing to read (Rule 0).
 import type { Env } from "../env";
 import { followupsDueLine } from "../domain/deals";
 import { runwayWeeks, weeklyNeed } from "../domain/runway";
@@ -7,14 +11,20 @@ import { log } from "../lib/log";
 import { readSettings } from "../routes/settings";
 import { emailFrame, sendEmail } from "../services/email";
 import { dispatchJob } from "../services/github";
+import { instagramReminderLine, refreshPublicStats } from "../lib/publicStats";
 
 export async function weekly(env: Env): Promise<void> {
   const s = await readSettings(env);
   const profileLocked = await env.DB.prepare("SELECT version FROM brand_profile WHERE locked = 1 LIMIT 1").first();
 
+  // No-login stats: always, before anything else (the recap below reads them).
+  const pub = await refreshPublicStats(env, { force: true });
+  const signedIn = (await env.DB.prepare("SELECT COUNT(*) AS n FROM connections WHERE service IN ('meta', 'google') AND status = 'ok'").first<{ n: number }>())?.n ?? 0;
+  log.info("weekly.stats", { youtube: pub.youtube.state, instagram: pub.instagram.path, sign_in_job: signedIn > 0 });
+
   // Learning loop + brand finder only make sense once there is a locked profile.
   if (profileLocked) {
-    await dispatchJob(env, "metrics", null);
+    if (signedIn > 0) await dispatchJob(env, "metrics", null);
     await dispatchJob(env, "brand_finder", null);
   }
 
@@ -45,6 +55,9 @@ export async function weekly(env: Env): Promise<void> {
     `This week: ${plannedN} posts are scheduled.`,
     ...(followups ? [followups] : []),
   ];
+  // Her "remind me monthly" for the Instagram numbers she types on Stats.
+  const igReminder = await instagramReminderLine(env);
+  if (igReminder) lines.push(igReminder);
   const { html, text } = emailFrame("Your week at a glance", lines, { label: "Open the dashboard", url: env.PUBLIC_BASE_URL });
   await sendEmail(env, { kind: "weekly_recap", to: s.notify_emails, subject: "Weekly recap", html, text });
   log.info("weekly.recap", { posted: postedN, planned: plannedN, followups_due: due.length });
