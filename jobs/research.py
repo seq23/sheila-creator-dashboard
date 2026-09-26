@@ -26,7 +26,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-from common import WORK, Job, download_input, log, run
+from common import WORK, Job, download_input, log, openrouter_content, run
 from extract import Unreadable, extract_text, llm_json
 
 PLATFORMS = ("tiktok", "instagram", "youtube")
@@ -90,11 +90,8 @@ def deeper_search(key: str, model: str, profile: dict[str, str] | None) -> tuple
     q = "What short-form video formats, hooks and posting habits work best for a luxury event and lifestyle creator whose audience is mostly women over 40? Cite studies."
     if profile and profile.get("who"):
         q += " Creator: " + profile["who"][:600]
-    body = json.dumps({"model": model, "messages": [{"role": "user", "content": q}], "max_tokens": 1200}).encode()
-    req = urllib.request.Request("https://openrouter.ai/api/v1/chat/completions", data=body, method="POST", headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json", "X-Title": "Sheila Studio"})
     try:
-        with urllib.request.urlopen(req, timeout=180) as res:
-            data = json.loads(res.read().decode())
+        _, data = openrouter_content(key, {"model": model, "messages": [{"role": "user", "content": q}], "max_tokens": 1200}, usable=lambda t: bool(t.strip()))
     except Exception:  # noqa: BLE001
         log("deeper.failed")
         return "", []

@@ -148,7 +148,7 @@ brain.post("/profile/draft", async (c) => {
     }
     if (!texts.length) return fail(c, 409, "We couldn't find the text of your docs. Press Try again on each doc.", "upload-brand-docs");
     const llm = await getLlm(c.env);
-    const answer = await llm.complete({ system: PROFILE_SYSTEM, user: profileUserPrompt(texts), json: true, maxTokens: 2500 });
+    const answer = await llm.complete({ system: PROFILE_SYSTEM, user: profileUserPrompt(texts), json: true, maxTokens: 2500, accept: (t) => !!parseProfileAnswer(t) });
     if (!answer.ok) return fail(c, 502, answer.error ?? "The AI did not answer. Try again in a minute.", "reconnect-openrouter");
     sections = parseProfileAnswer(answer.text);
     if (!sections) return fail(c, 502, "The AI's draft came back incomplete. Press Draft again.", "upload-brand-docs");
