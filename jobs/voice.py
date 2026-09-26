@@ -17,11 +17,11 @@ from typing import Any
 
 from common import WORK, Job, download_input, log, run, upload_output
 
-CHATTERBOX = "chatterbox-tts>=0.1.2,<0.2"  # speed and quality on the Actions CPU runner: not yet proven
-# Chatterbox watermarks every file with resemble-perth, which imports pkg_resources. Setuptools
-# stopped shipping pkg_resources after 80 and the runner's Python has none, so perth quietly set
-# its watermarker to None and the model load died with "TypeError: 'NoneType' object is not
-# callable" (staging run 36208466035, 26 Sep 2026). Pin a setuptools that still has it.
+CHATTERBOX = "chatterbox-tts>=0.1.2,<0.2"
+# Chatterbox's watermarker (resemble-perth) imports pkg_resources, which setuptools 81 removed and
+# a Python 3.12 runner does not ship: perth.PerthImplicitWatermarker was None and every voice job
+# died with "TypeError: 'NoneType' object is not callable" (Phase 0 live test, 26 Sep 2026; the
+# diagnostic run with this pin loaded the model in 48 s and spoke a sentence in 17 s on the CPU).
 SETUPTOOLS = "setuptools<81"
 
 

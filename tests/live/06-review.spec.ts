@@ -22,7 +22,7 @@ async function editCaption(page: Page, id: string, fill: (dialog: ReturnType<Pag
   await card(page, id).getByRole("button", { name: "Edit caption & hook" }).click();
   const dialog = page.getByRole("dialog");
   await fill(dialog);
-  await dialog.getByRole("button", { name: "Save" }).click();
+  await dialog.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.locator(".toast").filter({ hasText: "Saved" }).first()).toBeVisible();
 }
 
@@ -59,7 +59,11 @@ test("6 · approve, reject with a reason, edit caption, swap hook, untick a plat
     await dialog.getByLabel("Caption", { exact: true }).fill(TEST_CAPTION);
     await dialog.getByText("Paid partnership", { exact: true }).click();
   });
-  await editCaption(page, c.id, async () => undefined);
+  await expect(card(page, c.id).locator(".pill", { hasText: "Paid partnership" })).toBeVisible();
+  await expect(card(page, c.id)).toContainText("#ad");
+  await editCaption(page, c.id, async (dialog) => {
+    await expect(dialog.getByLabel("Paid partnership")).toBeChecked(); // the dialog shows what is saved
+  });
   await expect(card(page, c.id).locator(".pill", { hasText: "Paid partnership" })).toBeVisible();
   const editedShot = await shot(page, "06-review-edited");
   await card(page, c.id).getByRole("button", { name: "Approve" }).click();

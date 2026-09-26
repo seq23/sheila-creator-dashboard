@@ -25,9 +25,35 @@ export interface BufferPostStatus {
   error: string | null;
 }
 
+/** One post for one channel. `title` is the clip's hook (YouTube requires a title). */
+export interface CreatePostArgs {
+  channelId: string;
+  platform: Platform;
+  text: string;
+  title: string;
+  mediaUrl: string;
+  scheduledAt: string;
+}
+
+/**
+ * Per-platform metadata Buffer requires. Found in the Phase 0 live test (26 Sep 2026): without it
+ * Buffer refused every Instagram post ("Instagram posts require a type (post, story, or reel).")
+ * and every YouTube post ("YouTube posts require a title., YouTube posts require a category.").
+ * TikTok needs none. Category 26 = Howto & Style (hosting, tablescapes, events).
+ */
+export const YOUTUBE_CATEGORY_ID = "26";
+export function postMetadata(platform: Platform, title: string): Record<string, unknown> | undefined {
+  if (platform === "instagram") return { instagram: { type: "reel", shouldShareToFeed: true } };
+  if (platform === "youtube") {
+    const t = title.replace(/\s+/g, " ").trim().slice(0, 100) || "New video";
+    return { youtube: { title: t, categoryId: YOUTUBE_CATEGORY_ID, privacy: "public", madeForKids: false, notifySubscribers: true } };
+  }
+  return undefined;
+}
+
 export interface BufferClient {
   checkKey(): Promise<{ ok: boolean; channels: BufferChannel[]; error: string | null; organizationId?: string }>;
-  createPost(input: { channelId: string; text: string; mediaUrl: string; scheduledAt: string }): Promise<{ ok: boolean; id: string | null; error: string | null }>;
+  createPost(input: CreatePostArgs): Promise<{ ok: boolean; id: string | null; error: string | null }>;
   getPost(id: string): Promise<BufferPostStatus>;
   deletePost(id: string): Promise<boolean>;
   /** Posts waiting in the channel's queue; -1 when Buffer could not say. */
@@ -71,8 +97,10 @@ export class FakeBuffer implements BufferClient {
     ];
     return { ok: true, channels, error: null, organizationId: "fake_org" };
   }
-  async createPost(input: { channelId: string; text: string; mediaUrl: string; scheduledAt: string }) {
+  async createPost(input: CreatePostArgs) {
     if (!this.key) return { ok: false, id: null, error: "Buffer is not connected." };
+    // The fake refuses what real Buffer refuses (see postMetadata).
+    if (input.platform === "youtube" && !input.title.trim()) return { ok: false, id: null, error: "Invalid post: YouTube posts require a title." };
     if (input.mediaUrl.includes("reject")) return { ok: false, id: null, error: "Buffer rejected the video (too long for this channel)." };
     const fail = input.mediaUrl.includes("fail");
     const id = `fake_post_${fail ? "fail_" : ""}${Math.random().toString(36).slice(2, 10)}`;
@@ -163,8 +191,9 @@ class RealBuffer implements BufferClient {
       return { ok: false, channels: [], error: e instanceof Error ? e.message : "Buffer did not answer." };
     }
   }
-  async createPost(input: { channelId: string; text: string; mediaUrl: string; scheduledAt: string }) {
+  async createPost(input: CreatePostArgs) {
     try {
+      const metadata = postMetadata(input.platform, input.title);
       const data = await this.gql<{ createPost: { post?: { id: string }; message?: string } }>(
         `mutation($input: CreatePostInput!) { createPost(input: $input) { ... on PostActionSuccess { post { id } } ... on MutationError { message } } }`,
         {
@@ -176,6 +205,7 @@ class RealBuffer implements BufferClient {
             schedulingType: "automatic",
             needsApproval: false,
             dueAt: input.scheduledAt,
+            ...(metadata ? { metadata } : {}),
           },
         },
       );
@@ -187,13 +217,15 @@ class RealBuffer implements BufferClient {
   }
   async getPost(id: string): Promise<BufferPostStatus> {
     try {
-      const data = await this.gql<{ post: { id: string; status: string; error: unknown; externalLink: string | null } | null }>(
-        `query($id: PostId!) { post(input: { id: $id }) { id status error externalLink sentAt dueAt } }`,
+      const data = await this.gql<{ post: { id: string; status: string; error: { message?: string | null } | null; externalLink: string | null } | null }>(
+        // `error` is an object (PostPublishingError): selecting it bare made Buffer refuse the whole
+        // query, so every read came back "unknown" and no post was ever marked posted (live test).
+        `query($id: PostId!) { post(input: { id: $id }) { id status error { message supportUrl } externalLink sentAt dueAt } }`,
         { id },
       );
       if (!data.post) return { id, status: "failed", url: null, error: "Buffer no longer has this post." };
       const s = data.post.status.toLowerCase();
-      const err = typeof data.post.error === "string" ? data.post.error : data.post.error ? "Buffer reported a problem with this post." : null;
+      const err = data.post.error ? (data.post.error.message?.slice(0, 200) || "Buffer reported a problem with this post.") : null;
       return { id, status: s === "sent" ? "posted" : s === "error" ? "failed" : "queued", url: data.post.externalLink, error: err };
     } catch (e) {
       // A read that did not get through says nothing about the post: never count it as a failure.
