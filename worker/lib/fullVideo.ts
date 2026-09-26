@@ -76,7 +76,7 @@ export async function fullVideoCards(env: Env, now = new Date()): Promise<FullVi
     };
     const a = storageAction({ status: r.status, created_at: r.created_at, posted_at: r.posted_at, file_deleted_at: r.file_deleted_at }, now);
     if (a.do === "warn") out.push({ ...base, kind: "removal_soon", delete_on: a.deleteOn });
-    if (d.handoff && !r.posted_at && !r.file_deleted_at) out.push({ ...base, kind: "upload_yourself", studio_url: "https://www.youtube.com/upload" });
+    if (d.handoff && r.status === "approved" && !r.posted_at && !r.file_deleted_at) out.push({ ...base, kind: "upload_yourself", studio_url: "https://www.youtube.com/upload" });
     else if (r.posted_at && !d.studio_done_at) out.push({ ...base, kind: "finish_in_studio" });
   }
   return out;

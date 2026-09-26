@@ -21,6 +21,7 @@ import {
   starterDraft,
   storageAction,
   studioLink,
+  bufferCanTake,
   R2_FREE_BYTES,
   TAGS_MAX_CHARS,
   type Segment,
@@ -80,6 +81,12 @@ describe("chapters, description and tags YouTube accepts", () => {
     expect(s.title.length).toBeGreaterThan(5);
     expect(s.body.length).toBeGreaterThan(10);
     expect(starterDraft([], "kitchen_tour.mov").title).toBe("kitchen tour");
+  });
+  it("Buffer posts YouTube Shorts only (proven on staging): vertical and 3 minutes or less, else she uploads it", () => {
+    expect(bufferCanTake({ width: 1080, height: 1920, duration_s: 180 })).toBe(true);
+    expect(bufferCanTake({ width: 1080, height: 1920, duration_s: 181 })).toBe(false);
+    expect(bufferCanTake({ width: 1280, height: 720, duration_s: 60 })).toBe(false);
+    expect(bufferCanTake({ width: 1080, height: 1080, duration_s: 60 })).toBe(false);
   });
   it("Studio: the video's own edit page when we know its id", () => {
     expect(studioLink("https://www.youtube.com/watch?v=abcdefghijk")).toBe("https://studio.youtube.com/video/abcdefghijk/edit");
@@ -175,6 +182,12 @@ async function runFull(dumpId: string) {
   await fullVideoJob.applyResult(env, job.id, dumpId, await fullVideoJob.fakeRun!(env, job.id, dumpId, {}));
 }
 type View = { id: string; status: string; media_url: string; platforms: string[]; full_video: { title: string; description: string; chapters: { t: number }[]; tags: string[]; thumbnails: { url: string }[]; thumb_pick: number; privacy: string; handoff: boolean; post: { status: string; url: string | null } | null } | null };
+/** Make the drafted video vertical and short (a full video Buffer can post), as the job would have measured it. */
+function makeVertical(clipId: string, seconds = 150) {
+  const d = JSON.parse(one<{ youtube: string }>("SELECT youtube FROM clips WHERE id = ?", clipId).youtube);
+  Object.assign(d, { width: 1080, height: 1920, duration_s: seconds, handoff: false });
+  db.raw.prepare("UPDATE clips SET youtube = ?, end_s = ? WHERE id = ?").run(JSON.stringify(d), seconds, clipId);
+}
 async function reviewItem(dumpId: string, tab = "new"): Promise<View> {
   const list = await call("GET", `/api/clips?tab=${tab}&hidden=1`);
   return (list.json.groups as { dump: { id: string; door: string }; clips: View[] }[]).find((g) => g.dump.id === dumpId)!.clips[0];
@@ -271,12 +284,36 @@ describe("Dump → its own job → one Review item", () => {
 });
 
 describe("Calendar → Buffer → posted → Finish in YouTube Studio → the file goes after 7 days", () => {
-  it("the whole way, with her privacy", async () => {
+  it("landscape or over 3 minutes: never sent to Buffer; Upload it yourself on its day; the link she pastes marks it posted", async () => {
+    const id = await dumpWith(1);
+    await call("POST", `/api/dumps/${id}/dump`);
+    await runFull(id); // the fake job's video is 1920x1080, 10 minutes
+    const cid = fullClipId(id);
+    expect((await reviewItem(id)).full_video!.handoff).toBe(true);
+    expect(await fullVideoCards(env)).toEqual([]); // nothing asked of her before she approves
+    await call("POST", `/api/clips/${cid}/approve`);
+    await planAhead(env, { respectHeld: true });
+    db.raw.prepare("UPDATE posts SET scheduled_at = ? WHERE clip_id = ?").run(new Date(Date.now() + 3600_000).toISOString(), cid);
+    await saveConnection(env, "buffer", "good-key-000000", "ok", {});
+    await bufferSync(env, { force: true });
+    expect(one<{ status: string; buffer_post_id: string | null; retries: number }>("SELECT status, buffer_post_id, retries FROM posts WHERE clip_id = ?", cid)).toEqual({ status: "planned", buffer_post_id: null, retries: 0 });
+    expect(one<{ n: number }>("SELECT COUNT(*) AS n FROM emails_sent WHERE kind = 'posting_problem'").n).toBe(0);
+    const tok = one<{ media_token: string }>("SELECT media_token FROM clips WHERE id = ?", cid).media_token;
+    expect(await fullVideoCards(env)).toEqual([expect.objectContaining({ kind: "upload_yourself", download_url: `/media/${tok}?download=1`, studio_url: "https://www.youtube.com/upload" })]);
+    const dl = await app.request(`${BASE_URL}/media/${tok}?download=1`, {}, env);
+    expect(dl.headers.get("content-disposition")).toBe('attachment; filename="sheila-studio-youtube.mp4"');
+    const ok = await call("POST", `/api/clips/${cid}/youtube/posted`, { url: "https://youtu.be/abcdefghijk" });
+    expect(ok.json).toMatchObject({ ok: true, url: "https://www.youtube.com/watch?v=abcdefghijk" });
+    expect(one<{ status: string }>("SELECT status FROM posts WHERE clip_id = ?", cid).status).toBe("posted");
+  });
+
+  it("vertical and 3 minutes or less: the whole way through Buffer, with her privacy", async () => {
     await setSetting(env.DB, "features", { voice: false, deeper_research: false, weekly_recap: true, help_ask: false });
     const id = await dumpWith(1);
     await call("POST", `/api/dumps/${id}/dump`);
     await runFull(id);
     const cid = fullClipId(id);
+    makeVertical(cid);
     await call("PATCH", `/api/clips/${cid}/youtube`, { privacy: "private" });
     expect((await call("POST", `/api/clips/${cid}/approve`)).status).toBe(200);
     await planAhead(env, { respectHeld: true });
@@ -309,11 +346,12 @@ describe("Calendar → Buffer → posted → Finish in YouTube Studio → the fi
     expect((await app.request(`${BASE_URL}/media/${tok}?thumb=1`, {}, env)).status).toBe(200);
   });
 
-  it("Buffer won't take it: Upload it yourself; the link she pastes marks it posted", async () => {
+  it("a vertical one Buffer still refuses: Upload it yourself; the link she pastes marks it posted", async () => {
     const id = await dumpWith(1);
     await call("POST", `/api/dumps/${id}/dump`);
     await runFull(id);
     const cid = fullClipId(id);
+    makeVertical(cid);
     await call("POST", `/api/clips/${cid}/approve`);
     await planAhead(env, { respectHeld: true });
     // the fake Buffer refuses a media link with "reject" in it, like a too-long video

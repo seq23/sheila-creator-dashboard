@@ -38,7 +38,7 @@ const DOORS: Record<Door, { title: string; line: string; hint: string; picked: s
   youtube: {
     title: "A full video for YouTube",
     line: "We post it whole, not cut up.",
-    hint: "Pick this for one long video that goes on YouTube as it is: no cutting, no vertical crop. We write the title, description, chapters and tags from what you say, and give you three thumbnails to pick from. You approve it in Review.",
+    hint: "Pick this for one long video that goes on YouTube as it is: no cutting, no vertical crop. We write the title, description, chapters and tags from what you say, and give you three thumbnails to pick from. You approve it in Review. Vertical and 3 minutes or less: it posts through Buffer. Longer or landscape: you upload it yourself in two taps, because YouTube only lets apps post Shorts.",
     picked: "A full video for YouTube",
     noun: ["full video", "full videos"],
   },

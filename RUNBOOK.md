@@ -326,14 +326,21 @@ the `fullvideo` type).
 - **Calendar**: YouTube only, at most one full video a week, inside the YouTube cap
   (`fillWeek` `fullClipIds`). At most one waiting full video per planned week (4): Dump refuses the
   fifth in plain words.
-- **Posting** (Buffer schema, introspected 26 Sep 2026; introspection needs no key): the normal
+- **Buffer posts YouTube Shorts only (PROVEN on staging, 26 Sep 2026)**: a 1280x720, 200 s TEST
+  video was refused twice with "Video must be no longer than 3 minutes for YouTube Shorts., Video
+  must be vertical (portrait orientation) for YouTube Shorts."; Buffer's schema has no YouTube post
+  type. So `bufferCanTake` (vertical and at most 180 s) decides: those go through Buffer; every other
+  full video is marked `handoff` when the job returns, is never sent to Buffer, keeps its Calendar
+  day, and shows **Upload it yourself** once approved. YouTube's own upload API is not a way round:
+  uploads from an app Google hasn't audited are locked private.
+- **Posting a vertical, short one** (Buffer schema, introspected 26 Sep 2026; introspection needs no key): the normal
   `createPost` with `metadata.youtube {title, categoryId, privacy, madeForKids, notifySubscribers,
   isAiGenerated}`; the description is the caption (chapters + up to three hashtags). There is no
   Shorts/long switch: YouTube decides from the video. Buffer can't set a custom thumbnail
   (`VideoAssetInput.thumbnailUrl` is rejected; `thumbnailOffset` is Instagram/TikTok/Pinterest only)
   or tags, so after it posts Home shows **Finish in YouTube Studio** (Download thumbnail, Copy tags,
   Open YouTube Studio, I did it).
-- **Last resort** (Buffer refuses it, after its retries): Home and Review show **Upload it
+- **Upload it yourself** (every landscape or long one, and a short one Buffer refuses after its retries): Home and Review show **Upload it
   yourself** (Download for YouTube + youtube.com/upload). It is marked Posted when her channel's
   public uploads show the same title (`matchHandoffs`, after the public-stats read) or when she
   pastes the link. No Google verification anywhere.
