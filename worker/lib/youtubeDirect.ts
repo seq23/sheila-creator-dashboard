@@ -377,12 +377,25 @@ export async function reconcileClip(env: Env, clipId: string, now = new Date(), 
     return;
   }
   const removed = !post;
-  await patchRow(env, clipId, { privacy: action.intent.privacyStatus, publish_at: action.intent.publishAt, status: removed ? "removed" : action.intent.publishAt ? "scheduled" : "live", note: removed ? "Taken off the Calendar: it is private on your channel and kept." : null, reason: null });
+  // YouTube's answer to videos.update is the video's new status: checked at once. videos.list lags an
+  // update by a little (measured on staging 26 Sep 2026: a read right after answered the previous
+  // publishAt three times in a row), so the list read-back confirms it on the next sync, 2+ minutes on.
+  const ans = res.status;
+  await recordEvent(env.DB, "ytdirect.update_answer", clipId, { video_id: r.video_id, privacyStatus: ans.privacyStatus, publishAt: ans.publishAt, uploadStatus: ans.uploadStatus ?? null });
+  const v = verifyReadBack(action.intent, ans);
+  if (!v.ok) {
+    await patchRow(env, clipId, { status: "mismatch", reason: v.why, note: v.note, privacy: action.intent.privacyStatus, publish_at: action.intent.publishAt, actual_privacy: ans.privacyStatus, actual_publish_at: ans.publishAt });
+    await setHealth(env.DB, HEALTH_NAME, "red", v.note, v.guide);
+    log.warn("ytdirect.mismatch", { why: v.why, step: "update" });
+    return;
+  }
+  await patchRow(env, clipId, { privacy: action.intent.privacyStatus, publish_at: action.intent.publishAt, status: removed ? "removed" : action.intent.publishAt ? "scheduled" : "live", note: removed ? "Taken off the Calendar: it is private on your channel and kept." : null, reason: null, actual_privacy: ans.privacyStatus, actual_publish_at: ans.publishAt, verified_at: null });
   await recordEvent(env.DB, removed ? "ytdirect.made_private" : "ytdirect.moved", clipId, {});
   log.info("ytdirect.update", { removed, scheduled: !!action.intent.publishAt });
-  // Every change is read back, a take-off too: it must be private with no publish time on YouTube.
-  await readBackAndVerify(env, clipId, access, false, removed);
 }
+
+/** How long after a change the list read-back waits (videos.list lags videos.update). */
+export const READBACK_AFTER_UPDATE_MS = 2 * 60_000;
 
 // ---------------------------------------------------------------- hourly
 
@@ -435,6 +448,7 @@ export async function youtubeDirectSync(env: Env, now = new Date()): Promise<{ d
 
   // Follow the Calendar for everything already on her channel.
   let reconciled = 0;
+  let confirmed = 0;
   const { results: onYouTube } = await env.DB.prepare("SELECT clip_id FROM youtube_uploads WHERE video_id IS NOT NULL AND status IN ('scheduled','live','removed','mismatch') LIMIT 50").all<{ clip_id: string }>();
   if (onYouTube.length && mode === "on") {
     const tok = await youtubeAccessToken(env);
@@ -443,10 +457,17 @@ export async function youtubeDirectSync(env: Env, now = new Date()): Promise<{ d
         await reconcileClip(env, u.clip_id, now, tok.access_token);
         reconciled++;
       }
+      // Every change is confirmed with videos.list once YouTube has caught up: a take-off must read
+      // private with no publish time, a move its new time.
+      const { results: pending } = await env.DB.prepare("SELECT clip_id, status FROM youtube_uploads WHERE video_id IS NOT NULL AND verified_at IS NULL AND status IN ('scheduled','live','removed') AND updated_at <= ?").bind(new Date(now.getTime() - READBACK_AFTER_UPDATE_MS).toISOString()).all<{ clip_id: string; status: string }>();
+      for (const p of pending) {
+        await readBackAndVerify(env, p.clip_id, tok.access_token, false, p.status === "removed");
+        confirmed++;
+      }
     }
   }
   await writeLight(env);
-  log.info("ytdirect.sync", { mode, dispatched, waiting, reconciled });
+  log.info("ytdirect.sync", { mode, dispatched, waiting, reconciled, confirmed });
   return { dispatched, waiting, reconciled };
 }
 

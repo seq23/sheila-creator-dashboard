@@ -572,7 +572,10 @@ fake YouTube), `worker/jobs/ytupload.ts` + `jobs/ytupload.py` + `.github/workflo
 - **The job** reads the video through the Worker, gets a short-lived access token from
   `POST /api/jobs/:id/youtube-token` (never the refresh token), uploads with the resumable protocol
   (8 MB chunks, resumes after drops and 5xx), sets the thumbnail, reports an outcome.
-- **Read-back:** `videos.list` after every upload and update; privacyStatus / publishAt must match
+- **Read-back:** `videos.list` after every upload; after a `videos.update` its own answer is checked at once
+  and `videos.list` confirms on the next sync 2+ minutes later (the list lags an update: measured on
+  staging 26 Sep 2026, three reads in a row answered the previous publishAt). Events
+  `ytdirect.readback` / `ytdirect.update_answer` keep exactly what YouTube answered; privacyStatus / publishAt must match
   or the row is `mismatch` with a red light and a named fix (Calendar move, or Upload it yourself).
 - **Calendar:** moved → `videos.update` publishAt; taken off before it went public → private and
   kept; put back → its time again. Never a second upload, never a delete (validator `youtube-direct`).
