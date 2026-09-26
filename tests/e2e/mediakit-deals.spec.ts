@@ -92,11 +92,22 @@ test.describe("media kit", () => {
     await page.reload();
     await expect(page.locator(".kit-bar")).toContainText(/Viewed 3 times, last on/);
 
+    // the settled screen does not re-fetch itself: a re-fetch resets the fields she is typing in
+    // (a render loop once did, and the Link name edit below was lost before blur)
+    let refetches = 0;
+    page.on("request", (r) => {
+      if (r.method() === "GET" && r.url().endsWith("/api/mediakit")) refetches++;
+    });
+
     // renaming the link keeps sent links working
     await page.getByLabel("Link name").fill("sheilabruce");
+    await expect(page.getByLabel("Link name")).toHaveValue("sheilabruce");
+    expect(refetches, "the kit screen re-fetched itself while she typed").toBe(0);
     const [renamed] = await Promise.all([page.waitForResponse((r) => r.url().endsWith("/api/mediakit") && r.request().method() === "PATCH" && (r.request().postData() ?? "").includes('"slug"')), page.getByLabel("Link name").blur()]);
     expect(renamed.status()).toBe(200);
     expect(((await renamed.json()) as { view: { slug: string } }).view.slug).toBe("sheilabruce");
+    await expect(page.getByLabel("Link name")).toHaveValue("sheilabruce");
+    expect(refetches).toBe(0);
     await pub.goto("/kit/sheila");
     await expect(pub).toHaveURL(/\/kit\/sheilabruce$/);
     await expect(pub.getByRole("heading", { name: "Sheila Bruce", level: 1 })).toBeVisible();

@@ -45,13 +45,19 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
 export function useToast() {
   const { push } = useContext(ToastCtx);
-  return {
-    ok: (text: string) => push({ text }),
-    bad: (e: unknown, fallback = "Something went wrong.") => {
-      if (e instanceof ApiFailure) push({ text: e.body.error, bad: true, fix: e.body.fix_guide });
-      else push({ text: e instanceof Error && e.message ? e.message : fallback, bad: true });
-    },
-  };
+  // One object per provider, not per render: screens put `toast` in useCallback/useEffect deps
+  // (KitEditor's load), and a fresh object each render re-ran the load on every render, a GET
+  // loop that reset whatever she was typing (the Link name edit was lost before blur).
+  return useMemo(
+    () => ({
+      ok: (text: string) => push({ text }),
+      bad: (e: unknown, fallback = "Something went wrong.") => {
+        if (e instanceof ApiFailure) push({ text: e.body.error, bad: true, fix: e.body.fix_guide });
+        else push({ text: e instanceof Error && e.message ? e.message : fallback, bad: true });
+      },
+    }),
+    [push],
+  );
 }
 
 // ---------- data hook
