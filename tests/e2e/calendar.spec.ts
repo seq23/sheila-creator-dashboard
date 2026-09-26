@@ -201,6 +201,13 @@ test.describe("calendar and the hourly Buffer sync", () => {
     await expect(page.locator(".cal-caps")).toContainText(/Instagram \d+ \/ 7/);
     const card = page.locator(".cal-post.planned").first();
     await expect(card).toBeVisible();
+    // Readable at every width: the hook never wraps one letter per line (live test 26 Sep 2026:
+    // at 1280 px beside the pool the text column was ~10 px wide). At most 3 lines tall.
+    const hook = card.locator(".cal-hook");
+    const box = (await hook.boundingBox())!;
+    expect(box.width, "hook text column width").toBeGreaterThanOrEqual(60);
+    const lineHeight = await hook.evaluate((el) => parseFloat(getComputedStyle(el).lineHeight) || parseFloat(getComputedStyle(el).fontSize) * 1.3);
+    expect(box.height / lineHeight, "hook lines").toBeLessThanOrEqual(3.2);
     const fromDay = (await card.locator("xpath=ancestor::section[1]").getAttribute("data-day"))!;
     // a neighbouring day in the same week (Mon..Sat → next day, Sun → Sat): never over the cap
     const d = new Date(`${fromDay}T12:00:00Z`);

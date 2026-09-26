@@ -19,6 +19,7 @@ concurrency:
 permissions:
   contents: write
   pull-requests: write
+  actions: write # dispatch check.yml on the screenshots branch
 
 jobs:
   run:
@@ -66,3 +67,6 @@ jobs:
           git commit -q -m "Help screenshots refreshed (run ${{ github.run_id }})"
           git push -q origin "$branch"
           gh pr create --title "Help screenshots refreshed" --body "Made by job-help_screenshots from demo data (tests/e2e/seed-demo.sql). Merging ships the new pictures with the next deploy." --head "$branch" --base "${{ github.event.repository.default_branch }}"
+          # GITHUB_TOKEN pull requests start no workflows; run the merge gate on the branch so the
+          # PR can go green and be landed (Phase 0: PR #21 sat with no checks at all).
+          gh workflow run check.yml --ref "$branch"
