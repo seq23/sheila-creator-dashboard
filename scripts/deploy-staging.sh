@@ -7,6 +7,8 @@
 # and its own PUBLIC_BASE_URL, and scripts/validators/envs-match.mjs keeps it production's twin.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+# shellcheck source=lib/wrangler-retry.sh
+source scripts/lib/wrangler-retry.sh
 
 export CLOUDFLARE_ACCOUNT_ID="${CLOUDFLARE_ACCOUNT_ID:-8d147e242033699dd37c6f5a451f48d2}"
 PUBLIC_BASE_URL="https://sheila-creator-dashboard-staging.seq-taylor.workers.dev"
@@ -18,10 +20,10 @@ echo "==> build client"
 npm run build
 
 echo "==> D1 migrations (remote, staging)"
-npx wrangler d1 migrations apply sheila-creator-dashboard-db-staging --remote --env staging
+wr d1 migrations apply sheila-creator-dashboard-db-staging --remote --env staging
 
 echo "==> deploy worker (staging)"
-npx wrangler deploy --env staging
+wr deploy --env staging
 
 echo "==> smoke"
 body=""
