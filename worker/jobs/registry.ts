@@ -13,6 +13,7 @@ import { brandFinderJob } from "./brand_finder";
 import { voiceJob } from "./voice";
 import { helpScreenshotsJob } from "./help_screenshots";
 import { metricsJob } from "./metrics";
+import { fullVideoJob } from "./fullvideo";
 
 export interface JobHandler {
   buildSpec(env: Env, jobId: string, refId: string | null): Promise<unknown>;
@@ -30,4 +31,5 @@ export const JOB_HANDLERS: Record<JobType, JobHandler> = {
   voice: voiceJob,
   help_screenshots: helpScreenshotsJob,
   metrics: metricsJob,
+  fullvideo: fullVideoJob,
 };

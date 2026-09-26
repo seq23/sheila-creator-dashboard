@@ -1,6 +1,6 @@
 // Dump: two doors, notes, the Dump button (section 7). A dump is created before the files
 // upload, files attach to it, and Dump flips it to queued and starts the cut job.
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import type { Env, Vars } from "../env";
 import { requireUser } from "../lib/auth";
 import { recordEvent, parseJson } from "../lib/db";
@@ -13,6 +13,10 @@ import { cleanControls } from "../domain/steer";
 import { confirmUnderstood, readUnderstood, tracksOf, understand } from "../lib/steerStore";
 import type { NotFollowed } from "@shared/steer";
 import type { AssetRow, DumpSummary } from "@shared/types";
+import { dispatchJob } from "../services/github";
+import { pendingRefusal, spaceLine } from "../domain/fullVideo";
+import { PLAN_AHEAD_WEEKS } from "./posts";
+import { getSetting, setSetting } from "../lib/db";
 
 export const dumps = new Hono<{ Bindings: Env; Variables: Vars }>();
 dumps.use("*", requireUser);
@@ -20,6 +24,7 @@ dumps.use("*", requireUser);
 interface DumpDb {
   id: string;
   door: "new" | "recycle";
+  kind: string;
   notes: string;
   status: DumpSummary["status"];
   error_summary: string | null;
@@ -37,7 +42,7 @@ interface DumpDb {
   tried: string | null;
 }
 
-const SELECT = `SELECT d.id, d.door, d.notes, d.status, d.error_summary, d.clips_made, d.created_at, d.ready_at, d.steer, d.steer_notes, d.not_followed, d.tried,
+const SELECT = `SELECT d.id, d.door, d.kind, d.notes, d.status, d.error_summary, d.clips_made, d.created_at, d.ready_at, d.steer, d.steer_notes, d.not_followed, d.tried,
   (SELECT COUNT(*) FROM assets a WHERE a.dump_id = d.id AND a.upload_status != 'aborted') AS files,
   (SELECT j.progress FROM jobs j WHERE j.ref_id = d.id AND j.type = 'cut' ORDER BY j.created_at DESC LIMIT 1) AS progress,
   (SELECT a.source_note FROM assets a WHERE a.dump_id = d.id AND a.source_owner = 'other' LIMIT 1) AS held_note,
@@ -46,11 +51,11 @@ const SELECT = `SELECT d.id, d.door, d.notes, d.status, d.error_summary, d.clips
   FROM dumps d`;
 
 function view(r: DumpDb): DumpSummary {
-  const { editor, editor_status, steer, steer_notes, not_followed, ...rest } = r;
+  const { editor, editor_status, steer, steer_notes, not_followed, kind, ...rest } = r;
   // A connected editor is cutting it (Who edits > Cutting): say who, in her words.
   const name = editorDef(editor)?.name;
   const progress = name && r.status === "cutting" ? { step: editor_status === "importing" ? `Bringing your clips back from ${name}` : `${name} is cutting your videos`, done: 0, total: 1 } : parseJson(r.progress, null);
-  return { ...rest, progress, steer: parseJson(steer, {}), understood: readUnderstood(steer_notes), not_followed: parseJson<NotFollowed[]>(not_followed, []) };
+  return { ...rest, door: kind === "full_video" ? "youtube" : r.door, progress, steer: parseJson(steer, {}), understood: readUnderstood(steer_notes), not_followed: parseJson<NotFollowed[]>(not_followed, []) };
 }
 
 /** While Dump is open it asks the connected editors how they are doing (throttled per job). */
@@ -68,12 +73,45 @@ dumps.get("/", async (c) => {
   return c.json(results.map(view));
 });
 
+/** Which door, as stored: "youtube" is door 'new' with kind 'full_video' (the full-video door). */
+function doorColumns(door: unknown): { door: "new" | "recycle"; kind: "clips" | "full_video" } | null {
+  if (door === "new" || door === "recycle") return { door, kind: "clips" };
+  if (door === "youtube") return { door: "new", kind: "full_video" };
+  return null;
+}
+
 dumps.post("/", async (c) => {
-  const body = await readJson<{ door: "new" | "recycle"; notes?: string }>(c);
-  if (body?.door !== "new" && body?.door !== "recycle") return fail(c, 400, "Pick a door: new footage or recycle old videos.");
+  const body = await readJson<{ door: string; notes?: string }>(c);
+  const cols = doorColumns(body?.door);
+  if (!cols) return fail(c, 400, "Pick which videos these are: new videos, old posts, or a full video for YouTube.");
   const id = newId("dmp");
-  await c.env.DB.prepare("INSERT INTO dumps (id, door, notes, status) VALUES (?, ?, ?, 'uploading')").bind(id, body.door, (body.notes ?? "").slice(0, 4000)).run();
+  await c.env.DB.prepare("INSERT INTO dumps (id, door, kind, notes, status) VALUES (?, ?, ?, ?, 'uploading')").bind(id, cols.door, cols.kind, (body!.notes ?? "").slice(0, 4000)).run();
   return c.json({ id });
+});
+
+/** Storage the dashboard uses in R2 (every object, listed), cached 10 minutes; the free tier is 10 GB. */
+export async function storageUsed(env: Env, fresh = false): Promise<number> {
+  const cached = await getSetting<{ bytes: number; at: number } | null>(env.DB, "storage_used", null);
+  if (!fresh && cached && Date.now() - cached.at < 600_000) return cached.bytes;
+  let bytes = 0;
+  let cursor: string | undefined;
+  for (let i = 0; i < 200; i++) {
+    const page = await env.FILES.list({ cursor, limit: 1000 });
+    for (const o of page.objects) bytes += o.size;
+    if (!page.truncated) break;
+    cursor = page.cursor;
+  }
+  await setSetting(env.DB, "storage_used", { bytes, at: Date.now() });
+  return bytes;
+}
+
+/** Before Dump on the full-video door: this video's size and the free space left of 10 GB. */
+dumps.get("/:id/space", async (c) => {
+  const up = await c.env.DB.prepare("SELECT COALESCE(SUM(size_bytes), 0) AS n FROM assets WHERE dump_id = ? AND upload_status = 'uploaded'").bind(c.req.param("id")).first<{ n: number }>();
+  // The upload is already in storage: what is left after it is kept is what counts.
+  const used = await storageUsed(c.env, true);
+  const s = spaceLine(up?.n ?? 0, Math.max(0, used - (up?.n ?? 0)));
+  return c.json({ upload_bytes: up?.n ?? 0, used_bytes: used, ...s });
 });
 
 dumps.get("/:id", async (c) => {
@@ -109,7 +147,8 @@ dumps.patch("/:id", async (c) => {
   const body = await readJson<{ notes?: string; steer?: unknown; understood?: unknown; door?: string }>(c);
   const id = c.req.param("id");
   // She can change which videos these are (new or old posts) until she presses Dump.
-  if (body?.door === "new" || body?.door === "recycle") await c.env.DB.prepare("UPDATE dumps SET door = ? WHERE id = ? AND status = 'uploading'").bind(body.door, id).run();
+  const cols = doorColumns(body?.door);
+  if (cols) await c.env.DB.prepare("UPDATE dumps SET door = ?, kind = ? WHERE id = ? AND status = 'uploading'").bind(cols.door, cols.kind, id).run();
   if (body?.notes !== undefined) {
     const notes = String(body.notes).slice(0, 4000);
     await c.env.DB.prepare("UPDATE dumps SET notes = ? WHERE id = ? AND status = 'uploading'").bind(notes, id).run();
@@ -161,7 +200,7 @@ dumps.delete("/:id/assets/:assetId", async (c) => {
 /** The Dump button. Requires at least one uploaded file; queues the cut job. */
 dumps.post("/:id/dump", async (c) => {
   const id = c.req.param("id");
-  const dump = await c.env.DB.prepare("SELECT id, status, door FROM dumps WHERE id = ?").bind(id).first<{ id: string; status: string; door: string }>();
+  const dump = await c.env.DB.prepare("SELECT id, status, door, kind FROM dumps WHERE id = ?").bind(id).first<{ id: string; status: string; door: string; kind: string }>();
   if (!dump) return fail(c, 404, "That dump no longer exists.");
   if (dump.status !== "uploading") return fail(c, 409, "This dump was already sent.");
   const counts = await c.env.DB.prepare(
@@ -174,6 +213,10 @@ dumps.post("/:id/dump", async (c) => {
 
   const gate = await briefGate(c.env);
   if (gate) return fail(c, 409, gate.message, gate.fix_guide);
+
+  // The full-video door: one video, whole, through its own job; never the cutter (validator
+  // full-video-uncut). Storage: at most one waiting full video per Calendar week, and it must fit.
+  if (dump.kind === "full_video") return dumpFullVideo(c, id, counts.done);
 
   // A note never confirmed on screen (an old tab, the API) is still read: nothing she wrote is ignored.
   const noted = await c.env.DB.prepare("SELECT notes, steer_notes FROM dumps WHERE id = ?").bind(id).first<{ notes: string; steer_notes: string | null }>();
@@ -194,6 +237,26 @@ dumps.post("/:id/dump", async (c) => {
   log.info("dump.sent", { files: counts.done, editor: r.editor });
   return c.json({ ok: true, jobId: r.jobId, editor: r.editor });
 });
+
+async function dumpFullVideo(c: Context<{ Bindings: Env; Variables: Vars }>, id: string, files: number) {
+  if (files !== 1) return fail(c, 422, "A full video for YouTube is one video. Remove the others, or dump them as new videos.", "dump-new-footage");
+  const pending = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM clips WHERE full_video = 1 AND status IN ('draft', 'approved') AND file_deleted_at IS NULL AND NOT EXISTS (SELECT 1 FROM posts p WHERE p.clip_id = clips.id AND p.status = 'posted')").first<{ n: number }>();
+  const refusal = pendingRefusal(pending?.n ?? 0, PLAN_AHEAD_WEEKS);
+  if (refusal) return fail(c, 409, refusal, "dump-new-footage");
+  const up = await c.env.DB.prepare("SELECT COALESCE(SUM(size_bytes), 0) AS n FROM assets WHERE dump_id = ? AND upload_status = 'uploaded'").bind(id).first<{ n: number }>();
+  const space = spaceLine(up?.n ?? 0, Math.max(0, (await storageUsed(c.env, true)) - (up?.n ?? 0)));
+  if (!space.fits) return fail(c, 409, `${space.line}. Delete a few old videos first, or use a smaller export.`, "dump-new-footage");
+  await c.env.DB.prepare("UPDATE dumps SET status = 'queued', dumped_at = ? WHERE id = ?").bind(nowIso(), id).run();
+  const r = await dispatchJob(c.env, "fullvideo", id);
+  if (!r.dispatched) {
+    await c.env.DB.prepare("UPDATE dumps SET status = 'failed', error_summary = ? WHERE id = ?").bind(r.error, id).run();
+    return fail(c, 502, r.error ?? "Getting your video ready could not start.", "dump-new-footage");
+  }
+  await c.env.DB.prepare("UPDATE dumps SET status = 'cutting' WHERE id = ?").bind(id).run();
+  await recordEvent(c.env.DB, "dump.sent", id, { door: "youtube", files }, c.get("user").email);
+  log.info("dump.sent", { files, full_video: true });
+  return c.json({ ok: true, jobId: r.jobId, editor: "built-in" });
+}
 
 /**
  * Section 6 gate: no clips are cut until a Research Brief exists and is approved, and the

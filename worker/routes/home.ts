@@ -12,6 +12,7 @@ import { PLATFORMS, type Platform } from "@shared/constants";
 import type { DumpSummary, HomeSummary } from "@shared/types";
 import { chooseEngine, homeVoiceCard } from "../domain/voiceEngine";
 import { premiumState } from "../lib/premiumVoice";
+import { fullVideoCards } from "../lib/fullVideo";
 
 export const home = new Hono<{ Bindings: Env; Variables: Vars }>();
 home.use("*", requireUser);
@@ -44,7 +45,7 @@ home.get("/", async (c) => {
 
   const { results: recent } = await db
     .prepare(
-      `SELECT d.id, d.door, d.notes, d.status, d.error_summary, d.clips_made, d.created_at, d.ready_at,
+      `SELECT d.id, CASE WHEN d.kind = 'full_video' THEN 'youtube' ELSE d.door END AS door, d.notes, d.status, d.error_summary, d.clips_made, d.created_at, d.ready_at,
         (SELECT COUNT(*) FROM assets a WHERE a.dump_id = d.id AND a.upload_status != 'aborted') AS files,
         (SELECT j.progress FROM jobs j WHERE j.ref_id = d.id AND j.type = 'cut' ORDER BY j.created_at DESC LIMIT 1) AS progress
        FROM dumps d ORDER BY d.created_at DESC LIMIT 3`,
@@ -67,6 +68,8 @@ home.get("/", async (c) => {
     followups,
     recentDumps: recent.map((r) => ({ ...r, progress: parseJson(r.progress, null) })),
     voice,
+    // A full video for YouTube: finish it in YouTube Studio, upload it yourself, or it is removed soon.
+    youtube: await fullVideoCards(c.env),
   };
   return c.json(out);
 });

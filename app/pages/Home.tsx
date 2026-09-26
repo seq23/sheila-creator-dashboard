@@ -137,6 +137,54 @@ export function Home() {
             </div>
           </div>
 
+          {(data.youtube ?? []).length ? (
+            <section className="section home-youtube" aria-label="Your YouTube videos">
+              {data.youtube.map((y) => (
+                <Notice key={`${y.kind}-${y.clip_id}`} tone={y.kind === "removal_soon" ? "warn" : "info"}>
+                  <div className="home-yt" data-youtube-card={y.kind}>
+                    {y.kind === "finish_in_studio" ? (
+                      <>
+                        <strong>Finish “{y.title}” in YouTube Studio.</strong> Set the thumbnail you picked and add your tags there (Buffer can't send those two).{" "}
+                        <span className="btn-row">
+                          {y.thumbnail_url ? (
+                            <a className="btn quiet small" href={y.thumbnail_url} download>
+                              Download thumbnail
+                            </a>
+                          ) : null}
+                          <a className="btn small" href={y.studio_url} target="_blank" rel="noreferrer">
+                            Open YouTube Studio
+                          </a>
+                          <Link className="btn quiet small" to="/review?tab=approved">
+                            Copy the tags in Review
+                          </Link>
+                        </span>
+                      </>
+                    ) : y.kind === "upload_yourself" ? (
+                      <>
+                        <strong>Buffer couldn't take “{y.title}”.</strong> Download it and upload it on YouTube yourself; we mark it posted when it shows on your channel.{" "}
+                        <span className="btn-row">
+                          {y.download_url ? (
+                            <a className="btn small" href={y.download_url} download>
+                              Download for YouTube
+                            </a>
+                          ) : null}
+                          <a className="btn quiet small" href={y.studio_url} target="_blank" rel="noreferrer">
+                            Open YouTube upload
+                          </a>
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <strong>“{y.title}” is removed on {fmtDate(y.delete_on!)}</strong> unless you approve it: unapproved full videos are kept 14 days to save space.{" "}
+                        <Link to="/review">Review it now</Link>
+                      </>
+                    )}
+                  </div>
+                </Notice>
+              ))}
+            </section>
+          ) : null}
+
           <div className="split">
             <section className="section">
               <div className="section-head">

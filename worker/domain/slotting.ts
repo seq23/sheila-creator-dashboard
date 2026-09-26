@@ -12,6 +12,8 @@ export interface SchedulableClip {
   score: number;
   platforms: Platform[];
   door: "new" | "recycle";
+  /** A full video for YouTube (the third door): at most one a week on the Calendar. */
+  full?: boolean;
 }
 
 export interface PlannedPost {

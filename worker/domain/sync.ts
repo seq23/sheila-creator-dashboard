@@ -69,8 +69,11 @@ export function fillWeek(input: {
   caps: Record<Platform, number>;
   slots: Record<Platform, Slot[]>;
   now: string;
+  /** Full videos (any, including ones already planned): at most one a week, inside the YouTube cap. */
+  fullClipIds?: ReadonlySet<string>;
 }): PlannedPost[] {
   const { clips, weekStart, weekEnd, timeZone, caps, slots, now } = input;
+  const full = new Set([...(input.fullClipIds ?? []), ...clips.filter((c) => c.full).map((c) => c.id)]);
   const active = input.existing.filter((p) => p.status !== "unscheduled");
   const onPlatform = new Set(active.map((p) => `${p.clip_id}|${p.platform}`));
   const weekOf = new Map<string, Set<string>>(); // clip → weeks it has posts in (by start)
@@ -95,9 +98,14 @@ export function fillWeek(input: {
     if (room <= 0) continue;
     const taken = new Set(inWeek.map((p) => p.scheduled_at));
     const free = slotMap[platform].filter((t) => t > now && !taken.has(t));
+    let fullThisWeek = inWeek.filter((p) => full.has(p.clip_id)).length;
     for (const c of ordered) {
       if (room <= 0 || !free.length) break;
       if (!c.platforms.includes(platform) || onPlatform.has(`${c.id}|${platform}`)) continue;
+      if (full.has(c.id)) {
+        if (platform !== "youtube" || fullThisWeek >= 1) continue; // a full video is YouTube only, one a week
+        fullThisWeek++;
+      }
       out.push({ clip_id: c.id, platform, scheduled_at: free.shift() as string });
       onPlatform.add(`${c.id}|${platform}`);
       room--;

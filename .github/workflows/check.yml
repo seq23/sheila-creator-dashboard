@@ -29,5 +29,7 @@ jobs:
       - run: npm run build
       - name: Python job syntax
         run: python3 -m py_compile jobs/*.py
-      - name: Python job tests (web search + page reading, keyless and Firecrawl; the voice batch)
+      - name: ffmpeg (the full-video job's tests run it on synthetic footage)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg > /dev/null
+      - name: Python job tests (web search + page reading, keyless and Firecrawl; the voice batch; the full video kept whole)
         run: python3 -m unittest discover -s jobs/tests -v

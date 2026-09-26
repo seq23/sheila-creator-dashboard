@@ -3,8 +3,15 @@ import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 
 export default async function ({ root }) {
-  const sql = await readFile(path.join(root, "migrations", "0001_init.sql"), "utf8");
-  const m = sql.match(/type TEXT NOT NULL CHECK \(type IN \(([^)]+)\)\)/);
+  // The jobs.type CHECK as the LAST migration that defines it leaves it (0015 rebuilt the table
+  // to add 'fullvideo'; reading only 0001 would miss a new type).
+  const dir0 = path.join(root, "migrations");
+  let m = null;
+  for (const f of (await readdir(dir0)).filter((x) => x.endsWith(".sql")).sort()) {
+    const all = [...(await readFile(path.join(dir0, f), "utf8")).matchAll(/type TEXT NOT NULL CHECK \(type IN \(([^)]+)\)\)/g)];
+    if (all.length) m = all[all.length - 1];
+  }
+  if (!m) throw new Error("jobs.type CHECK not found in migrations/");
   const types = [...m[1].matchAll(/'(\w+)'/g)].map((x) => x[1]);
   const dir = path.join(root, ".github", "workflows");
   const files = (await readdir(dir)).filter((f) => /\.ya?ml$/.test(f));

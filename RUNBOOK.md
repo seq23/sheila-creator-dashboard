@@ -306,6 +306,43 @@ can be good too". The review behind it: `docs/CREATIVE-CONTROL-REVIEW.md`.
 - **Review:** Change look, **Change music** (`POST /api/clips/:id/music`, `clips.pending_music`),
   **Try another version** (`POST /api/clips/:id/another`: a different look from her mix).
 
+## A full video for YouTube (the third door)
+
+Owner, 26 Sep 2026. Dump's third card, "A full video for YouTube": ONE video goes up whole, never
+through the cutter and never reframed to 9:16 (validator `full-video-uncut`; `dumps.kind =
+'full_video'`, door stays 'new'; migration `0015_full_video.sql`, which also rebuilt `jobs` to add
+the `fullvideo` type).
+
+- **The job** (`jobs/fullvideo.py`, `.github/workflows/job-fullvideo.yml`, handler
+  `worker/jobs/fullvideo.ts`): probe → a streaming-friendly copy with `-c copy` (a codec an MP4
+  can't hold is re-encoded at its own size) → the transcript (faster-whisper) → three thumbnail
+  frames at 20/50/80%. It writes only `full/<dump>/`; the upload is deleted once the copy is in,
+  so the video is stored once. The Worker drafts the title, description and tags (free AI with the
+  locked Brand Profile; a starter draft from her own words otherwise) and the chapters (rules:
+  first at 0:00, at least three, 10 s apart; none under 90 s).
+- **Review**: one item (a `clips` row, `full_video = 1`, `platforms = ["youtube"]`, details in
+  `clips.youtube` JSON): pick a thumbnail, Public / Unlisted / Private (default Public), edit the
+  title, description, chapters and tags, Approve. Cut-only actions refuse with a plain 409.
+- **Calendar**: YouTube only, at most one full video a week, inside the YouTube cap
+  (`fillWeek` `fullClipIds`). At most one waiting full video per planned week (4): Dump refuses the
+  fifth in plain words.
+- **Posting** (Buffer schema, introspected 26 Sep 2026; introspection needs no key): the normal
+  `createPost` with `metadata.youtube {title, categoryId, privacy, madeForKids, notifySubscribers,
+  isAiGenerated}`; the description is the caption (chapters + up to three hashtags). There is no
+  Shorts/long switch: YouTube decides from the video. Buffer can't set a custom thumbnail
+  (`VideoAssetInput.thumbnailUrl` is rejected; `thumbnailOffset` is Instagram/TikTok/Pinterest only)
+  or tags, so after it posts Home shows **Finish in YouTube Studio** (Download thumbnail, Copy tags,
+  Open YouTube Studio, I did it).
+- **Last resort** (Buffer refuses it, after its retries): Home and Review show **Upload it
+  yourself** (Download for YouTube + youtube.com/upload). It is marked Posted when her channel's
+  public uploads show the same title (`matchHandoffs`, after the public-stats read) or when she
+  pastes the link. No Google verification anywhere.
+- **Storage rule** (daily lane, `fullVideoRetention`): the file goes 7 days after it posted (the
+  thumbnails, words and numbers stay; the link answers 410); an unapproved one goes after 14 days,
+  with a Home warning from day 11. Before Dump the screen shows "This video: N · free space left: M
+  of 10 GB" (R2 listed, cached 10 min) and refuses a video that won't fit. The Storage light now
+  counts full videos too.
+
 ## Staging
 
 The owner's fully real twin of production for testing with her own throwaway accounts;

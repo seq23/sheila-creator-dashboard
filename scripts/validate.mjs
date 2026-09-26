@@ -16,6 +16,7 @@ export const REGISTER = {
   "design-tokens": "a raw colour, font or off-scale size outside tokens.css is how screens drift apart (docs/design/DESIGN.md)",
   "editors-documented": "a connected editor nobody researched, or a key box for a tool with no API, sends her to a dead end (owner, 25 Sep 2026: only the most popular, honestly)",
   "envs-match": "staging is production's twin: a config drift or a job workflow without the env mapping sends staging jobs to Sheila's bucket and secret",
+  "full-video-uncut": "a full video sent through the cutter or reframed to 9:16 is not the video she made (owner, 26 Sep 2026: the full-video door posts it whole)",
   "help-targets-exist": "a guide step pointing at a label the screen no longer has fails the post-merge screenshot job and reds main (#42, 26 Sep 2026); caught before merge instead",
   "help-guides-exist": "every screen's ? button and every fix_guide slug must open a real guide (section 12c)",
   "help-pictures": "every help step must show its own picture of that step: 20 guides shared one identical picture per step number because the screenshot job fell back to the page heading (owner, 26 Sep 2026: \"the help section has the same screenshot\"); also every screen's help link, tour stop and checklist entry must open a real guide",

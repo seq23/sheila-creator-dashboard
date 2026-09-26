@@ -1,5 +1,5 @@
 // An in-memory R2Bucket stand-in covering what the job storage routes use: get (with a Range
-// header), head, put, and multipart create / resume / uploadPart / complete / abort. Parts are
+// header), head, put, list (paged), and multipart create / resume / uploadPart / complete / abort. Parts are
 // read from the request stream, so a test proves the route hands R2 the stream it received.
 type Stored = { bytes: Uint8Array; contentType: string | undefined };
 
@@ -106,6 +106,15 @@ export function memoryR2() {
           uploads.delete(uploadId);
         },
       };
+    },
+    /** Paged like R2 (limit, cursor = the next index), sorted by key. */
+    async list(opts?: { prefix?: string; cursor?: string; limit?: number }) {
+      const keys = [...objects.keys()].filter((k) => !opts?.prefix || k.startsWith(opts.prefix)).sort();
+      const from = Number(opts?.cursor ?? 0);
+      const limit = Math.min(opts?.limit ?? 1000, 1000);
+      const page = keys.slice(from, from + limit);
+      const truncated = from + limit < keys.length;
+      return { objects: page.map((k) => ({ key: k, size: objects.get(k)!.bytes.byteLength })), truncated, cursor: truncated ? String(from + limit) : undefined };
     },
     async delete(key: string | string[]) {
       for (const k of Array.isArray(key) ? key : [key]) objects.delete(k);
