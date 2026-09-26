@@ -47,8 +47,8 @@ jobs:
           path: ~/.cache/huggingface
           key: whisper-${{ env.WHISPER_MODEL }}-v1
       - name: System tools
-        # libgles2 + libegl1: MediaPipe's Linux wheel loads GLES/EGL even for CPU face detection
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg libgles2 libegl1 > /dev/null
+        # tesseract: the watermark check (whose video is this?). libgles2 + libegl1: MediaPipe's Linux wheel loads GLES/EGL even for CPU face detection
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg libgles2 libegl1 tesseract-ocr tesseract-ocr-eng > /dev/null
       - run: pip install -q -r jobs/requirements.txt
       - name: Run
         run: python3 jobs/cut.py

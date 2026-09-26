@@ -67,6 +67,7 @@
     { "slug": "storage-almost-full", "title": "Storage almost full", "group": "fix_it", "screen": "settings" },
     { "slug": "upload-your-tiktok-export", "title": "Upload your TikTok export", "group": "fix_it", "screen": "stats" },
     { "slug": "i-didnt-get-an-email", "title": "I didn't get an email", "group": "fix_it", "screen": "settings" },
-    { "slug": "clips-look-wrong", "title": "Clips look wrong", "group": "fix_it", "screen": "review" }
+    { "slug": "clips-look-wrong", "title": "Clips look wrong", "group": "fix_it", "screen": "review" },
+    { "slug": "someone-elses-video", "title": "Looks like someone else's video", "group": "fix_it", "screen": "dump" }
   ]
 }

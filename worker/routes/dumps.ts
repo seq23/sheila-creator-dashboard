@@ -24,11 +24,13 @@ interface DumpDb {
   ready_at: string | null;
   files: number;
   progress: string | null;
+  held_note: string | null;
 }
 
 const SELECT = `SELECT d.id, d.door, d.notes, d.status, d.error_summary, d.clips_made, d.created_at, d.ready_at,
   (SELECT COUNT(*) FROM assets a WHERE a.dump_id = d.id AND a.upload_status != 'aborted') AS files,
-  (SELECT j.progress FROM jobs j WHERE j.ref_id = d.id AND j.type = 'cut' ORDER BY j.created_at DESC LIMIT 1) AS progress
+  (SELECT j.progress FROM jobs j WHERE j.ref_id = d.id AND j.type = 'cut' ORDER BY j.created_at DESC LIMIT 1) AS progress,
+  (SELECT a.source_note FROM assets a WHERE a.dump_id = d.id AND a.source_owner = 'other' LIMIT 1) AS held_note
   FROM dumps d`;
 
 function view(r: DumpDb): DumpSummary {
@@ -57,6 +59,14 @@ dumps.get("/:id", async (c) => {
     .bind(row.id)
     .all<AssetRow>();
   return c.json({ dump: view(row), assets });
+});
+
+/** "This is my video": she confirms a held video is her own; its clips may go on the calendar. */
+dumps.post("/:id/mine", async (c) => {
+  const r = await c.env.DB.prepare("UPDATE assets SET source_owner = 'confirmed' WHERE dump_id = ? AND source_owner = 'other'").bind(c.req.param("id")).run();
+  if (!r.meta.changes) return fail(c, 404, "Nothing on this dump is waiting for that.");
+  await recordEvent(c.env.DB, "dump.source_confirmed", c.req.param("id"), { videos: r.meta.changes }, c.get("user").email);
+  return c.json({ ok: true, videos: r.meta.changes });
 });
 
 dumps.patch("/:id", async (c) => {

@@ -14,6 +14,7 @@ import type { Env } from "../env";
 import { log } from "../lib/log";
 import { parseJson, recordEvent } from "../lib/db";
 import { clipCuttingLight } from "../crons/buffer-sync";
+import { heldSentence, sourceVerdict, type SourceMark, type SourceOwner } from "../domain/sourceCheck";
 import { mediaToken, newId, nowIso } from "../lib/ids";
 import { unb64 } from "../lib/crypto";
 import { emailFrame, sendEmail } from "../services/email";
@@ -183,6 +184,33 @@ export interface CutResult {
   skipped?: { asset_id: string; reason: string }[];
   /** Measured source lengths; stored on assets.duration_s. */
   assets?: { id: string; duration_s: number }[];
+  /** Platform watermarks and @handles the job read on sampled frames (worker/domain/sourceCheck.ts). */
+  source_marks?: SourceMark[];
+}
+
+/**
+ * Whose video each asset is, from the job's watermark reading and her Buffer channels' handles.
+ * Only assets of this dump; an asset she already confirmed as hers stays confirmed.
+ */
+export function sourceUpdates(marks: unknown, assetIds: Set<string>, ownHandles: string[]): { asset_id: string; owner: SourceOwner; note: string | null }[] {
+  if (!Array.isArray(marks)) return [];
+  const out: { asset_id: string; owner: SourceOwner; note: string | null }[] = [];
+  for (const raw of marks.slice(0, 200)) {
+    const m = (raw ?? {}) as Partial<SourceMark>;
+    const id = String(m.asset_id ?? "");
+    if (!assetIds.has(id) || out.some((o) => o.asset_id === id)) continue;
+    const platform = m.platform === "tiktok" || m.platform === "instagram" ? m.platform : null;
+    const handles = Array.isArray(m.handles) ? m.handles.filter((h): h is string => typeof h === "string").map((h) => h.slice(0, 40)).slice(0, 10) : [];
+    const v = sourceVerdict({ platform, handles }, ownHandles);
+    if (v) out.push({ asset_id: id, owner: v.owner, note: v.owner === "other" ? heldSentence(v.foreign, platform) : null });
+  }
+  return out;
+}
+
+/** Her own handles: the channels in her connected Buffer. */
+export async function ownHandles(env: Env): Promise<string[]> {
+  const row = await env.DB.prepare("SELECT meta FROM connections WHERE service = 'buffer'").first<{ meta: string }>();
+  return parseJson<{ channels?: { handle?: string }[] }>(row?.meta, {}).channels?.map((c) => String(c.handle ?? "")).filter(Boolean) ?? [];
 }
 
 export interface CleanClip {
@@ -338,6 +366,11 @@ async function applyResult(env: Env, jobId: string, dumpId: string | null, resul
       ).bind(c.id, c.asset_id, dumpId, c.start_s, c.end_s, c.recipe, c.hook_text, c.hook_alt, c.caption, c.hashtags, JSON.stringify(c.platforms), c.score, c.r2_key, c.cover_r2_key, mediaToken(), c.hidden ? 1 : 0),
     );
   }
+  const own = await ownHandles(env);
+  const held = sourceUpdates((result as CutResult).source_marks, new Set(allowed.keys()), own);
+  for (const h of held) {
+    stmts.push(env.DB.prepare("UPDATE assets SET source_owner = ?, source_note = ? WHERE id = ? AND dump_id = ? AND (source_owner IS NULL OR source_owner != 'confirmed')").bind(h.owner, h.note, h.asset_id, dumpId));
+  }
   for (const a of (result as CutResult).assets ?? []) {
     const d = Number(a?.duration_s);
     if (allowed.has(String(a?.id)) && Number.isFinite(d) && d > 0) stmts.push(env.DB.prepare("UPDATE assets SET duration_s = ? WHERE id = ? AND dump_id = ?").bind(d, String(a.id), dumpId));
@@ -348,7 +381,7 @@ async function applyResult(env: Env, jobId: string, dumpId: string | null, resul
 
   const visible = clips.filter((c) => !c.hidden).length;
   const engine = (result as CutResult).engine ?? {};
-  await recordEvent(env.DB, "dump.cut", dumpId, { clips: clips.length, visible, dropped, door: dump.door, engine });
+  await recordEvent(env.DB, "dump.cut", dumpId, { clips: clips.length, visible, dropped, door: dump.door, engine, held_videos: held.filter((h) => h.owner === "other").length });
   await clipCuttingLight(env, { status: "done", at: readyAt });
   log.info("cut.apply", { clips: clips.length, visible, dropped });
 
@@ -441,7 +474,9 @@ async function fakeRun(env: Env, jobId: string, dumpId: string | null, options: 
       cover_r2_key: cover,
     });
   }
-  return { clips, engine: { transcript: "fake", picker: "fake", crop: "fake", subtitles: "fake" }, skipped: spec.skipped_assets.map((s) => ({ asset_id: s.id, reason: s.reason })) };
+  // A test can ask the fake to "see" a watermark on the first video (the real job reads it by OCR).
+  const marks = Array.isArray(options.source_marks) ? (options.source_marks as Omit<SourceMark, "asset_id">[]).map((m) => ({ ...m, asset_id: spec.assets[0]!.id })) : undefined;
+  return { clips, engine: { transcript: "fake", picker: "fake", crop: "fake", subtitles: "fake" }, skipped: spec.skipped_assets.map((s) => ({ asset_id: s.id, reason: s.reason })), ...(marks ? { source_marks: marks } : {}) };
 }
 
 export const cutJob: JobHandler = { buildSpec, applyResult, onFailure, fakeRun };

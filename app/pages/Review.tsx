@@ -10,6 +10,7 @@ import { del, get, patch, post } from "../lib/api";
 import { fmtDate, fmtSeconds, plural } from "../lib/format";
 import { Empty, HelpButton, Modal, PageHead, Skeleton, Switch, useLoad, useToast } from "../components/ui";
 import { useApp } from "../state";
+import { HeldNotice } from "../components/HeldNotice";
 import "../styles/review.css";
 
 type Tab = "new" | "approved" | "rejected";
@@ -19,7 +20,8 @@ interface ReviewClip extends ClipRow {
   purge_at: string | null;
 }
 interface ReviewGroup {
-  dump: { id: string; door: "new" | "recycle"; created_at: string; ready_at: string | null; status: string };
+  /** held_note: "Looks like someone else's video" (worker/domain/sourceCheck.ts), or null. */
+  dump: { id: string; door: "new" | "recycle"; created_at: string; ready_at: string | null; status: string; held_note: string | null };
   clips: ReviewClip[];
 }
 interface ReviewList {
@@ -195,6 +197,7 @@ export function Review() {
           <h2 className="review-group-head">
             Dump: {fmtDate(g.dump.created_at)} · Door {g.dump.door === "new" ? "A" : "B"} <span className="hint">· {plural(g.clips.length, "clip")} · best first</span>
           </h2>
+          {g.dump.held_note ? <HeldNotice dumpId={g.dump.id} note={g.dump.held_note} onDone={list.reload} /> : null}
           <div className="review-grid">
             {g.clips.map((c) => (
               <ClipCard
