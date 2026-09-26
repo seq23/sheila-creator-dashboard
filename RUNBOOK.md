@@ -21,6 +21,11 @@ is a 404, `/api/me` answers as the owner with no cookie, and the Help "Log in" g
 Worker (`wrangler secret put NAME`): `SESSION_SECRET`, `SECRETS_KEY` (32 bytes base64),
 `JOB_SHARED_SECRET`, `GITHUB_DISPATCH_TOKEN`, `RESEND_API_KEY`.
 
+RESEND_API_KEY on production is Sheila's own Resend account key (vault `sheila-resend-api-key`),
+never a West Peek key: without a verified domain Resend delivers only to the account owner's
+address, so the West Peek key cannot reach asheilabruceaffair@gmail.com. Staging uses the West
+Peek key (`resend-app-18f24eb6`) and delivers to sequoia@westpeek.ventures.
+
 `GITHUB_DISPATCH_TOKEN` (production and staging) is Sequoia's own GitHub token, the one the
 `gh` CLI on her Mac is logged in with (account seq23, scopes `repo` + `workflow`), set with
 `gh auth token | npx wrangler secret put GITHUB_DISPATCH_TOKEN [--env staging]` so it never
@@ -158,7 +163,7 @@ Worker (`worker_url` in the payload), so it can only ever touch the staging buck
 | Piece | State (25 Sep 2026) |
 | --- | --- |
 | Worker, D1, R2, crons | Real, all migrations applied |
-| Buffer | Real: connected with vault `buffer-access-token` (one TikTok channel, `@iamcindymercer`; that Buffer account's Twitter channel is ignored). **That is a live TikTok account, not a throwaway**: before the Buffer post test, swap in the throwaway Buffer account on Connect (Disconnect, paste its key). |
+| Buffer | Real: the owner's test Buffer account (seq.taylor@gmail.com, free plan, 3 of 3 channels): TikTok `@iamcindymercer`, Instagram `seq23`, YouTube "Sequoia Taylor". All three are her **test channels** (her word, 25 Sep 2026); the Phase 0 TEST POST goes to all three. Key: vault `buffer-access-token`, created 25 Sep 2026, **expires 25 Sep 2027** (Buffer → Settings → API; the free plan allows ONE key per account, so this key is shared with `authority-backlink-network`'s `BUFFER_ACCESS_TOKEN` secret; renewing it means Regenerate there, then `vault set buffer-access-token --from-file`, `gh secret set BUFFER_ACCESS_TOKEN -R seq23/authority-backlink-network`, and paste on staging's Connect). The account's 3,000 requests / 30 days are shared too; the dashboard's own idle spend is 20 a day (`tests/unit/buffer-budget.test.ts`). |
 | Email (Resend) | Real: the West Peek Resend key sends from `onboarding@resend.dev` to its own account owner, `sequoia@westpeek.ventures`, which is staging's OWNER_EMAIL. Login codes and every staging email land there. Production's OWNER_EMAIL and sender are unchanged. |
 | Jobs (cut, extract, research, metrics, brand finder, voice) | Real: dispatch with `GITHUB_DISPATCH_TOKEN`; the job fetches its spec and files from the staging Worker and writes its outputs back through it (no storage keys anywhere). |
 | OpenRouter, Firecrawl, Hunter, Instagram/YouTube stats | Not connected by design (Sheila's Hunter key stays hers). Connect shows "Not connected" with a guide; research and the brand finder refuse with the connect guide. The cut job falls back to its deterministic moment picker without OpenRouter. |

@@ -17,13 +17,18 @@ from typing import Any
 
 from common import WORK, Job, download_input, log, run, upload_output
 
-CHATTERBOX = "chatterbox-tts>=0.1.2,<0.2"  # speed and quality on the Actions CPU runner: not yet proven
+CHATTERBOX = "chatterbox-tts>=0.1.2,<0.2"
+# Chatterbox's watermarker (resemble-perth) imports pkg_resources, which setuptools 81 removed and
+# a Python 3.12 runner does not ship: perth.PerthImplicitWatermarker was None and every voice job
+# died with "TypeError: 'NoneType' object is not callable" (Phase 0 live test, 26 Sep 2026; the
+# diagnostic run with this pin loaded the model in 48 s and spoke a sentence in 17 s on the CPU).
+SETUPTOOLS = "setuptools<81"
 
 
 def install() -> None:
     log("voice.install")
     subprocess.run(
-        [sys.executable, "-m", "pip", "install", "-q", "--extra-index-url", "https://download.pytorch.org/whl/cpu", CHATTERBOX],
+        [sys.executable, "-m", "pip", "install", "-q", "--extra-index-url", "https://download.pytorch.org/whl/cpu", CHATTERBOX, SETUPTOOLS],
         check=True,
         stdout=subprocess.DEVNULL,
     )
