@@ -330,3 +330,20 @@
     line-height: 1;
   }
 }
+@media (max-width: 560px) {
+  /* Home only: the title and the one action share a row, so a year of notices still fits one
+     screen with room to spare whatever fonts the phone draws (CI's Linux fonts ran 40 px taller). */
+  .home .page-head {
+    flex-wrap: nowrap;
+    align-items: center;
+  }
+  .home .page-head .actions {
+    width: auto;
+    flex: none;
+  }
+  .home .page-head .actions > [data-primary] {
+    flex: none;
+    padding-left: var(--space-sm);
+    padding-right: var(--space-sm);
+  }
+}
