@@ -129,6 +129,8 @@ class RealYouTube implements YouTubePublicClient {
 }
 
 // ---- fake: one channel with six weeks of uploads, plus the failure shapes.
+// Realistic titles (the fake stands in on the public sample too, so no "fake" or "test" on a screen).
+const FAKE_TITLES = ["Set a Sunday brunch table in 60 seconds", "The one napkin fold everyone asks about", "Candles, but make it fall", "Thanksgiving table on a budget", "Three pieces that make a holiday table", "How I reset after guests leave", "The easiest centerpiece ever", "Stop buying placemats: do this", "My go-to trick for a garden party", "Thrifted plates, luxury table", "The layering rule for a summer table", "Florals from the grocery store"];
 const FAKE_CHANNEL: YouTubeChannel = { id: "UCfakeSheilaBruce000001", title: "Sheila Bruce", handle: "@asheilabruceaffair", subscribers: 1260, views: 48_300, videos: 12, uploads: "UUfakeSheilaBruce000001" };
 
 class FakeYouTube implements YouTubePublicClient {
@@ -159,7 +161,7 @@ class FakeYouTube implements YouTubePublicClient {
       const d = new Date(Date.now() - (i * 42 * 86_400_000) / 12 - 86_400_000);
       d.setUTCHours([13, 17, 23][i % 3], 0, 0, 0);
       const views = [5200, 3100, 2400, 1800, 6400, 2900, 2200, 1500, 4100, 3300, 2600, 1900][i];
-      out.push({ id: `fakeYt${String(i).padStart(5, "0")}`, title: `Fake upload ${i + 1}`, published_at: d.toISOString(), views, likes: Math.round(views * 0.05), comments: Math.round(views * 0.006) });
+      out.push({ id: `fakeYt${String(i).padStart(5, "0")}`, title: FAKE_TITLES[i], published_at: d.toISOString(), views, likes: Math.round(views * 0.05), comments: Math.round(views * 0.006) });
     }
     return out;
   }

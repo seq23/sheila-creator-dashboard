@@ -1,7 +1,7 @@
 // Open mode (AUTH_MODE "open"), the way production runs by the owner's choice: she opens the
 // URL and her dashboard is there. No login page, no login API, no cookie needed. Runs on its own
 // server and port through playwright.open.config.ts (npm run e2e:open); the code-mode suite keeps
-// proving the email-code login that staging uses.
+// proving the email-code login that local dev and the code-mode suite use.
 import { sql } from "./helpers";
 import { expect, test } from "@playwright/test";
 

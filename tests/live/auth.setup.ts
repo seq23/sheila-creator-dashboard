@@ -8,6 +8,20 @@ import { LIVE_STORAGE } from "../../playwright.live.config";
 import { OWNER, evidence, waitForEmail } from "./helpers";
 
 setup("log in as the owner with a real emailed code", async ({ page, browser, baseURL }) => {
+  // The sample (26 Sep 2026) has no login: every visitor is the owner, so the saved session is empty.
+  {
+    const ctx = await browser.newContext({ baseURL });
+    const me = await ctx.request.get("/api/me");
+    await ctx.close();
+    if (me.ok()) {
+      mkdirSync(path.dirname(LIVE_STORAGE), { recursive: true });
+      const empty = await browser.newContext({ baseURL });
+      await empty.storageState({ path: LIVE_STORAGE });
+      await empty.close();
+      evidence("1-login", { mode: "open", note: "no login on the sample; /api/me answered 200 with no cookie" });
+      return;
+    }
+  }
   if (existsSync(LIVE_STORAGE) && !process.env.LIVE_FRESH_LOGIN) {
     const ctx = await browser.newContext({ storageState: LIVE_STORAGE, baseURL });
     const me = await ctx.request.get("/api/auth/me");

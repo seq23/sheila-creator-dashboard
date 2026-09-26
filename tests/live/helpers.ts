@@ -1,4 +1,4 @@
-// Helpers for the live staging suite. Secrets come from the vault through its own Keychain
+// Helpers for the live suite against the deployed staging Worker (the public sample since 26 Sep 2026). Secrets come from the vault through its own Keychain
 // adapter in a child process (no-prompt mode) and are held in memory only: never printed,
 // never on a command line, never written to disk.
 import { execFileSync } from "node:child_process";

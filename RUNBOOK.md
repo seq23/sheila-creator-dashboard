@@ -5,11 +5,12 @@
 | Thing | Where |
 | --- | --- |
 | Production | https://sheilastudio.seq-taylor.workers.dev, Worker `sheilastudio` (renamed from `sheila-creator-dashboard` 26 Sep 2026; Cloudflare account SL Taylor, `8d147e242033699dd37c6f5a451f48d2`) |
-| Login | Production: none, `AUTH_MODE` "open" (every visitor is the owner, OWNER_EMAIL). Staging, local, e2e: the email code (`AUTH_MODE` "code") |
+| Login | Production and the public sample: none, `AUTH_MODE` "open" (every visitor is the owner, OWNER_EMAIL). Local, e2e: the email code (`AUTH_MODE` "code") |
 | D1 | `sheila-creator-dashboard-db` (id in `wrangler.jsonc`) |
 | R2 | `sheila-creator-dashboard-files` |
 | Repo | https://github.com/seq23/sheila-creator-dashboard (public) |
 | Logs | Cloudflare dashboard → Workers → sheilastudio → Logs (observability on) |
+| The public sample | https://samplestudio.seq-taylor.workers.dev, Worker `samplestudio` = `env.staging` (no login, fake services, demo data; see "Sample") |
 
 **No login on production.** With open mode anyone who has the URL is the owner; that is by her choice; switching back is `AUTH_MODE: "code"` and a deploy. (`REQUIRED_AUTH_MODE` in
 `scripts/validators/envs-match.mjs` pins each deployment's mode, so change it there too; the
@@ -24,8 +25,9 @@ GitHub repo secrets for `promote.yml` (production from a green e2e): `CLOUDFLARE
 
 RESEND_API_KEY on production is Sheila's own Resend account key (vault `sheila-resend-api-key`),
 never a West Peek key: without a verified domain Resend delivers only to the account owner's
-address, so the West Peek key cannot reach asheilabruceaffair@gmail.com. Staging uses the West
-Peek key (`resend-app-18f24eb6`) and delivers to sequoia@westpeek.ventures.
+address, so the West Peek key cannot reach asheilabruceaffair@gmail.com. Staging (the public
+sample) runs on the fake Resend: its emails are recorded in `emails_sent`, never sent; the West
+Peek key (`resend-app-18f24eb6`) it still holds as a secret is unused while `FAKE_SERVICES` is "1".
 
 `GITHUB_DISPATCH_TOKEN` (production and staging) is Sequoia's own GitHub token, the one the
 `gh` CLI on her Mac is logged in with (account seq23, scopes `repo` + `workflow`), set with
@@ -394,63 +396,64 @@ npx wrangler d1 execute sheila-creator-dashboard-db --remote --command "SELECT v
 npx wrangler d1 execute sheila-creator-dashboard-db --remote --command "SELECT 'dumps', COUNT(*) FROM dumps WHERE archived_at IS NOT NULL UNION ALL SELECT 'deals', COUNT(*) FROM deals WHERE archived_at IS NOT NULL"
 ```
 
-## Staging
+## Sample (staging)
 
-The owner's fully real twin of production for testing with her own throwaway accounts;
-Sheila's production is never touched by it.
+The owner's ask (26 Sep 2026): the staging Worker is the public SAMPLE, a no-login demo anyone
+can open to get a real feel for the product. Same code as production (`land` deploys it from
+every merge sha), Sheila's branding and copy, a year of demo data, and every outside service a
+stand-in: nothing can post, email or spend. Sheila's production is never touched by it. The Phase 0
+real proofs it hosted on 25–26 Sep 2026 stand in `docs/PHASE0.md` and `docs/design/live`; staging
+is no longer a real twin, and the owner's real keys were dropped from its D1 by the sample reset.
 
 | Thing | Where |
 | --- | --- |
-| URL | https://sheila-creator-dashboard-staging.seq-taylor.workers.dev (`/healthz` → `{"ok":true,"fake":false,"env":"staging"}`) |
-| Config | `wrangler.jsonc` `env.staging`; `npm run validate:envs` fails on any drift from production except name, D1/R2 and the vars OWNER_EMAIL, PUBLIC_BASE_URL, ENV_NAME, FAKE_SERVICES, AUTH_MODE (staging keeps the email-code login) |
+| URL | https://samplestudio.seq-taylor.workers.dev (`/healthz` → `{"ok":true,"fake":true,"env":"sample"}`) |
+| Login | None (`AUTH_MODE` "open"): every visitor is the demo owner (OWNER_EMAIL `sequoia@westpeek.ventures`, an identity only; no mailbox is involved). `/api/auth/*` is a 404, `/api/me` answers with no cookie. |
+| Services | `FAKE_SERVICES` "1": Buffer, OpenRouter, Firecrawl, Resend, Hunter, GitHub jobs, Meta, Google, YouTube, ElevenLabs and the editors are all fakes (`worker/services/*`). Keys that start `good-` connect; the health board says "Test mode" where a fake stands in. |
+| Config | `wrangler.jsonc` `env.staging`: Worker `samplestudio`, `ENV_NAME` "sample", the staging D1 and R2 (unchanged). `npm run validate:envs` pins name, URL, mode and fakes, and fails on any other drift from production except the D1/R2 and OWNER_EMAIL. |
 | D1 | `sheila-creator-dashboard-db-staging` (`c8e9e2c9-0c30-48c5-9c93-acf66a26979c`) |
-| R2 | `sheila-creator-dashboard-files-staging` |
-| Login | `sequoia@westpeek.ventures` (OWNER_EMAIL). The West Peek Resend key delivers only to its account owner's address, and she reads that mailbox. |
-| Deploy | `land <pr>` deploys it from every merge sha (twin check → build → remote migrations → deploy → healthz must say `env: staging`); `npm run deploy:staging` by hand is the break-glass. Production follows only after the nightly `e2e` run is green on that sha: `promote.yml` ships it on its own (`scripts/deploy-production.sh` at that sha, healthz smoke, GitHub Deployment `production`); `land --promote sheila-creator-dashboard` is the by-hand path and reads the same record. |
+| R2 | `sheila-creator-dashboard-files-staging` (the demo media under `clips/`, `full/`, `narrations/`, `music/`, `docs/`, `voice/`) |
+| Deploy | `land <pr>` deploys it from every merge sha (twin check → build → remote migrations → deploy → healthz must say `env: sample`, fake: true → open-mode smoke); `npm run deploy:staging` by hand is the break-glass. Production follows only after the nightly `e2e` run is green on that sha (`promote.yml`). |
+| Demo data | `node scripts/seed-year.mjs --remote-sample --apply` (from the repo root, wrangler logged in): wipes every row the sample holds (visitors' changes, fake-cron results, old connections and sessions), loads the year (`scripts/seed-year.mjs`, day 358: ~50 dumps, ~640 clips in every Look, ~320 posts, 45 deals, 12 briefs, 26 kit versions) with file sizes at 40% so Storage sits green, then uploads the media the rows point at (`scripts/sample-media.mjs`: covers and clips rendered from `public/looks/*.webp`, narrations and the voice sample read by macOS `say`, tones for "my songs", the fixture brand guide). `--media-only` re-uploads just the media; `--clear` removes the year. Then connect the fakes (below). Re-run whenever the demo has drifted. Validator `seed-year-local-only` allow-lists the target: Worker `samplestudio`, a `-staging` D1 and R2, fakes on; production is refused (proven negatively in the validator). |
+
+Connect the fakes after a reset, so Connect and the health board read as a set-up dashboard
+(open mode, so no cookie; the fake accepts any `good-…` key):
+
+```bash
+S=https://samplestudio.seq-taylor.workers.dev
+for kv in buffer:good-key-sample-000 openrouter:good-demo-openrouter elevenlabs:good-demo-creator firecrawl:good-demo-firecrawl hunter:good-demo-hunter; do
+  curl -s -X POST "$S/api/connections/${kv%%:*}/key" -H 'content-type: application/json' -d "{\"key\":\"${kv#*:}\"}"; echo
+done
+curl -s -X POST "$S/api/settings/health/recheck"; echo   # every light from the fakes
+curl -s -X POST "$S/api/stats/sync"; echo                 # the fake YouTube numbers
+```
 
 ```bash
 npx wrangler d1 execute sheila-creator-dashboard-db-staging --remote --env staging --command "SELECT name, light, note FROM health"
-npx wrangler tail sheila-creator-dashboard-staging --format pretty
+npx wrangler tail samplestudio --format pretty
 ```
 
-Secrets (`wrangler secret put <NAME> --env staging`, value on stdin): `SESSION_SECRET`,
-`SECRETS_KEY`, `JOB_SHARED_SECRET` (fresh, staging-only), `RESEND_API_KEY` (the West Peek Resend
-key, vault `resend-app-18f24eb6`), `GITHUB_DISPATCH_TOKEN` (see Secrets above). GitHub secret
-`JOB_SHARED_SECRET_STAGING` holds the same job secret; every `job-*.yml` picks it when the
-dispatch payload says `env: staging`, and the job reaches files only through the staging
-Worker (`worker_url` in the payload), so it can only ever touch the staging bucket.
+Secrets (`wrangler secret put <NAME> --env staging`, value on stdin) stay set from the twin days
+(`SESSION_SECRET`, `SECRETS_KEY`, `JOB_SHARED_SECRET`, `RESEND_API_KEY`, `GITHUB_DISPATCH_TOKEN`,
+`YOUTUBE_API_KEY`, `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`); with the fakes on, none of them
+reaches a vendor. GitHub secret `JOB_SHARED_SECRET_STAGING` holds the same job secret; a dispatch
+from the sample would carry `env: staging` (`dispatchEnv` in `worker/env.ts`), but the fake GitHub
+never dispatches.
 
-### What is real on staging
+### Sample: named stops
 
-| Piece | State (25 Sep 2026) |
-| --- | --- |
-| Worker, D1, R2, crons | Real, all migrations applied |
-| Buffer | Real: the owner's test Buffer account (seq.taylor@gmail.com, free plan, 3 of 3 channels): TikTok `@iamcindymercer`, Instagram `seq23`, YouTube "Sequoia Taylor". All three are her **test channels** (her word, 25 Sep 2026); the Phase 0 TEST POST goes to all three. Key: vault `buffer-access-token`, created 25 Sep 2026, **expires 25 Sep 2027** (Buffer → Settings → API; the free plan allows ONE key per account, so this key is shared with `authority-backlink-network`'s `BUFFER_ACCESS_TOKEN` secret; renewing it means Regenerate there, then `vault set buffer-access-token --from-file`, `gh secret set BUFFER_ACCESS_TOKEN -R seq23/authority-backlink-network`, and paste on staging's Connect). The account's 3,000 requests / 30 days are shared too; the dashboard's own idle spend is 20 a day (`tests/unit/buffer-budget.test.ts`). |
-| Email (Resend) | Real: the West Peek Resend key sends from `onboarding@resend.dev` to its own account owner, `sequoia@westpeek.ventures`, which is staging's OWNER_EMAIL. Login codes and every staging email land there. Production's OWNER_EMAIL and sender are unchanged. |
-| Jobs (cut, extract, research, metrics, brand finder, voice) | Real: dispatch with `GITHUB_DISPATCH_TOKEN`; the job fetches its spec and files from the staging Worker and writes its outputs back through it (no storage keys anywhere). |
-| YouTube stats | Real, no sign-in: `YOUTUBE_API_KEY` set; channel from Buffer's serviceId (see "Stats: no-login"). A Google sign-in is also connected on staging (optional extra detail). |
-| Instagram stats | The form path (public profile login-walled from the Worker); a Meta app is not set up (optional) |
-| OpenRouter, Firecrawl, Hunter | Not connected by design (Sheila's Hunter key stays hers). Connect shows "Not connected" with a guide; research and the brand finder refuse with the connect guide. The cut job falls back to its deterministic moment picker without OpenRouter. |
+None. The sample needs nothing from anyone: no login, no mailbox, no vendor key.
 
-### Staging: named stops
+### Sample: reading a login code without a mailbox
 
-None. Everything staging needs is set: email goes to the Resend owner's address, the dispatch
-token is Sequoia's own GitHub token, and jobs need no storage keys.
-
-### Staging: reading a login code without a mailbox
-
-Resend keeps each email it sends, so an agent reads the code from Resend's API instead of an
-inbox. One command asks staging for a code and prints it:
-
-```bash
-node scripts/staging-login-code.mjs --request   # {"email_id":"…","last_event":"delivered","code":"123456"}
-```
-
-What it does, step by step (the same calls by hand):
+There is no code: the sample is open. `node scripts/staging-login-code.mjs` prints one line
+(`the sample is open, no code: …`) and exits 0. The script keeps the code-mode path (a code read
+back from Resend's API, staging's OWNER_EMAIL being the West Peek Resend owner's address) for the
+day staging goes back to `AUTH_MODE` "code"; the steps by hand then are:
 
 ```bash
 # 1. ask for a code through the real login form's endpoint
-curl -s -X POST https://sheila-creator-dashboard-staging.seq-taylor.workers.dev/api/auth/request \
+curl -s -X POST https://samplestudio.seq-taylor.workers.dev/api/auth/request \
   -H 'content-type: application/json' -d '{"email":"sequoia@westpeek.ventures"}'
 # 2. the Resend id of that email
 npx wrangler d1 execute sheila-creator-dashboard-db-staging --remote --env staging --json \
@@ -461,14 +464,16 @@ npx wrangler d1 execute sheila-creator-dashboard-db-staging --remote --env stagi
 RESEND_API_KEY="$(cd ~/repo-tools/agent && python3 -c 'from repo_operator.vault import keychain as kc; print(kc.get().get("repo-operator-credential-resend-app-18f24eb6", kc.owner_account()) or "", end="")')" \
   sh -c 'curl -s https://api.resend.com/emails/<provider_id> -H "Authorization: Bearer $RESEND_API_KEY"'
 # 4. trade the code for a session cookie
-curl -s -c cookies.txt -X POST https://sheila-creator-dashboard-staging.seq-taylor.workers.dev/api/auth/verify \
+curl -s -c cookies.txt -X POST https://samplestudio.seq-taylor.workers.dev/api/auth/verify \
   -H 'content-type: application/json' -d '{"email":"sequoia@westpeek.ventures","code":"NNNNNN"}'
 ```
 
-### Phase 0 live checklist (staging)
+### Phase 0 live checklist (history: staging as the real twin, 25–26 Sep 2026)
 
-Each step is something the owner does in the staging app; the last column is the automated
-check that proves it.
+Proven on staging while it was the owner's real twin (`docs/PHASE0.md`, evidence in
+`docs/design/live`). Each step was something the owner did in the staging app; the last column is
+the automated check that proved it. The sample runs on fakes now, so these are the record, not a
+checklist to repeat there.
 
 | # | Step in the staging app | Proven by |
 | --- | --- | --- |
