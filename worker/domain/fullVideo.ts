@@ -90,7 +90,16 @@ export function draftChapters(segments: readonly Segment[], duration: number): C
     if (out.length && t - out[out.length - 1].t < 10) continue;
     if (duration - t < 10) continue;
     const words = segments.filter((s) => s.start >= t && s.start < t + step).map((s) => s.text).join(" ");
-    out.push({ t, title: nameFrom(words || seg.text, out.length + 1) });
+    // Every chapter a different name: a repeated one (she says the same thing twice, or a
+    // looped intro) takes the next sentence of that chapter, then its number.
+    let title = nameFrom(words || seg.text, out.length + 1);
+    const taken = (x: string) => out.some((c) => c.title.toLowerCase() === x.toLowerCase());
+    for (const sentence of (words || seg.text).split(/(?<=[.!?])\s+/).slice(1)) {
+      if (!taken(title)) break;
+      title = nameFrom(sentence, out.length + 1);
+    }
+    if (taken(title)) title = `${title.slice(0, 52)} (part ${out.length + 1})`;
+    out.push({ t, title });
   }
   return out.length >= 3 ? out : [];
 }
