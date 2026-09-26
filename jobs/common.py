@@ -16,8 +16,10 @@ import hashlib
 import hmac
 import json
 import os
+import re
 import sys
 import time
+import traceback
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -28,11 +30,57 @@ from typing import Any
 WORK = Path(os.environ.get("JOB_WORK_DIR", "jobs/work"))
 
 
+_QUOTED = re.compile(r"(['\"`]).*?\1")
+_PATH = re.compile(r"(?:[A-Za-z]:)?(?:[\\/][^\s:'\"]+)+")
+
+
+def safe_detail(message: str) -> str:
+    """An exception message made safe for a public log: first line only, anything quoted (which
+    can be her script, a file name or a value) replaced by '…', paths cut to their file name,
+    at most 160 characters. Library errors stay readable: "'NoneType' object is not callable"
+    becomes "'…' object is not callable"."""
+    first = (message or "").strip().splitlines()[0] if (message or "").strip() else ""
+    first = _QUOTED.sub("'…'", first)
+    first = _PATH.sub(lambda m: Path(m.group(0)).name, first)
+    return first[:160]
+
+
+def _content_strings(value: Any, out: list[str]) -> list[str]:
+    """Every text in a job spec (her script, notes, file keys…), whole and sentence by sentence."""
+    if isinstance(value, str):
+        if len(value) >= 6:
+            out.append(value)
+            out.extend(p.strip() for p in re.split(r"[.!?\n]+", value) if len(p.strip()) >= 8)
+    elif isinstance(value, dict):
+        for v in value.values():
+            _content_strings(v, out)
+    elif isinstance(value, (list, tuple)):
+        for v in value:
+            _content_strings(v, out)
+    return out
+
+
+def failure_fields(e: BaseException, spec: Any = None) -> dict[str, str]:
+    """What a failed job logs: the exception class, the innermost frame as file:line (library
+    code, never her content), and the safe message with every text from the job's own spec
+    removed as well as anything quoted. A job failure is never silent (26 Sep 2026: a voice job
+    died logging only "job.failed")."""
+    frames = traceback.extract_tb(e.__traceback__)
+    where = f"{Path(frames[-1].filename).name}:{frames[-1].lineno}" if frames else "-"
+    message = str(e)
+    for text in sorted(_content_strings(spec, []), key=len, reverse=True):
+        message = message.replace(text, "…")
+    return {"error": type(e).__name__[:40], "where": where[:40], "detail": safe_detail(message)}
+
+
 def log(step: str, **fields: Any) -> None:
-    """The only allowed output. Values are numbers, booleans or short enums."""
+    """The only allowed output. Values are numbers, booleans or short enums; the one text field
+    is `detail`, always passed through safe_detail()."""
     safe: dict[str, Any] = {}
     for k, v in fields.items():
-        if isinstance(v, (int, float, bool)) or v is None:
+        if k == "detail" and isinstance(v, str):
+            safe[k] = safe_detail(v)
+        elif isinstance(v, (int, float, bool)) or v is None:
             safe[k] = v
         elif isinstance(v, str) and len(v) <= 40 and " " not in v:
             safe[k] = v
@@ -408,11 +456,11 @@ class Job:
         self._call("POST", "/callback", json.dumps({"ok": True, "result": result}))
         log("job.done")
 
-    def fail(self, safe_error: str) -> None:
+    def fail(self, safe_error: str, **why: Any) -> None:
         try:
             self._call("POST", "/callback", json.dumps({"ok": False, "safe_error": safe_error[:160]}))
         finally:
-            log("job.failed")
+            log("job.failed", **why)
 
 
 # ---------- storage (module-level, for the jobs' existing call sites) ----------
@@ -438,6 +486,7 @@ def run(main) -> None:
     job = Job.from_env()
     _CURRENT = job
     log("job.start")
+    spec: Any = None
     try:
         spec = job.spec()
         result = main(job, spec)
@@ -445,5 +494,6 @@ def run(main) -> None:
     except SystemExit:
         raise
     except Exception as e:  # noqa: BLE001
-        job.fail(f"{type(e).__name__}")
+        why = failure_fields(e, spec)
+        job.fail(f"{why['error']} at {why['where']}", **why)
         sys.exit(1)

@@ -1,8 +1,8 @@
 {
   "1-login": {
-    "resend_email_id": "01a0db36-fcf1-7530-aff2-b32a9c12d03e",
-    "last_event": "sent",
-    "at": "2026-09-26T00:56:50.926Z",
+    "resend_email_id": "01a0db53-ab36-7557-bfd8-623e85968807",
+    "last_event": "delivered",
+    "at": "2026-09-26T01:28:10.423Z",
     "screenshot": "docs/design/live/01-home.jpg",
     "last_login_provider_id": "01a0db08-e234-70ee-9146-bf6a04b17117",
     "role": "owner"
@@ -61,5 +61,127 @@
     },
     "review_screenshot": "docs/design/live/05-review-clip.jpg",
     "at": "2026-09-26T01:07:22.260Z"
+  },
+  "5b-dump-held": {
+    "expect": "held",
+    "source_owner": [
+      "other"
+    ],
+    "held_note": "Looks like someone else's video: we saw a TikTok watermark. Its clips stay off your calendar. If it is your own video, tap This is my video.",
+    "held_screenshot": "docs/design/live/05-dump-held.jpg",
+    "source_mb": 18,
+    "dump_id": "dmp_brwy45gsqew0",
+    "cut_job": "job_eu2qufgqu59k",
+    "run_id": 36208158574,
+    "clips": 7,
+    "visible": 7,
+    "clips_ready_email_id": "01a0db52-23d0-7345-8d40-c8957d22d265",
+    "email_subject_count": 7,
+    "first_clip_video": {
+      "w": 1080,
+      "h": 1920,
+      "duration": 32.5
+    },
+    "review_screenshot": "docs/design/live/05-review-clip-held.jpg",
+    "at": "2026-09-26T01:26:53.647Z"
+  },
+  "6-review": {
+    "approved": [
+      "clp_p8adjcsoenp48vx2",
+      "clp_f67pbap0xxddggct",
+      "clp_dh8jh3nb3hhljid4"
+    ],
+    "rejected": "clp_cvm4mer55y67mmub",
+    "hook_swapped": true,
+    "edited_screenshot": "docs/design/live/06-review-edited.jpg",
+    "rejected_screenshot": "docs/design/live/06-review-rejected.jpg",
+    "at": "2026-09-26T01:30:34.374Z"
+  },
+  "5c-dump-synthetic": {
+    "expect": "clear",
+    "source_owner": [
+      null
+    ],
+    "held_note": null,
+    "held_screenshot": null,
+    "source_mb": 1,
+    "dump_id": "dmp_5u8591e1lqly",
+    "cut_job": "job_84rbo9lvttj6",
+    "run_id": 36208674291,
+    "clips": 5,
+    "visible": 5,
+    "clips_ready_email_id": "01a0db58-8483-77d2-a2b0-1b717f4a57a2",
+    "email_subject_count": 5,
+    "first_clip_video": {
+      "w": 1080,
+      "h": 1920,
+      "duration": 32.5
+    },
+    "review_screenshot": "docs/design/live/05-review-clip-clear.jpg",
+    "at": "2026-09-26T01:33:47.752Z"
+  },
+  "7-calendar": {
+    "test_clip": "clp_xdqnofnmzh242tja",
+    "test_posts": [
+      "pst_ofx7bf19q6wj",
+      "pst_wqkkl5e0zqfc",
+      "pst_r5ke8awotmyf"
+    ],
+    "post_at_utc": "2026-09-26T02:10:00.000Z",
+    "filled_posts": 15,
+    "per_week": {
+      "youtube 2026-09-21": 1,
+      "tiktok 2026-09-28": 4,
+      "instagram 2026-09-21": 1,
+      "instagram 2026-09-28": 4,
+      "youtube 2026-09-28": 4,
+      "tiktok 2026-09-21": 1
+    },
+    "moved_post": "pst_vy0gyiv91upv",
+    "taken_off_post": "pst_9gsnezrd5yin",
+    "fill_screenshot": "docs/design/live/07-calendar-filled.jpg",
+    "taken_off_screenshot": "docs/design/live/07-calendar-taken-off.jpg",
+    "at": "2026-09-26T01:55:31.940Z"
+  },
+  "9-stats": {
+    "youtube_job": "job_3oyrlrqpauh6",
+    "run_id": 36210125799,
+    "youtube_subscribers": 1,
+    "youtube_avg_views": 0,
+    "youtube_videos": 0,
+    "youtube_total_views": 0,
+    "youtube_light": {
+      "light": "green",
+      "note": "Synced · 0 videos"
+    },
+    "youtube_screenshot": "docs/design/live/09-stats-youtube.jpg",
+    "at": "2026-09-26T01:59:16.549Z",
+    "tiktok_videos": 5,
+    "tiktok_views": [
+      7016,
+      68,
+      56,
+      35,
+      26
+    ],
+    "tiktok_posted_at": [
+      "2026-07-03T14:04:53.000Z",
+      "2026-09-01T16:30:51.000Z",
+      "2026-07-08T14:02:42.000Z",
+      "2026-09-04T16:16:52.000Z",
+      "2026-06-26T14:05:11.000Z"
+    ],
+    "tiktok_light": {
+      "light": "green",
+      "note": "Imported · 5 videos"
+    },
+    "tiktok_screenshot": "docs/design/live/09-stats-tiktok.jpg"
+  },
+  "13-help": {
+    "search_screenshot": "docs/design/live/13-help-search.jpg",
+    "guide_screenshot": "docs/design/live/13-help-guide.jpg",
+    "feedback_rows_added": 1,
+    "tour_stops": 5,
+    "at": "2026-09-26T02:01:34.672Z"
   }
 }
