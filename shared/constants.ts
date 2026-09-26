@@ -117,3 +117,10 @@ export const ACCEPTED_DOC_TYPES = [
   "text/markdown",
   "text/plain",
 ];
+
+/**
+ * Settings → Features, every one ON by default (owner, 26 Sep 2026: "nothing should be hidden -
+ * she can use it if she chooses, nothing switched off"). She can turn any of them off herself;
+ * no switch ever hides a screen, a nav item or a button (validator nothing-hidden).
+ */
+export const DEFAULT_FEATURES = { voice: true, deeper_research: true, weekly_recap: true, help_ask: true } as const;

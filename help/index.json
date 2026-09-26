@@ -47,7 +47,7 @@
     { "slug": "move-or-remove-a-post", "title": "Move or remove a post", "group": "everyday", "screen": "calendar" },
     { "slug": "what-runway-means", "title": "What \"runway\" means", "group": "everyday", "screen": "home" },
     { "slug": "change-posts-per-week", "title": "Change posts per week", "group": "everyday", "screen": "settings" },
-    { "slug": "record-your-voice", "title": "Record your voice (optional)", "group": "everyday", "screen": "voice" },
+    { "slug": "record-your-voice", "title": "Record your voice for voice overs (optional)", "group": "everyday", "screen": "voice" },
     { "slug": "update-your-media-kit", "title": "Update your media kit", "group": "brand_deals", "screen": "deals" },
     { "slug": "send-a-pitch", "title": "Send a pitch", "group": "brand_deals", "screen": "deals" },
     { "slug": "mark-a-reply", "title": "Mark a reply", "group": "brand_deals", "screen": "deals" },
