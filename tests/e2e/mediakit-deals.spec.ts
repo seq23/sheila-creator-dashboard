@@ -94,8 +94,9 @@ test.describe("media kit", () => {
 
     // renaming the link keeps sent links working
     await page.getByLabel("Link name").fill("sheilabruce");
-    await page.getByLabel("Link name").blur();
-    await expect(page.locator(".toast", { hasText: "Links you already sent still work" })).toBeVisible();
+    const [renamed] = await Promise.all([page.waitForResponse((r) => r.url().endsWith("/api/mediakit") && r.request().method() === "PATCH" && (r.request().postData() ?? "").includes('"slug"')), page.getByLabel("Link name").blur()]);
+    expect(renamed.status()).toBe(200);
+    expect(((await renamed.json()) as { view: { slug: string } }).view.slug).toBe("sheilabruce");
     await pub.goto("/kit/sheila");
     await expect(pub).toHaveURL(/\/kit\/sheilabruce$/);
     await expect(pub.getByRole("heading", { name: "Sheila Bruce", level: 1 })).toBeVisible();
