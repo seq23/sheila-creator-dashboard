@@ -16,6 +16,34 @@ function d1(args: string[]) {
 
 export function seedDemo() {
   d1(["--file", SEED]);
+  d1(["--command", demoPostsSql(new Date())]);
+}
+
+/**
+ * A calendar with something on it, dated from today (the SQL file cannot know "today"): one post
+ * that went out (a month ago), one that failed, one waiting in Buffer and two planned. Without these the
+ * Calendar guides ("A post failed", "Move or remove a post") pictured an empty week (Phase 0 live
+ * review of the help-screenshots PR, 26 Sep 2026).
+ */
+export function demoPostsSql(now: Date): string {
+  const at = (days: number, hour: number) => {
+    const d = new Date(now);
+    d.setUTCDate(d.getUTCDate() + days);
+    d.setUTCHours(hour, 0, 0, 0);
+    return d.toISOString();
+  };
+  const rows: [string, string, string, string, string, string | null, string | null][] = [
+    // posted 35 days ago: outside the 30-day window the deals screen counts (TikTok One: "0 of 3")
+    ["demo_post_1", "demo_clip_1", "tiktok", at(-35, 23), "posted", "https://www.tiktok.com/@demo/video/1", null],
+    ["demo_post_2", "demo_clip_2", "instagram", at(0, 1), "failed", null, "Instagram did not accept the video. Reconnect Instagram in Buffer."],
+    ["demo_post_3", "demo_clip_3", "tiktok", at(1, 23), "in_buffer", null, null],
+    ["demo_post_4", "demo_clip_4", "youtube", at(2, 22), "planned", null, null],
+    ["demo_post_5", "demo_clip_5", "instagram", at(3, 23), "planned", null, null],
+  ];
+  const q = (v: string | null) => (v === null ? "NULL" : `'${v.replace(/'/g, "''")}'`);
+  return rows
+    .map(([id, clip, platform, when, status, url, error]) => `INSERT INTO posts (id, clip_id, platform, scheduled_at, status, url, error, posted_at) VALUES (${q(id)}, ${q(clip)}, ${q(platform)}, ${q(when)}, ${q(status)}, ${q(url)}, ${q(error)}, ${status === "posted" ? q(when) : "NULL"});`)
+    .join(" ");
 }
 
 /** The seed file's own clean-up block (everything before the first INSERT). */

@@ -16,7 +16,7 @@ export default defineConfig({
   testDir: "tests/live",
   // one folder per run (set once in the runner, inherited by its workers): parallel live runs
   // (a 60-minute voice job beside a cut) never clean each other up
-  outputDir: `test-results/live-${(process.env.LIVE_RUN_ID ??= String(process.pid))}`,
+  outputDir: `.live-results/${(process.env.LIVE_RUN_ID ??= String(process.pid))}`, // not test-results/: `npm run e2e` empties that
   timeout: 120_000,
   expect: { timeout: 15_000 },
   retries: 0,
