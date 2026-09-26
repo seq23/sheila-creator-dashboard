@@ -94,6 +94,9 @@ test("brain → research → the cutting gate opens only after lock + approve", 
   // Truth rule on the page: nothing labelled as fact lacks a source.
   const factsWithoutSource = await page.locator('.rs-claim:not([data-label="uncertain"])').filter({ hasText: "No source yet" }).count();
   expect(factsWithoutSource).toBe(0);
+  // The header's "N claims marked uncertain" counts exactly the Uncertain pills on the page.
+  const shownUncertain = await page.locator('.rs-claim[data-label="uncertain"]').count();
+  await expect(page.locator(".rs-legend .hint")).toContainText(`${shownUncertain} claim${shownUncertain === 1 ? "" : "s"} marked uncertain`);
   await page.getByRole("button", { name: "Approve brief" }).click();
   await expect(page.locator(".toast").filter({ hasText: "Approved" })).toBeVisible();
   await expect(page.getByText(/^Approved v\d+/)).toBeVisible();
