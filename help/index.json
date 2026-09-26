@@ -36,6 +36,7 @@
     { "slug": "connect-resend", "title": "Set up email (Resend)", "group": "getting_started", "screen": "connect" },
     { "slug": "connect-meta", "title": "Connect Instagram stats", "group": "getting_started", "screen": "connect" },
     { "slug": "connect-google", "title": "Connect YouTube stats", "group": "getting_started", "screen": "connect" },
+    { "slug": "update-instagram-numbers", "title": "Update your Instagram numbers", "group": "getting_started", "screen": "stats" },
     { "slug": "connect-tiktok", "title": "Connect TikTok stats", "group": "getting_started", "screen": "connect" },
     { "slug": "connect-github", "title": "The job runner (GitHub)", "group": "getting_started", "screen": "connect" },
     { "slug": "upload-brand-docs", "title": "Upload your brand docs", "group": "getting_started", "screen": "brain" },
@@ -66,6 +67,7 @@
     { "slug": "reconnect-github", "title": "The job runner stopped", "group": "fix_it", "screen": "connect" },
     { "slug": "storage-almost-full", "title": "Storage almost full", "group": "fix_it", "screen": "settings" },
     { "slug": "upload-your-tiktok-export", "title": "Upload your TikTok export", "group": "fix_it", "screen": "stats" },
+    { "slug": "your-youtube-numbers", "title": "Your YouTube numbers", "group": "fix_it", "screen": "stats" },
     { "slug": "i-didnt-get-an-email", "title": "I didn't get an email", "group": "fix_it", "screen": "settings" },
     { "slug": "clips-look-wrong", "title": "Clips look wrong", "group": "fix_it", "screen": "review" },
     { "slug": "someone-elses-video", "title": "Looks like someone else's video", "group": "fix_it", "screen": "dump" }
