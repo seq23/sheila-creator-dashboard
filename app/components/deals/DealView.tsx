@@ -540,7 +540,7 @@ function MemoPanel({ d, onChanged }: { d: DealDetail; onChanged: () => void }) {
 function ContractChecklist({ d, t }: { d: DealDetail; t: DealTerms }) {
   const toast = useToast();
   const lines = [
-    `Parties: ${d.brand.name} and ${"the creator"}`,
+    `Parties: ${d.brand.name} and you (the creator)`,
     `Deliverables: ${t.deliverables ?? "(fill in)"}`,
     `Fee: ${d.memo.money.total != null ? usd(d.memo.money.total) : "(fill in)"}${d.memo.money.lines.length > 1 ? ` (${d.memo.money.lines.map((l) => `${l.label} ${usd(l.amount)}`).join(", ")})` : ""}`,
     `Payment: net-${d.effective.netDays} from invoice${d.memo.money.upfront ? `; ${usd(d.memo.money.upfront)} (${d.effective.upfrontPct}%) up front` : ""}`,

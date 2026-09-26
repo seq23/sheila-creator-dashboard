@@ -68,7 +68,7 @@ test.describe("media kit", () => {
     await pub.reload();
     await expect(pub.getByRole("heading", { name: "No media kit here" })).toBeVisible();
     await preview.getByRole("button", { name: "Publish" }).click();
-    await expect(page.locator(".toast").first()).toContainText("Published version 1");
+    await expect(page.locator(".toast", { hasText: "Published version 1" })).toBeVisible();
 
     await pub.goto("/kit/sheila");
     await expect(pub.getByRole("heading", { name: "Sheila Bruce", level: 1 })).toBeVisible();
@@ -83,7 +83,7 @@ test.describe("media kit", () => {
     await pub.reload();
     await expect(pub.getByText("A second version of my story.")).toHaveCount(0);
     await page.getByRole("button", { name: "Publish changes" }).first().click();
-    await expect(page.locator(".toast").first()).toContainText("Published version 2");
+    await expect(page.locator(".toast", { hasText: "Published version 2" })).toBeVisible();
     await pub.reload();
     await expect(pub.getByText("A second version of my story.")).toBeVisible();
     await expect(page.locator(".kit-versions li")).toHaveCount(2);
@@ -95,7 +95,7 @@ test.describe("media kit", () => {
     // renaming the link keeps sent links working
     await page.getByLabel("Link name").fill("sheilabruce");
     await page.getByLabel("Link name").blur();
-    await expect(page.locator(".toast").first()).toContainText("Links you already sent still work");
+    await expect(page.locator(".toast", { hasText: "Links you already sent still work" })).toBeVisible();
     await pub.goto("/kit/sheila");
     await expect(pub).toHaveURL(/\/kit\/sheilabruce$/);
     await expect(pub.getByRole("heading", { name: "Sheila Bruce", level: 1 })).toBeVisible();

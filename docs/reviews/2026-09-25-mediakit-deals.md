@@ -73,4 +73,58 @@ deal, or tells a brand something untrue), **weak** (works but amateur or unhelpf
 
 ## Fixed in
 
-(Filled in when the overhaul lands: every row above with the commit and where to see it.)
+All 48 rows are fixed on branch `feat/mediakit-deals-overhaul` (PR listed in `docs/PHASE-LEDGER.md`,
+Phase 10). Where to see each fix:
+
+| # | Fixed in |
+| --- | --- |
+| K1 | Every figure shows "As of <date> · <source>" (KitSheet); only verified figures; footer states the dates; validator `mediakit-deals` |
+| K2 | `crons/daily.ts` keeps the media link of every clip in the draft or published showcase (`showcaseIds`) |
+| K3 | `kit_slugs`: old link names answer `{moved}` and the page forwards (unit + e2e) |
+| K4 | Draft + Publish: `media_kit.draft`, `media_kit_versions`; public serves the newest published only (unit + e2e) |
+| K5 | Rate card: packages of deliverables, "Starting at" / "Rates on request", private floor/target, add-on terms (`ratecard.ts`, `RateCard.tsx`) |
+| K6 | `/kit/:slug/print`: two Letter pages with photo/logo, handles, QR, clip covers (e2e counts 2 PDF pages) |
+| K7 | Handles on the cover, linked to her profiles |
+| K8 | Engagement (method shown), best times and top formats from Stats once her own data is enough; demographics via labelled self-reported figures |
+| K9 | "Add manually" figures, each with an as-of date, marked self-reported on the kit |
+| K10 | Cover: niche line, location, one-line positioning |
+| K11 | Past collaborations: logo (upload or favicon), what she made, one result; added from paid deals automatically |
+| K12 | Testimonials section |
+| K13 | 3 to 6 clips; covers first, the player loads on tap |
+| K14 | Content pillars (start from the Brand Profile, editable) and signature series |
+| K15 | `kit_views`; the editor says "Viewed N times, last on <date>" |
+| K16 | Kit check with one-tap fixes (`kitCheck`) |
+| K17 | Preview shows exactly what brands will see, before publishing |
+| K18 | Floating Save removed: autosave; the kit bar (with Publish) is at the top |
+| K19 | Contact block shows the address as text, "Email me", the link and the QR |
+| K20 | `/kit/:slug/print` (old API address forwards with a 302) |
+| K21 | Figures are cards in a wrapping grid; labels no longer misalign |
+| K22 | The link shown is the one brands get; unchanged by design (PUBLIC_BASE_URL is right on staging and production) |
+| K23 | `worker/routes/kitpage.ts` fills title, description and share-preview tags from the published kit |
+| D1 | Money strip first; "Brands to pitch this week" ranked by expected money; fees on every deal |
+| D2 | First pitch leads with one idea and three options anchored high, from her rate card |
+| D3 | 18 email scenarios, each with a starter, three subjects, tone and length, and a test (`emails.ts`) |
+| D4 | "A brand wrote to me" / "Paste what the brand sent": terms from their email, red flags, verdict (`offers.ts`) |
+| D5 | Deal memo with fee, add-ons, usage, exclusivity, payment terms, dates; printable invoice |
+| D6 | Declined vs lost, each with a reason; reasons shown under Closed |
+| D7 | Every card shows its next action and due date; overdue first (`nextAction`, `byUrgency`) |
+| D8 | Eligibility from TikTok's own page (1,000 followers), no views-in-30-days count; 14 marketplaces |
+| D9 | "How it ranked" shows the arithmetic; every why and money line links its page |
+| D10 | Budget signal: pays creators / has a program / no sign yet, with evidence links |
+| D11 | Get listed here: 14 checked marketplaces (`docs/BRAND-SOURCES.md`) |
+| D12 | Day 5, 12, 19 (a gentle close), then "close as no reply" |
+| D13 | Follow-ups are their own scenarios, offered when due; subject and body are both editable until marked sent |
+| D14 | Three subject lines per email |
+| D15 | Tone (warm / straight / short) and length (brief / standard / detailed) |
+| D16 | "Before you send" checklist, live as she edits (`shared/emailcheck.ts`) |
+| D17 | Every draft kept on the deal's timeline (`deal_emails`); rewrites add, never overwrite |
+| D18 | Negotiation helper: counter calculator with arithmetic, add-on quote, lever scripts |
+| D19 | Delivery checklist with approval rounds, day-7 results report from Stats, rebook at 30 days |
+| D20 | Money strip: pitched, replies (rate), won, agreed, paid, average fee |
+| D21 | Agencies are their own kind with a roster pitch |
+| D22 | A deal opens on its own full-width view; the list stays behind a Back button |
+| D23 | Deal view is narrower than the page (max 920 px), clear of the ? button |
+| D24 | Seed copy fixed; starters never put a plural product after "is" (they name the brand) |
+| D25 | Stages say what is happening: "Ready to pitch", "Waiting on a reply", "Talking terms" |
+
+After: `docs/design/mediakit-deals/` (phone and desktop, from `tests/e2e/mediakit-deals.spec.ts`).

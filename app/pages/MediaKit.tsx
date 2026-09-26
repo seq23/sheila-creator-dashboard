@@ -2,10 +2,10 @@
 // the newest published version. `MediaKitPrint` is /kit/:slug/print, the same kit laid out as a
 // clean two-page PDF from the browser's Print / Save as PDF. Her editor is the Media kit tab on
 // Deals (app/components/kit/KitEditor.tsx).
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { get } from "../lib/api";
-import { Skeleton, useLoad } from "../components/ui";
+import { Skeleton } from "../components/ui";
 import { KitSheet } from "../components/kit/KitSheet";
 import type { PublicKit } from "../../worker/domain/kit";
 import "../styles/mediakit.css";
@@ -15,13 +15,33 @@ export { KitEditor as MediaKitEditor } from "../components/kit/KitEditor";
 type Answer = PublicKit | { moved: string };
 
 function useKit(slug: string, preview: boolean) {
-  const nav = useNavigate();
-  const { data, loading, error } = useLoad(() => get<Answer>(`/api/public/kit/${encodeURIComponent(slug)}${preview ? "?preview=1" : ""}`), [slug]);
+  const navigate = useNavigate();
+  const navRef = useRef(navigate);
+  navRef.current = navigate;
+  // Each answer is tied to the link name it was fetched for, so an old "moved" answer can never
+  // act after the page has moved on (a stale answer is ignored).
+  const [state, setState] = useState<{ slug: string; kit: PublicKit | null; error: boolean }>({ slug: "", kit: null, error: false });
   useEffect(() => {
-    if (data && "moved" in data) nav(`/kit/${data.moved}${window.location.pathname.endsWith("/print") ? "/print" : ""}`, { replace: true });
-    if (data && !("moved" in data)) document.title = `${data.name} · media kit`;
-  }, [data, nav]);
-  return { kit: data && !("moved" in data) ? data : null, loading, error };
+    let live = true;
+    get<Answer>(`/api/public/kit/${encodeURIComponent(slug)}${preview ? "?preview=1" : ""}`).then(
+      (a) => {
+        if (!live) return;
+        if ("moved" in a) {
+          if (a.moved === slug) setState({ slug, kit: null, error: true });
+          else navRef.current(`/kit/${a.moved}${window.location.pathname.endsWith("/print") ? "/print" : ""}${window.location.search}`, { replace: true });
+          return;
+        }
+        document.title = `${a.name} · media kit`;
+        setState({ slug, kit: a, error: false });
+      },
+      () => live && setState({ slug, kit: null, error: true }),
+    );
+    return () => {
+      live = false;
+    };
+  }, [slug, preview]);
+  const current = state.slug === slug;
+  return { kit: current ? state.kit : null, loading: !current, error: current && state.error };
 }
 
 export function MediaKit() {

@@ -42,6 +42,18 @@ describe("red flags, in plain English", () => {
     expect(keys).toEqual(expect.arrayContaining(["perpetual", "likeness", "exclusivity_unpaid", "late_pay", "unpaid_gifting", "exposure"]));
     expect(flags.find((f) => f.key === "late_pay")!.text).toBe("They pay net-90. Net-30 is normal; ask for net-30, or a part up front.");
   });
+  it.each([
+    ["Usage rights in perpetuity for this video.", "perpetual"],
+    ["We'll need perpetual usage of the content.", "perpetual"],
+    ["Unlimited usage on all our channels.", "perpetual"],
+    ["Usage across all media, worldwide.", "perpetual"],
+    ["We also need your name and likeness for ads.", "likeness"],
+    ["This is a work for hire.", "content_ownership"],
+    ["Great exposure for your brand!", "exposure"],
+    ["Paid only if it performs above 10K views.", "pay_on_performance"],
+  ])("each phrase is caught on its own: %s", (text, key) => {
+    expect(redFlags(text, extractTerms(text)).map((f) => f.key)).toContain(key);
+  });
   it("quotes the words that raised each flag", () => {
     expect(flags.find((f) => f.key === "perpetual")!.quote).toMatch(/in perpetuity across all media/);
     for (const f of flags) expect(f.quote.length).toBeGreaterThan(0);
