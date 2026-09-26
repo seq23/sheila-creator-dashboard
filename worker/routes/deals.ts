@@ -32,6 +32,8 @@ import { log } from "../lib/log";
 import { getLlm } from "../services/openrouter";
 import { dispatchJob } from "../services/github";
 import { listConnections } from "../lib/connections";
+// Pitches link only her own clips: someone else's video (watermark check) is never sent to a brand.
+import { POSTABLE_CLIP_SQL } from "../domain/sourceCheck";
 import { brandKey, contactProblem, offLimitsTerms, sortContacts, validSentAt, violatesOffLimits, type ContactKind } from "../domain/brandfit";
 import { byUrgency, CLOSED_STAGES, DECLINE_REASONS, FOLLOWUP_DAYS, LOST_REASONS, canMove, moneyStrip, needsReason, nextAction, nextFollowup, type DealContext, type NextAction } from "../domain/deals";
 import { afterFollowupSent, followupsDone } from "../domain/brandfit";
@@ -369,7 +371,7 @@ async function emailFacts(env: Env, d: DealDb, b: BrandDb, opts: { declineReason
   const theirs = offer ? parseJson<OfferTerms | null>(offer.terms, null) : null;
   const pkg = kit.packages.find((p) => p.id === t.packageId) ?? null;
   const counter = theirs?.fee != null && pkg ? counterOffer(theirs.fee, pkg) : null;
-  const { results: clipRows } = await env.DB.prepare("SELECT id, media_token FROM clips WHERE status = 'approved' AND media_token IS NOT NULL ORDER BY score DESC LIMIT 20").all<{ id: string; media_token: string }>();
+  const { results: clipRows } = await env.DB.prepare(`SELECT c.id, c.media_token FROM clips c WHERE ${POSTABLE_CLIP_SQL} AND c.media_token IS NOT NULL ORDER BY c.score DESC LIMIT 20`).all<{ id: string; media_token: string }>();
   const ordered = [...clipRows.filter((x) => kit.showcase.includes(x.id)), ...clipRows.filter((x) => !kit.showcase.includes(x.id))];
   const best = figures.find((f) => f.engagement);
   const results = await dealResults(env, d);
