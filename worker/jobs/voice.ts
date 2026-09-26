@@ -7,6 +7,10 @@ import type { Env } from "../env";
 import { log } from "../lib/log";
 import { recordEvent, setHealth } from "../lib/db";
 import { nowIso } from "../lib/ids";
+import { applyBatch, batchFailed, buildBatchSpec, fakeBatch } from "./voice_batch";
+
+/** "auto/<batch>": one run voices every clip of a batch (automatic voice overs, redo in Review). */
+const batchOf = (refId: string | null) => (refId?.startsWith("auto/") ? refId.slice(5) : null);
 
 export const VOICE_MODEL_KEY = "voice/model/conds.pt";
 
@@ -60,6 +64,8 @@ export function toneWav(seconds = 2, sampleRate = 16_000, hz = 440): Uint8Array 
 
 export const voiceJob: JobHandler = {
   async buildSpec(env, jobId, refId) {
+    const batch = batchOf(refId);
+    if (batch) return buildBatchSpec(env, jobId, batch);
     const n = await narration(env, refId);
     if (n && wantsMix(n)) {
       const clip = await env.DB.prepare("SELECT r2_key FROM clips WHERE id = ? AND status != 'deleted'").bind(n.clip_id).first<{ r2_key: string }>();
@@ -83,6 +89,8 @@ export const voiceJob: JobHandler = {
   },
 
   async applyResult(env, jobId, refId, result) {
+    const batch = batchOf(refId);
+    if (batch) return applyBatch(env, jobId, batch, result);
     const r = (result ?? {}) as { r2_key?: string; duration_s?: number; bytes?: number; model_key?: string; mode?: string };
     if (r.mode === "mix") {
       if (!refId || r.r2_key !== mixedKey(refId)) throw new Error("mix result missing its file");
@@ -108,6 +116,8 @@ export const voiceJob: JobHandler = {
   },
 
   async onFailure(env, jobId, refId, safeError) {
+    const batch = batchOf(refId);
+    if (batch) return batchFailed(env, jobId, batch, safeError);
     const n = await narration(env, refId);
     if (n && wantsMix(n)) {
       // The voice over itself is fine; only adding it to the clip failed. The clip stays as it was.
@@ -124,11 +134,13 @@ export const voiceJob: JobHandler = {
   },
 
   async onProgress(env, _jobId, refId) {
-    if (refId) await env.DB.prepare("UPDATE narrations SET status = 'generating' WHERE id = ? AND status = 'queued'").bind(refId).run();
+    if (refId && !batchOf(refId)) await env.DB.prepare("UPDATE narrations SET status = 'generating' WHERE id = ? AND status = 'queued'").bind(refId).run();
   },
 
   /** FAKE_SERVICES: a 2-second tone WAV written to R2, exactly where the real job writes. */
-  async fakeRun(env, _jobId, refId) {
+  async fakeRun(env, jobId, refId) {
+    const batch = batchOf(refId);
+    if (batch) return fakeBatch(env, jobId, batch, toneWav());
     const n = await narration(env, refId);
     if (n && wantsMix(n)) {
       // FAKE_SERVICES: the "mixed" clip is the clip itself, written where the real job writes it.

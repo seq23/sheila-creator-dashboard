@@ -37,6 +37,16 @@ describe("createPost sends what each platform requires", () => {
     expect(yt.title).toHaveLength(100);
     expect(postMetadata("youtube", "   ")).toMatchObject({ youtube: { title: "New video" } });
   });
+  it("a clip with her cloned voice: isAiGenerated goes to Buffer on all three (schema-checked 26 Sep 2026)", async () => {
+    const sent = stub({ createPost: { post: { id: "p4" } } });
+    const b = await getBuffer(env, "k");
+    for (const p of ["tiktok", "instagram", "youtube"] as const) await b.createPost({ ...args(p), aiGenerated: true });
+    expect(sent.map((x) => x.variables.input.metadata)).toEqual([
+      { tiktok: { isAiGenerated: true } },
+      { instagram: { type: "reel", shouldShareToFeed: true, isAiGenerated: true } },
+      { youtube: expect.objectContaining({ title: "Three candles, five minutes", categoryId: YOUTUBE_CATEGORY_ID, isAiGenerated: true }) },
+    ]);
+  });
   it("TikTok: no metadata", async () => {
     const sent = stub({ createPost: { post: { id: "p3" } } });
     await (await getBuffer(env, "k")).createPost(args("tiktok"));

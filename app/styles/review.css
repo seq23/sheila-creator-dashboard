@@ -188,6 +188,14 @@
 .clip-actions .btn {
   width: 100%;
 }
+.clip-voice {
+  display: flex;
+  gap: var(--space-2xs);
+  flex-wrap: wrap;
+}
+.clip-voice .btn {
+  min-height: 44px;
+}
 .clip-links {
   display: flex;
   justify-content: space-between;

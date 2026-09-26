@@ -43,7 +43,7 @@ import looks as L  # noqa: E402
 from common import log  # noqa: E402
 
 FIXTURE = HERE.parent / "tests" / "unit" / "fixtures" / "cut-result.sample.json"
-CLIP_KEYS = {"id", "asset_id", "start_s", "end_s", "recipe", "hook_text", "hook_alt", "caption", "hashtags", "platforms", "score", "r2_key", "cover_r2_key", "look", "parts", "layout", "music"}
+CLIP_KEYS = {"id", "asset_id", "start_s", "end_s", "recipe", "hook_text", "hook_alt", "caption", "hashtags", "platforms", "score", "r2_key", "cover_r2_key", "look", "parts", "layout", "music", "speech"}
 STAGES = {"Getting your videos", "Listening", "Finding the best moments", "Cutting clips", "Saving clips"}
 
 
@@ -153,6 +153,8 @@ def check(result: dict, spec: dict, out: Path, problems: list[str]) -> None:
             problems.append("recycle door made a non-recycle clip")
         if not c["hook_text"]:
             problems.append("empty hook")
+        if not (isinstance(c["speech"], float) and 0.0 <= c["speech"] <= 1.0):
+            problems.append("clip has no talking share (speech)")
         if c["look"] not in L.LOOKS:
             problems.append("clip has no known look")
         if not c["parts"] or any(not (e > s_) for s_, e in c["parts"]):
