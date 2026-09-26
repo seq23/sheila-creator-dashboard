@@ -17,6 +17,8 @@ FIX = Path(__file__).parent / "fixtures"
 DDG = (FIX / "ddg_results.html").read_text()
 JINA_READ = (FIX / "jina_read_example.json").read_text()
 JINA_401 = (FIX / "jina_search_401.json").read_text()
+DDG_LITE = (FIX / "ddg_lite_results.html").read_text()
+JINA_DDG = (FIX / "jina_read_ddg_search.json").read_text()
 FIRECRAWL_SEARCH = json.dumps({"success": True, "data": [{"url": "https://brand.example/creators", "title": "Creators", "description": "Join our creator program"}]})
 FIRECRAWL_SCRAPE = json.dumps({"success": True, "data": {"markdown": "# Work with us\npartnerships@brand.example", "links": ["https://brand.example/apply"]}})
 
@@ -72,10 +74,36 @@ class FreePath(unittest.TestCase):
         self.assertNotIn("bad()", text)
         self.assertNotIn("<h1>", text)
 
+    def test_duckduckgo_lite_is_parsed_from_its_real_page(self):
+        rows = common.parse_ddg_lite(DDG_LITE, 5)
+        self.assertGreaterEqual(len(rows), 2)
+        self.assertEqual(rows[0]["url"], "https://www.maeandco.shop/shop/p/tablescape-styling")
+        self.assertTrue(rows[0]["title"])
+
+    def test_duckduckgo_through_the_jina_reader_is_parsed(self):
+        rows = common.parse_jina_ddg(JINA_DDG, 5)
+        self.assertGreaterEqual(len(rows), 1)
+        self.assertEqual(rows[0]["url"], "https://www.maeandco.shop/shop/p/tablescape-styling")
+        self.assertEqual(rows[0]["title"], "Tablescape Styling Tool Kit — Mae&Co Shop")
+
+    def test_the_runner_bot_wall_falls_through_to_jina_and_sticks_there(self):
+        # What GitHub's runners got on 26 Sep 2026: DuckDuckGo answered 202 to every search.
+        r = Router({common.DDG_HTML_URL: (202, "<html>anomaly</html>"), common.DDG_LITE_URL: (202, ""), f"{common.JINA_READ_URL}{common.DDG_HTML_URL}": (200, JINA_DDG)})
+        with mock.patch.object(common, "_http", r):
+            web = common.Web()
+            first = web.search("tablescape brand creator program", 3)
+            second = web.search("hosting brand ambassador program", 3)
+        self.assertEqual(first[0]["url"], "https://www.maeandco.shop/shop/p/tablescape-styling")
+        self.assertTrue(second)
+        self.assertEqual(web.used, {"duckduckgo": 1, "duckduckgo_lite": 1, "jina_duckduckgo": 2})
+        self.assertEqual(web.blocked, {"duckduckgo", "duckduckgo_lite"})
+
     def test_a_blocked_search_returns_nothing_rather_than_inventing(self):
         r = Router({common.DDG_HTML_URL: (202, "<html>anomaly</html>")})
         with mock.patch.object(common, "_http", r):
-            self.assertEqual(common.Web().search("anything"), [])
+            web = common.Web()
+            self.assertEqual(web.search("anything"), [])
+        self.assertEqual(web.used, {"duckduckgo": 1, "duckduckgo_lite": 1, "jina_duckduckgo": 1})
 
 
 class FirecrawlPath(unittest.TestCase):

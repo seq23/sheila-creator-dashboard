@@ -145,7 +145,12 @@ def json_object_in(text: str) -> bool:
 # with no web-research key at all. Order, per call:
 #   search: Firecrawl (if her key is connected) -> Jina search (only answers with a key: it
 #           returned 401 AuthenticationRequiredError without one when checked on 25 Sep 2026,
-#           so it is skipped on 401) -> DuckDuckGo's HTML page (keyless).
+#           so it is skipped on 401) -> the keyless engines in FREE_SEARCH order: DuckDuckGo's
+#           HTML page, DuckDuckGo Lite, then DuckDuckGo read through the keyless Jina reader.
+#           DuckDuckGo answers GitHub's runners with 202 (its bot wall: all 12 searches of the
+#           staging run on 26 Sep 2026); through Jina the request leaves from Jina's servers. An
+#           engine that refuses is skipped for the rest of the job; the first that answers is
+#           tried first from then on.
 #   read:   Firecrawl (if connected) -> Jina reader r.jina.ai (keyless, ~20 requests a minute)
 #           -> a plain fetch with the tags stripped.
 # A Firecrawl 401/402 (bad key / out of credits) falls through to the free path and is counted,
@@ -155,6 +160,8 @@ FIRECRAWL_URL = "https://api.firecrawl.dev/v1"
 JINA_SEARCH_URL = "https://s.jina.ai/"
 JINA_READ_URL = "https://r.jina.ai/"
 DDG_HTML_URL = "https://html.duckduckgo.com/html/"
+DDG_LITE_URL = "https://lite.duckduckgo.com/lite/"
+FREE_SEARCH = ("duckduckgo", "duckduckgo_lite", "jina_duckduckgo")
 _UA = "Mozilla/5.0 (compatible; SheilaStudio/1.0; +https://github.com/seq23/sheila-creator-dashboard)"
 
 
@@ -190,6 +197,55 @@ def parse_ddg_html(html: str, limit: int) -> list[dict[str, str]]:
     return out
 
 
+def _uddg(href: str) -> str:
+    import html as _html
+
+    href = _html.unescape(href)
+    q = urllib.parse.parse_qs(urllib.parse.urlparse(href if "://" in href else f"https:{href}").query)
+    return q.get("uddg", [href])[0]
+
+
+def parse_ddg_lite(html: str, limit: int) -> list[dict[str, str]]:
+    """Result links from DuckDuckGo Lite (a table of result-link anchors and result-snippet cells)."""
+    import html as _html
+    import re
+
+    out: list[dict[str, str]] = []
+    for m in re.finditer(r"<a[^>]+href=\"([^\"]+)\"[^>]*class='result-link'[^>]*>(.*?)</a>", html, re.S):
+        url = _uddg(m.group(1))
+        if not url.startswith("http") or "duckduckgo.com/y.js" in url:
+            continue
+        snip = re.search(r"class='result-snippet'[^>]*>(.*?)</td>", html[m.end() : m.end() + 3000], re.S)
+        clean = lambda t: re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", _html.unescape(t))).strip()
+        out.append({"url": url, "title": clean(m.group(2))[:200], "description": clean(snip.group(1))[:400] if snip else ""})
+        if len(out) >= limit:
+            break
+    return out
+
+
+def parse_jina_ddg(text: str, limit: int) -> list[dict[str, str]]:
+    """DuckDuckGo's result page as the Jina reader returns it: '## [title](duckduckgo.com/l/?uddg=…)' headings."""
+    import re
+
+    try:
+        content = (json.loads(text).get("data") or {}).get("content") or ""
+    except ValueError:
+        content = text
+    out: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for m in re.finditer(r"^#+ \[([^\]]+)\]\((https?://duckduckgo\.com/l/\?uddg=[^)\s]+)\)", content, re.M):
+        url = _uddg(m.group(2))
+        if not url.startswith("http") or url in seen or "duckduckgo.com/y.js" in url:
+            continue
+        seen.add(url)
+        after = content[m.end() : m.end() + 1500]
+        desc = next((ln.strip() for ln in after.split("\n") if ln.strip() and not ln.lstrip().startswith(("[", "#", "!"))), "")
+        out.append({"url": url, "title": m.group(1)[:200], "description": re.sub(r"[*_]", "", desc)[:400]})
+        if len(out) >= limit:
+            break
+    return out
+
+
 def strip_tags(html: str) -> str:
     import html as _html
     import re
@@ -211,6 +267,8 @@ class Web:
         self.calls = 0
         self.used: dict[str, int] = {}
         self.firecrawl_refused: str | None = None  # "key_invalid" | "out_of_credits"
+        self.blocked: set[str] = set()  # keyless engines that refused this job
+        self.working: str | None = None  # the keyless engine that last answered
 
     def _count(self, provider: str) -> None:
         self.calls += 1
@@ -253,12 +311,33 @@ class Web:
                 except ValueError:
                     pass
             log("web.jina_search_skipped", status=status)
-        self._count("duckduckgo")
-        status, html = _http(f"{DDG_HTML_URL}?q={urllib.parse.quote_plus(query)}")
-        rows = parse_ddg_html(html, limit) if status == 200 else []
-        if not rows:
-            log("web.search_empty", status=status)
-        return rows
+        return self._free_search(query, limit)
+
+    def _free_search(self, query: str, limit: int) -> list[dict[str, str]]:
+        """The keyless engines, first-that-answers first; an engine that refuses is skipped from then on."""
+        q = urllib.parse.quote_plus(query)
+        order = sorted((e for e in FREE_SEARCH if e not in self.blocked), key=lambda e: e != self.working)
+        for engine in order:
+            self._count(engine)
+            if engine == "duckduckgo":
+                status, body = _http(f"{DDG_HTML_URL}?q={q}")
+                rows = parse_ddg_html(body, limit) if status == 200 else []
+            elif engine == "duckduckgo_lite":
+                status, body = _http(f"{DDG_LITE_URL}?q={q}")
+                rows = parse_ddg_lite(body, limit) if status == 200 else []
+            else:
+                status, body = _http(f"{JINA_READ_URL}{DDG_HTML_URL}?q={q}", None, {"Accept": "application/json", **({"Authorization": f"Bearer {self.jina_key}"} if self.jina_key else {})}, 60)
+                if status == 429:
+                    time.sleep(4)
+                    status, body = _http(f"{JINA_READ_URL}{DDG_HTML_URL}?q={q}", None, {"Accept": "application/json"}, 60)
+                rows = parse_jina_ddg(body, limit) if status == 200 else []
+            if rows:
+                self.working = engine
+                return rows
+            if status != 200:
+                self.blocked.add(engine)
+            log("web.search_empty", engine=engine, status=status)
+        return []
 
     def read(self, url: str) -> str:
         fc = self._firecrawl("/scrape", {"url": url, "formats": ["markdown", "links"], "onlyMainContent": False})
