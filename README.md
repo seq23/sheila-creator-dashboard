@@ -70,6 +70,8 @@ named stops (none) and the Phase 0 live checklist.
 
 ## Phase ledger
 
+YouTube (Shorts via Buffer, full videos by direct upload, what is proven and what Google's verification is for): `docs/YOUTUBE.md`.
+
 See `docs/PHASE-LEDGER.md` for what each phase delivered, what is proven by automated tests
 and what is **not yet proven** (needs a person with the test accounts).
 
