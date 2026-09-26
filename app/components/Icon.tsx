@@ -20,7 +20,9 @@ export type IconName =
   | "close"
   | "plus"
   | "check"
-  | "arrow";
+  | "arrow"
+  | "search"
+  | "archive";
 
 const PATHS: Record<IconName, string> = {
   home: "M4 11.5 12 5l8 6.5M6 10v9h4.5v-5h3v5H18v-9",
@@ -41,6 +43,8 @@ const PATHS: Record<IconName, string> = {
   plus: "M12 5.5v13M5.5 12h13",
   check: "M5.5 12.5l4 4 9-9",
   arrow: "M5 12h13M13 6.5l5.5 5.5-5.5 5.5",
+  search: "M10.5 17a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13zM15.2 15.2 20 20",
+  archive: "M4.5 5.5h15v3.5h-15zM6 9v9.5A1.5 1.5 0 0 0 7.5 20h9a1.5 1.5 0 0 0 1.5-1.5V9M10 12.5h4",
 };
 
 export function Icon({ name, size, className = "" }: { name: IconName; size?: "sm" | "lg"; className?: string }) {

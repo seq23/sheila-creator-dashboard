@@ -9,7 +9,8 @@ import type { BriefBody, BriefSource, BriefView, Claim } from "@shared/types";
 import { del, get, patch, post } from "../lib/api";
 import { uploadFile } from "../lib/upload";
 import { ago, fmtDate, plural } from "../lib/format";
-import { Card, Empty, HelpButton, Notice, PageHead, Skeleton, useLoad, useToast } from "../components/ui";
+import { Card, DismissButton, Empty, HelpButton, Notice, PageHead, Skeleton, useLoad, useToast } from "../components/ui";
+import { archiveWithUndo, restoreArchived } from "../lib/archive";
 import { Icon } from "../components/Icon";
 import "../styles/research.css";
 
@@ -22,6 +23,9 @@ interface ResearchData {
   job: { id: string; status: string; safe_error: string | null; created_at: string; finished_at: string | null } | null;
   profileLocked: boolean;
   firecrawlConnected: boolean;
+  /** Day 358: earlier briefs (not archived, or the archived ones with ?archived=1) and how many are archived. */
+  versions: { version: number; status: "draft" | "approved" | "superseded"; approved_at: string | null; created_at: string; archived_at: string | null }[];
+  archivedVersions: number;
 }
 
 const DAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -311,8 +315,53 @@ export function Research() {
           </Card>
         </section>
       ) : null}
+      <EarlierBriefs current={data?.brief?.version ?? null} />
       <HelpButton guide="approve-research-brief" />
     </div>
+  );
+}
+
+/**
+ * Earlier briefs (day 358): one a month adds up. Each can be archived with Undo; the tidy rules
+ * archive a replaced brief after 90 days on their own. Show archived + Restore.
+ */
+function EarlierBriefs({ current }: { current: number | null }) {
+  const toast = useToast();
+  const [archived, setArchived] = useState(false);
+  const list = useLoad(() => get<ResearchData>(`/api/research${archived ? "?archived=1" : ""}`), [archived]);
+  const rows = (list.data?.versions ?? []).filter((v) => v.version !== current && v.status === "superseded");
+  if (!list.data || (!rows.length && !list.data.archivedVersions && !archived)) return null;
+  return (
+    <section className="section" aria-label="Earlier briefs">
+      <div className="section-head">
+        <h2>{archived ? "Archived briefs" : "Earlier briefs"}</h2>
+        <button type="button" className="link-btn" onClick={() => setArchived((a) => !a)} aria-pressed={archived} data-show-archived>
+          {archived ? "Back" : `Show archived (${list.data.archivedVersions})`}
+        </button>
+      </div>
+      {rows.length === 0 ? <p className="soft">{archived ? "Nothing archived." : "No earlier briefs."}</p> : null}
+      {rows.length ? (
+        <Card className="flat">
+          <div className="list">
+            {rows.map((v) => (
+              <div key={v.version} className="list-row">
+                <div className="grow">
+                  <div className="title">Brief from {fmtDate(v.created_at)}</div>
+                  <div className="meta">{v.approved_at ? `Approved ${fmtDate(v.approved_at)}, replaced by a newer one` : "Replaced by a newer one"}</div>
+                </div>
+                {archived ? (
+                  <button type="button" className="btn quiet small" onClick={() => restoreArchived(toast, "brief", v.version, list.reload)}>
+                    Restore
+                  </button>
+                ) : (
+                  <DismissButton label={`Archive the brief from ${fmtDate(v.created_at)}`} onClick={() => archiveWithUndo(toast, "brief", v.version, list.reload)} />
+                )}
+              </div>
+            ))}
+          </div>
+        </Card>
+      ) : null}
+    </section>
   );
 }
 

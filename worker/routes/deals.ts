@@ -95,8 +95,14 @@ interface DealDb {
   closed_at: string | null;
   updated_at: string;
   created_at: string;
+  archived_at: string | null;
+  archived_by: "her" | "tidy" | null;
 }
-const DEAL_COLS = "id, brand_id, stage, terms_note, deliverables, paid_partnership, terms, delivery, outcome_reason, invoice_number, pitched_at, replied_at, agreed_at, delivered_at, invoiced_at, invoice_due_at, paid_at, closed_at, updated_at, created_at";
+const DEAL_COLS = "id, brand_id, stage, terms_note, deliverables, paid_partnership, terms, delivery, outcome_reason, invoice_number, pitched_at, replied_at, agreed_at, delivered_at, invoiced_at, invoice_due_at, paid_at, closed_at, updated_at, created_at, archived_at, archived_by";
+
+/** Day 358: "Do this next" shows this many cards, then "Show all (N)"; Closed and Archived page by this. */
+export const DEALS_NEXT_CAP = 8;
+export const DEALS_PAGE = 20;
 
 interface PitchDb {
   id: string;
@@ -195,7 +201,7 @@ async function dealContext(env: Env, d: DealDb, brand: BrandDb, hasContact: bool
  * the window. One list for both, so they can never disagree.
  */
 export async function dueDealItems(env: Env, until: Date): Promise<{ dealId: string; brand: string; dueAt: string; what: string }[]> {
-  const { results } = await env.DB.prepare(`SELECT ${DEAL_COLS} FROM deals WHERE stage NOT IN ('declined','lost') ORDER BY updated_at DESC LIMIT 200`).all<DealDb>();
+  const { results } = await env.DB.prepare(`SELECT ${DEAL_COLS} FROM deals WHERE stage NOT IN ('declined','lost') AND archived_at IS NULL ORDER BY updated_at DESC LIMIT 200`).all<DealDb>();
   const out: { dealId: string; brand: string; dueAt: string; what: string }[] = [];
   const now = new Date();
   for (const d of results) {
@@ -233,23 +239,38 @@ deals.get("/", async (c) => {
   const env = c.env;
   const now = new Date();
   const s = await readSettings(env);
+  // Day 358: a year of brands and deals. Contacts in one read (not one per brand); archived deals
+  // (by her, or by the tidy rules: finished 60 days, quiet 90 days) leave "Do this next" and Home.
+  const allNext = c.req.query("all") === "1";
+  const q = (c.req.query("q") ?? "").trim().toLowerCase().slice(0, 80);
+  const closedOffset = Math.max(0, Number(c.req.query("closedOffset") ?? 0) || 0);
+  const showArchived = c.req.query("archived") === "1";
   const { results: brands } = await env.DB.prepare(`SELECT ${BRAND_COLS} FROM brands ORDER BY created_at DESC LIMIT 300`).all<BrandDb>();
-  const { results: allDeals } = await env.DB.prepare(`SELECT ${DEAL_COLS} FROM deals ORDER BY created_at DESC LIMIT 500`).all<DealDb>();
+  const { results: allDeals } = await env.DB.prepare(`SELECT ${DEAL_COLS} FROM deals ORDER BY created_at DESC LIMIT 1000`).all<DealDb>();
+  const { results: allContacts } = await env.DB.prepare("SELECT id, brand_id, kind, value, found_on_url FROM brand_contacts ORDER BY checked_at").all<{ id: string; brand_id: string; kind: ContactKind; value: string; found_on_url: string }>();
+  const contactsBy = new Map<string, { id: string; kind: ContactKind; value: string; found_on_url: string }[]>();
+  for (const { brand_id, ...ct } of allContacts) contactsBy.set(brand_id, [...(contactsBy.get(brand_id) ?? []), ct]);
   const latestByBrand = new Map<string, DealDb>();
   for (const d of allDeals) if (!latestByBrand.has(d.brand_id)) latestByBrand.set(d.brand_id, d);
 
   const prospectsIn = [];
   const cards = [];
+  const archivedCards = [];
   for (const b of brands) {
-    const contacts = await contactsFor(env, b.id);
+    const contacts = sortContacts(contactsBy.get(b.id) ?? []);
     const d = latestByBrand.get(b.id) ?? null;
     const sum = brandSummary(b);
     prospectsIn.push({ ...sum, contacts, dealStage: d?.stage ?? null, status: b.status });
-    if (d) {
-      const ctx = await dealContext(env, d, b, contacts.length > 0);
-      const t = termsOf(d);
-      cards.push({ dealId: d.id, brandId: b.id, brand: b.name, kind: b.kind, stage: d.stage, stageLabel: DEAL_STAGE_LABEL[d.stage], fee: t.fee, next: nextAction(ctx, now), mark: brandMark(d.stage), outcomeReason: d.outcome_reason, closedAt: d.closed_at });
+    if (!d) continue;
+    if (q && !b.name.toLowerCase().includes(q)) continue;
+    const base = { dealId: d.id, brandId: b.id, brand: b.name, kind: b.kind, stage: d.stage, stageLabel: DEAL_STAGE_LABEL[d.stage], fee: termsOf(d).fee, mark: brandMark(d.stage), outcomeReason: d.outcome_reason, closedAt: d.closed_at, archivedAt: d.archived_at, archivedBy: d.archived_by };
+    if (d.archived_at) {
+      // archived: no next action is computed (nothing is due on an archived deal)
+      archivedCards.push({ ...base, next: { label: "Archived", dueAt: null, overdue: false } as NextAction });
+      continue;
     }
+    const ctx = await dealContext(env, d, b, contacts.length > 0);
+    cards.push({ ...base, next: nextAction(ctx, now) });
   }
   const ranked = rankProspects(prospectsIn.map((p) => ({ ...p, fit: p.fit, budget: p.budget })));
   const prospects = ranked.slice(0, 30).map((r) => {
@@ -257,8 +278,11 @@ deals.get("/", async (c) => {
     return { ...r.item, score: r.score, math: r.math, aboveLine: r.aboveLine, budgetLabel: BUDGET_LABEL[r.item.budget.level], reach: reachability(r.item.contacts).label, bestContact: best };
   });
   const sorted = byUrgency(cards);
-  const open = sorted.filter((x) => !CLOSED_STAGES.includes(x.stage));
-  const closed = sorted.filter((x) => CLOSED_STAGES.includes(x.stage)).slice(0, 20);
+  const openAll = sorted.filter((x) => !CLOSED_STAGES.includes(x.stage));
+  const closedAll = sorted.filter((x) => CLOSED_STAGES.includes(x.stage)).sort((a, b) => (b.closedAt ?? "").localeCompare(a.closedAt ?? ""));
+  const open = allNext ? openAll : openAll.slice(0, DEALS_NEXT_CAP);
+  const closed = closedAll.slice(closedOffset, closedOffset + DEALS_PAGE);
+  archivedCards.sort((a, b) => (b.archivedAt ?? "").localeCompare(a.archivedAt ?? ""));
 
   const joined = await getSetting<string[]>(env.DB, "marketplaces_joined", []);
   const followers: Partial<Record<Platform, number>> = {};
@@ -273,7 +297,12 @@ deals.get("/", async (c) => {
     money: moneyStrip(moneyRows, now, s.audience_timezone),
     prospects,
     deals: open,
+    dealsTotal: openAll.length,
     closed,
+    closedTotal: closedAll.length,
+    closedOffset,
+    archived: showArchived ? archivedCards.slice(0, 200) : [],
+    archivedTotal: archivedCards.length,
     listings: listingSteps(followers, joined),
     kit: { url: kitUrl(env, row.public_slug), published: !!pub },
     profileLocked: !!(await lockedProfile(env)),
@@ -600,7 +629,7 @@ deals.get("/deals/:id", async (c) => {
   const p = await pitchFor(c.env, b.id);
   const pub = await latestVersion(c.env);
   return c.json({
-    deal: { id: d.id, stage: d.stage, stageLabel: DEAL_STAGE_LABEL[d.stage], outcomeReason: d.outcome_reason, invoiceNumber: d.invoice_number, invoiceDueAt: d.invoice_due_at, paidAt: d.paid_at, paidPartnership: !!d.paid_partnership, pitchedAt: d.pitched_at, followupsSent: ctx.followupsSent, followupsTotal: FOLLOWUP_DAYS.length, nextFollowupAt: p?.next_followup_at ?? null },
+    deal: { id: d.id, stage: d.stage, stageLabel: DEAL_STAGE_LABEL[d.stage], outcomeReason: d.outcome_reason, invoiceNumber: d.invoice_number, invoiceDueAt: d.invoice_due_at, paidAt: d.paid_at, paidPartnership: !!d.paid_partnership, pitchedAt: d.pitched_at, followupsSent: ctx.followupsSent, followupsTotal: FOLLOWUP_DAYS.length, nextFollowupAt: p?.next_followup_at ?? null, archivedAt: d.archived_at },
     brand: { ...brandSummary(b), contacts },
     next,
     suggested: next.scenario ?? suggestedScenario(d.stage, { kind: b.kind, followupsSent: ctx.followupsSent, hasOffer: ctx.hasOffer, invoiceOverdue: !!(d.invoice_due_at && d.invoice_due_at < now.toISOString()), delivered: !!del.postedAt, paid: !!d.paid_at, workedBefore: ctx.workedBefore }),

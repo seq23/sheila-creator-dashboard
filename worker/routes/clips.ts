@@ -36,6 +36,7 @@ import { dispatchJob } from "../services/github";
 import { checkEdit, editorName, isHandoffApp, HANDOFF } from "../domain/editors";
 import { editingNote, pollEditorJobs, startHandback } from "../lib/editorJobs";
 import { probeR2 } from "../lib/mp4";
+import { clipFileAction, FILES } from "../domain/tidy";
 import { FULL_VIDEO_PRIVACY, cleanTags, cleanTitle, composeDescription, studioLink, DESCRIPTION_MAX, type FullVideoDetails, type FullVideoPrivacy } from "../domain/fullVideo";
 
 export const clips = new Hono<{ Bindings: Env; Variables: Vars }>();
@@ -125,6 +126,10 @@ export interface ReviewClip extends ClipRow {
   voice_auto: boolean;
   /** The full-video door: its YouTube details, thumbnail links, and where it is (worker/domain/fullVideo.ts). */
   full_video: FullVideoView | null;
+  /** Day 358: the video file was cleared 30 days after posting (the cover, numbers and post link stay). */
+  file_cleared: boolean;
+  /** An unapproved draft whose file is cleared on this date unless she approves it or taps Keep. */
+  clears_on: string | null;
 }
 export interface FullVideoView extends Omit<FullVideoDetails, "thumbnails"> {
   thumbnails: { url: string; t: number }[];
@@ -142,7 +147,15 @@ export interface ReviewList {
   tab: ReviewTab;
   groups: ReviewGroup[];
   counts: { new: number; approved: number; rejected: number; hidden: number };
+  /** Day 358: a page at a time. `total` = clips matching this tab + filters + search (true count). */
+  total: number;
+  limit: number;
+  offset: number;
+  q: string;
 }
+
+/** Clips per page in Review (each is a video player: a year of approved clips was 466 phone screens). */
+export const REVIEW_PAGE = 12;
 
 interface ClipDb {
   id: string;
@@ -191,6 +204,8 @@ interface ClipDb {
   youtube: string | null;
   file_deleted_at: string | null;
   yt_post: string | null;
+  keep_until: string | null;
+  delete_warned_at: string | null;
 }
 
 /** "?v=<file version>.<voice over>": changes when the file is swapped or a voice over is mixed in. */
@@ -221,7 +236,8 @@ function toView(r: ClipDb): ReviewClip {
     // ?v= changes whenever the file is swapped (a new look, her edit) or a voice over is mixed in,
     // so a player never keeps an old version cached.
     media_url: r.media_token ? `/media/${r.media_token}${mediaVersion(r)}` : "",
-    cover_url: r.media_token && r.cover_r2_key ? `/media/${r.media_token}?cover=1${r.media_version ? `&v=${r.media_version}` : ""}` : null,
+    // The public link expires 30 days after posting; her own screens still show the cover.
+    cover_url: r.media_token && r.cover_r2_key ? `/media/${r.media_token}?cover=1${r.media_version ? `&v=${r.media_version}` : ""}` : r.cover_r2_key ? `/api/clips/${r.id}/cover` : null,
     source_file: r.source_file,
     door: r.door,
     reviewed_at: r.reviewed_at,
@@ -242,7 +258,16 @@ function toView(r: ClipDb): ReviewClip {
     voice_script: r.voice_script,
     voice_auto: !!r.voice_auto,
     full_video: r.full_video ? fullVideoView(r) : null,
+    file_cleared: !r.full_video && !!r.file_deleted_at,
+    clears_on: clearsOn(r),
   };
+}
+
+/** A draft in its warning window: the date its file goes (worker/domain/tidy.ts clipFileAction). */
+function clearsOn(r: ClipDb): string | null {
+  if (r.full_video || r.status !== "draft" || r.file_deleted_at) return null;
+  const a = clipFileAction({ status: r.status, full_video: 0, created_at: r.created_at, file_deleted_at: null, last_posted_at: null, waiting_post: false, in_kit: false, keep_until: r.keep_until, delete_warned_at: r.delete_warned_at }, new Date());
+  return a.do === "warn" ? a.deleteOn : null;
 }
 
 function fullVideoView(r: ClipDb): FullVideoView {
@@ -268,7 +293,7 @@ const CLIP_SELECT = `SELECT c.id, c.asset_id, c.dump_id, c.start_s, c.end_s, c.r
   (SELECT n.id FROM narrations n WHERE n.clip_id = c.id AND n.mix_status IS NOT NULL ORDER BY n.created_at DESC LIMIT 1) AS voice_nid,
   (SELECT n.script FROM narrations n WHERE n.clip_id = c.id AND n.mix_status IS NOT NULL ORDER BY n.created_at DESC LIMIT 1) AS voice_script,
   (SELECT n.auto FROM narrations n WHERE n.clip_id = c.id AND n.mix_status IS NOT NULL ORDER BY n.created_at DESC LIMIT 1) AS voice_auto,
-  c.full_video, c.youtube, c.file_deleted_at,
+  c.full_video, c.youtube, c.file_deleted_at, c.keep_until, c.delete_warned_at,
   (SELECT json_object('status', p.status, 'url', p.url, 'scheduled_at', p.scheduled_at) FROM posts p WHERE p.clip_id = c.id AND c.full_video = 1 ORDER BY p.created_at DESC LIMIT 1) AS yt_post,
   CASE WHEN d.kind = 'full_video' THEN 'youtube' ELSE d.door END AS door, d.created_at AS dump_created_at, d.ready_at AS dump_ready_at, d.status AS dump_status
   FROM clips c JOIN assets a ON a.id = c.asset_id JOIN dumps d ON d.id = c.dump_id`;
@@ -303,10 +328,18 @@ clips.get("/", async (c) => {
   }
   // Under the quality bar stays tucked away in "new" unless she asks; decided clips always show.
   if (status === "draft" && !showHidden) where.push("c.hidden = 0");
+  const q = (c.req.query("q") ?? "").trim().slice(0, 80);
+  if (q) {
+    where.push("(c.hook_text LIKE ? OR c.caption LIKE ? OR c.hashtags LIKE ?)");
+    binds.push(`%${q}%`, `%${q}%`, `%${q}%`);
+  }
+  const limit = Math.min(100, Math.max(1, Number(c.req.query("limit") ?? REVIEW_PAGE) || REVIEW_PAGE));
+  const offset = Math.max(0, Number(c.req.query("offset") ?? 0) || 0);
 
-  const { results } = await c.env.DB.prepare(`${CLIP_SELECT} WHERE ${where.join(" AND ")} ORDER BY d.created_at DESC, c.score DESC LIMIT 400`)
-    .bind(...binds)
+  const { results } = await c.env.DB.prepare(`${CLIP_SELECT} WHERE ${where.join(" AND ")} ORDER BY d.created_at DESC, c.score DESC LIMIT ? OFFSET ?`)
+    .bind(...binds, limit, offset)
     .all<ClipDb>();
+  const total = (await c.env.DB.prepare(`SELECT COUNT(*) AS n FROM clips c JOIN assets a ON a.id = c.asset_id JOIN dumps d ON d.id = c.dump_id WHERE ${where.join(" AND ")}`).bind(...binds).first<{ n: number }>())?.n ?? 0;
 
   const groups: ReviewGroup[] = [];
   const byDump = new Map<string, ReviewGroup>();
@@ -334,8 +367,41 @@ clips.get("/", async (c) => {
     tab,
     groups,
     counts: { new: counts?.new ?? 0, approved: counts?.approved ?? 0, rejected: counts?.rejected ?? 0, hidden: counts?.hidden ?? 0 },
+    total,
+    limit,
+    offset,
+    q,
   };
   return c.json(out);
+});
+
+/** Her own screens show a clip's cover even after its public link expired (day 358). */
+clips.get("/:id/cover", async (c) => {
+  const row = await c.env.DB.prepare("SELECT cover_r2_key FROM clips WHERE id = ?").bind(c.req.param("id")).first<{ cover_r2_key: string | null }>();
+  const obj = row?.cover_r2_key ? await c.env.FILES.get(row.cover_r2_key) : null;
+  if (!obj) return fail(c, 404, "No cover for that clip.");
+  const headers = new Headers();
+  obj.writeHttpMetadata(headers);
+  if (!headers.get("content-type")) headers.set("content-type", "image/jpeg");
+  headers.set("cache-control", "private, max-age=86400");
+  return new Response(obj.body, { headers });
+});
+
+/**
+ * Keep: drafts in their warning window (or the ones named) are kept 60 more days and their
+ * warning starts over (worker/domain/tidy.ts FILES.keepDays).
+ */
+clips.post("/keep", async (c) => {
+  const body = await readJson<{ ids?: string[] }>(c);
+  const until = new Date(Date.now() + FILES.keepDays * 86400_000).toISOString();
+  const ids = Array.isArray(body?.ids) ? body!.ids.filter((x) => typeof x === "string").slice(0, MAX_BULK) : null;
+  const r = ids
+    ? await c.env.DB.prepare(`UPDATE clips SET keep_until = ?, delete_warned_at = NULL WHERE status = 'draft' AND id IN (SELECT value FROM json_each(?))`).bind(until, JSON.stringify(ids)).run()
+    : await c.env.DB.prepare("UPDATE clips SET keep_until = ?, delete_warned_at = NULL WHERE status = 'draft' AND file_deleted_at IS NULL AND delete_warned_at IS NOT NULL").bind(until).run();
+  const kept = Number(r.meta?.changes ?? 0);
+  await recordEvent(c.env.DB, "clips.kept", null, { kept }, c.get("user").email);
+  log.info("clips.kept", { kept });
+  return c.json({ ok: true, kept, until });
 });
 
 // ---------------------------------------------------------------- decisions
@@ -635,7 +701,8 @@ function cellOption(r: CellClipDb): CellOption {
     hook_text: r.hook_text,
     seconds: Math.round((r.end_s - r.start_s) * 10) / 10,
     look_name: lookById(r.look)?.name ?? null,
-    cover_url: r.media_token && r.cover_r2_key ? `/media/${r.media_token}?cover=1${r.media_version ? `&v=${r.media_version}` : ""}` : null,
+    // The public link expires 30 days after posting; her own screens still show the cover.
+    cover_url: r.media_token && r.cover_r2_key ? `/media/${r.media_token}?cover=1${r.media_version ? `&v=${r.media_version}` : ""}` : r.cover_r2_key ? `/api/clips/${r.id}/cover` : null,
   };
 }
 

@@ -103,7 +103,7 @@ function kitContent(showcase, version) {
 }
 
 /** The clean-up block: everything the year adds, removed (run before inserting and by --clear). */
-export function clearYearSql() {
+export function clearYearSql({ before = false } = {}) {
   return [
     "DELETE FROM metrics WHERE id LIKE 'yr_%';",
     "DELETE FROM platform_videos WHERE id LIKE 'yr_%';",
@@ -130,6 +130,8 @@ export function clearYearSql() {
     "DELETE FROM brand_docs WHERE id LIKE 'yr_%';",
     "DELETE FROM health WHERE name IN ('Storage', 'Runway', 'Buffer', 'TikTok (via Buffer)', 'Instagram (via Buffer)', 'YouTube (via Buffer)', 'Clip cutting', 'Email (Resend)', 'Job runner (GitHub)', 'Voice', 'Brand finder', 'Last daily run', 'Last buffer-sync run', 'Last weekly run');",
     "DELETE FROM settings WHERE key IN ('storage_used', 'storage_report', 'home_dismissed');",
+    "UPDATE media_kit SET draft = NULL, draft_saved_at = NULL WHERE id = 1 AND draft LIKE '%yr_dump_%';",
+    ...(before ? [] : ["DELETE FROM dismissals;", "UPDATE clips SET delete_warned_at = NULL, keep_until = NULL WHERE delete_warned_at IS NOT NULL OR keep_until IS NOT NULL;"]),
   ].join("\n");
 }
 
@@ -144,7 +146,7 @@ export function yearSql(now = new Date(), { before = false } = {}) {
   const iso = (t) => new Date(t).toISOString();
   const T = now.getTime();
   const day0 = T - 358 * DAY;
-  const out = [clearYearSql()];
+  const out = [clearYearSql({ before })];
   const stats = { dumps: 0, clips: 0, posts: 0, narrations: 0, deals: 0, bytes: 0 };
   let tok = 0;
   const token = () => `yr${String(++tok).padStart(6, "0")}${"x".repeat(32)}`;
@@ -392,7 +394,16 @@ if (isMain) {
     const dir = mkdtempSync(path.join(tmpdir(), "seed-year-"));
     const file = path.join(dir, "year.sql");
     writeFileSync(file, sql);
-    execFileSync("npx", ["wrangler", "d1", "execute", "sheila-creator-dashboard-db", "--local", "--file", file], { stdio: "pipe", env: { ...process.env, CI: "1" } });
+    // The local D1 can answer "internal error" while a just-started wrangler dev opens it: try again.
+    for (let attempt = 1; ; attempt++) {
+      try {
+        execFileSync("npx", ["wrangler", "d1", "execute", "sheila-creator-dashboard-db", "--local", "--file", file], { stdio: "pipe", env: { ...process.env, CI: "1" } });
+        break;
+      } catch (e) {
+        if (attempt >= 4) throw e;
+        execFileSync("sleep", [String(attempt * 2)]);
+      }
+    }
   }
   if (stats) process.stdout.write(`${JSON.stringify(stats)}\n`);
 }

@@ -11,6 +11,8 @@ interface Toast {
   text: string;
   bad?: boolean;
   fix?: string;
+  /** "Undo" (day 358): archive and dismiss are one tap, so taking it back is one tap too. */
+  action?: { label: string; run: () => void };
 }
 const ToastCtx = createContext<{ push: (t: Omit<Toast, "id">) => void }>({ push: () => undefined });
 
@@ -20,7 +22,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const push = useCallback((t: Omit<Toast, "id">) => {
     const id = ++seq.current;
     setToasts((xs) => [...xs, { ...t, id }]);
-    setTimeout(() => setToasts((xs) => xs.filter((x) => x.id !== id)), t.bad ? 8000 : 4000);
+    setTimeout(() => setToasts((xs) => xs.filter((x) => x.id !== id)), t.bad || t.action ? 8000 : 4000);
   }, []);
   const value = useMemo(() => ({ push }), [push]);
   return (
@@ -35,6 +37,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 {" "}
                 <Link to={`/help/${t.fix}`}>How to fix</Link>
               </>
+            ) : null}
+            {t.action ? (
+              <button
+                type="button"
+                className="toast-action"
+                onClick={() => {
+                  t.action!.run();
+                  setToasts((xs) => xs.filter((x) => x.id !== t.id));
+                }}
+              >
+                {t.action.label}
+              </button>
             ) : null}
           </div>
         ))}
@@ -51,6 +65,8 @@ export function useToast() {
   return useMemo(
     () => ({
       ok: (text: string) => push({ text }),
+      /** "Archived. [Undo]": the toast carries the one tap that takes it back. */
+      undo: (text: string, run: () => void) => push({ text, action: { label: "Undo", run } }),
       bad: (e: unknown, fallback = "Something went wrong.") => {
         if (e instanceof ApiFailure) push({ text: e.body.error, bad: true, fix: e.body.fix_guide });
         else push({ text: e instanceof Error && e.message ? e.message : fallback, bad: true });
@@ -233,6 +249,61 @@ export function Switch({ checked, onChange, label, hint }: { checked: boolean; o
         {hint ? <span className="hint switch-hint">{hint}</span> : null}
       </span>
     </label>
+  );
+}
+
+/** "See all (N)" under a capped list: only when there is more than it shows (day 358). */
+export function SeeAll({ shown, total, to, label = "See all" }: { shown: number; total: number; to: string; label?: string }) {
+  if (total <= shown) return null;
+  return (
+    <Link to={to} className="see-all" data-see-all>
+      {label} ({total}) <Icon name="arrow" size="sm" />
+    </Link>
+  );
+}
+
+/** "Showing 24 of 329 · Show more": the count is the true total (day 358). */
+export function MoreRow({ shown, total, onMore, busy, noun }: { shown: number; total: number; onMore: () => void; busy?: boolean; noun: string }) {
+  return (
+    <div className="more-row">
+      <span className="hint nums" data-count>
+        Showing {Math.min(shown, total)} of {total} {noun}
+      </span>
+      {shown < total ? (
+        <button type="button" className="btn quiet small" onClick={onMore} disabled={busy}>
+          {busy ? "Loading…" : "Show more"}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+/** Search box for a long list: a plain field, submits as she types (debounced by the caller). */
+export function SearchBox({ value, onChange, label }: { value: string; onChange: (v: string) => void; label: string }) {
+  return (
+    <label className="search-box">
+      <Icon name="search" size="sm" />
+      <input type="search" value={value} placeholder={label} aria-label={label} onChange={(e) => onChange(e.target.value)} />
+    </label>
+  );
+}
+
+/** The quiet "×" that dismisses a Home card or archives a row: 44 px target, named for screen readers. */
+export function DismissButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      className="dismiss-btn"
+      aria-label={label}
+      title={label}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onClick();
+      }}
+    >
+      <Icon name="close" size="sm" />
+    </button>
   );
 }
 

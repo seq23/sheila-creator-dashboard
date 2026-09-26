@@ -105,3 +105,4 @@
   opacity: 0.55;
   cursor: not-allowed;
 }
+.dump-space.warn { color: var(--warning-ink); }

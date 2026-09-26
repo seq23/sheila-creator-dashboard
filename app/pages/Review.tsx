@@ -4,11 +4,12 @@
 // select several. Tabs: New / Approved / Rejected (kept 7 days). Phone first: one column, big
 // Approve / Reject buttons; desktop: a grid.
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import type { ClipRow } from "@shared/types";
 import { PLATFORMS, PLATFORM_LABEL, RECIPES, REJECT_REASONS, type Platform, type Recipe } from "@shared/constants";
 import { del, get, patch, post } from "../lib/api";
 import { fmtDate, fmtSeconds, plural } from "../lib/format";
-import { Empty, HelpButton, Modal, PageHead, Skeleton, Switch, useLoad, useToast } from "../components/ui";
+import { Empty, HelpButton, Modal, MoreRow, PageHead, SearchBox, Skeleton, Switch, useLoad, useToast } from "../components/ui";
 import { useApp } from "../state";
 import { HeldNotice } from "../components/HeldNotice";
 import { LookModal } from "../components/LookPicker";
@@ -41,6 +42,10 @@ export interface ReviewClip extends ClipRow {
   voice_auto: boolean;
   /** A full video for YouTube (the third door): never cut; its own card body. */
   full_video: FullVideo | null;
+  /** Day 358: the video file was cleared 30 days after posting (cover, numbers and post link stay). */
+  file_cleared: boolean;
+  /** An unapproved draft cleared on this date unless she approves it or taps Keep. */
+  clears_on: string | null;
 }
 interface ReviewGroup {
   /** held_note: "Looks like someone else's video" (worker/domain/sourceCheck.ts), or null. */
@@ -51,6 +56,21 @@ interface ReviewList {
   tab: Tab;
   groups: ReviewGroup[];
   counts: { new: number; approved: number; rejected: number; hidden: number };
+  /** Day 358: one page at a time; `total` is the true count for this tab, filters and search. */
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+/** Page two onwards joins the groups already shown (a dump can straddle two pages). */
+function mergePages(a: ReviewList, b: ReviewList): ReviewList {
+  const groups = a.groups.map((g) => ({ ...g, clips: [...g.clips] }));
+  for (const g of b.groups) {
+    const same = groups.find((x) => x.dump.id === g.dump.id);
+    if (same) same.clips.push(...g.clips);
+    else groups.push(g);
+  }
+  return { ...b, groups, offset: 0 };
 }
 
 const SHORT: Record<Platform, string> = { tiktok: "TikTok", instagram: "Instagram", youtube: "YouTube" };
@@ -63,7 +83,12 @@ function sentence(s: string) {
 export function Review() {
   const toast = useToast();
   const { refreshCounts } = useApp();
-  const [tab, setTab] = useState<Tab>("new");
+  // ?tab= opens a tab (Home's "Copy the tags in Review" goes to Approved; day 358 found it ignored).
+  const [params] = useSearchParams();
+  const [tab, setTab] = useState<Tab>(() => (["new", "approved", "rejected"].includes(params.get("tab") ?? "") ? (params.get("tab") as Tab) : "new"));
+  const [search, setSearch] = useState("");
+  const [q, setQ] = useState("");
+  const [moreBusy, setMoreBusy] = useState(false);
   const [door, setDoor] = useState("");
   const [recipe, setRecipe] = useState("");
   const [platform, setPlatform] = useState("");
@@ -84,9 +109,36 @@ export function Review() {
     if (recipe) q.set("recipe", recipe);
     if (platform) q.set("platform", platform);
     if (showHidden) q.set("hidden", "1");
+    if (search) q.set("q", search);
     return q.toString();
-  }, [tab, door, recipe, platform, showHidden]);
+  }, [tab, door, recipe, platform, showHidden, search]);
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(q.trim()), 300);
+    return () => clearTimeout(t);
+  }, [q]);
   const list = useLoad(() => get<ReviewList>(`/api/clips?${query}`), [query]);
+  const shownCount = useMemo(() => (list.data?.groups ?? []).reduce((n, g) => n + g.clips.length, 0), [list.data]);
+  async function showMore() {
+    if (!list.data) return;
+    setMoreBusy(true);
+    try {
+      const next = await get<ReviewList>(`/api/clips?${query}&offset=${shownCount}`);
+      list.setData((d) => (d ? mergePages(d, next) : next));
+    } catch (e) {
+      toast.bad(e);
+    } finally {
+      setMoreBusy(false);
+    }
+  }
+  async function keep(ids: string[]) {
+    try {
+      const r = await post<{ kept: number; until: string }>("/api/clips/keep", { ids });
+      toast.ok(`Kept until ${fmtDate(r.until)}.`);
+      list.reload();
+    } catch (e) {
+      toast.bad(e);
+    }
+  }
 
   useEffect(() => setSelected(new Set()), [query]);
 
@@ -168,7 +220,7 @@ export function Review() {
               Reject all
             </button>
             <button className="btn" data-primary disabled={busy} onClick={() => approve(newIds)}>
-              Approve all {newIds.length}
+              {list.data && list.data.total > newIds.length ? `Approve these ${newIds.length}` : `Approve all ${newIds.length}`}
             </button>
           </>
         ) : null}
@@ -208,6 +260,9 @@ export function Review() {
           ))}
         </select>
         {tab === "new" ? <Switch checked={showHidden} onChange={setShowHidden} label={`Show hidden (under the quality bar)${counts.hidden ? ` · ${counts.hidden}` : ""}`} /> : null}
+      </div>
+      <div className="list-tools">
+        <SearchBox value={q} onChange={setQ} label="Search hooks, captions and hashtags" />
       </div>
 
       {tab === "rejected" && visible.length > 0 ? <p className="hint">Rejected clips are removed for good 7 days after you reject them. Changed your mind? Approve or move one back.</p> : null}
@@ -263,6 +318,7 @@ export function Review() {
                 }
                 onVoiceRedo={() => setVoiceFor(c)}
                 onVoiceAdd={() => setVoiceFor(c)}
+                onKeep={() => keep([c.id])}
                 onVoiceRemove={() =>
                   run(async () => {
                     const r = await post<{ clip: ReviewClip | null }>(`/api/clips/${c.id}/voice-over/remove`);
@@ -330,6 +386,8 @@ export function Review() {
           </div>
         </Modal>
       ) : null}
+      {list.data && list.data.total > 0 ? <MoreRow shown={shownCount} total={list.data.total} onMore={showMore} busy={moreBusy} noun="clips" /> : null}
+
       {editing ? (
         <EditModal
           clip={editing}
@@ -416,6 +474,7 @@ function ClipCard(props: {
   onDelete: () => void;
   onPlatform: (p: Platform) => void;
   onFullChanged: (u: unknown) => void;
+  onKeep?: () => void;
 }) {
   const { clip: c, tab, busy } = props;
   const seconds = c.end_s - c.start_s;
@@ -423,7 +482,16 @@ function ClipCard(props: {
   return (
     <article className={`clip-card${props.selected ? " selected" : ""}${c.hidden ? " is-hidden" : ""}`} data-clip-id={c.id} aria-label={`Clip: ${c.hook_text}`}>
       <div className="clip-media">
-        {c.media_url ? <video src={c.media_url} poster={c.cover_url ?? undefined} controls playsInline preload="none" aria-label="Play this clip" /> : <div className="clip-gone">File removed</div>}
+        {c.media_url ? (
+          <video src={c.media_url} poster={c.cover_url ?? undefined} controls playsInline preload="none" aria-label="Play this clip" />
+        ) : c.file_cleared && c.cover_url ? (
+          <div className="clip-cleared">
+            <img src={c.cover_url} alt="" loading="lazy" />
+            <span className="clip-cleared-note">Posted. The video file was cleared 30 days after posting to save space; its numbers stay on Stats.</span>
+          </div>
+        ) : (
+          <div className="clip-gone">{c.file_cleared ? "Posted. The video file was cleared 30 days after posting to save space." : "File removed"}</div>
+        )}
         <label className="clip-select">
           <input type="checkbox" checked={props.selected} onChange={props.onSelect} aria-label="Select this clip" />
         </label>
@@ -435,6 +503,16 @@ function ClipCard(props: {
           <span className="pill">{RECIPES[c.recipe]?.label ?? c.recipe}</span>
           {c.door === "recycle" ? <span className="pill">Recycled</span> : null}
           {c.hidden ? <span className="pill warn">Under the quality bar</span> : null}
+          {c.clears_on ? (
+            <span className="pill warn" data-clears-on>
+              Cleared {fmtDate(c.clears_on)} unless you approve or keep it
+            </span>
+          ) : null}
+          {c.clears_on && props.onKeep ? (
+            <button type="button" className="btn quiet small" disabled={busy} onClick={props.onKeep}>
+              Keep
+            </button>
+          ) : null}
           {c.paid_partnership ? <span className="pill ok">Paid partnership</span> : null}
           {c.voice_over === "ready" ? (
             <span className="pill ok" data-voice-over="ready">

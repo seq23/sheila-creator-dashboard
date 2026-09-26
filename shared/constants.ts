@@ -33,6 +33,19 @@ export const RAW_RETENTION_DAYS = 7;
 export const CLIP_RETENTION_AFTER_POST_DAYS = 30;
 export const REJECTED_RETENTION_DAYS = 7;
 
+/**
+ * Home stays one phone screen however much piles up (day 358, docs/reviews/2026-09-26-day-358.md):
+ * each Home list shows at most this many, with "See all (N)". The Worker cuts every list with
+ * capSection (worker/routes/home.ts); validator `home-caps` fails if a Home list is not capped
+ * here, and tests/unit/day-358.test.ts loads a year of data and checks every section.
+ */
+export const HOME_CAPS = {
+  notices: 1,
+  recentDumps: 2,
+  followups: 2,
+  health: 2,
+} as const;
+
 /** Buffer only ever holds the next N days; free plan queue is 10 per channel. */
 export const BUFFER_WINDOW_DAYS = 7;
 export const BUFFER_QUEUE_LIMIT_PER_CHANNEL = 10;

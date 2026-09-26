@@ -6,11 +6,11 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import type { AssetRow, DumpSummary } from "@shared/types";
 import { del, get, patch, post } from "../lib/api";
 import { uploadFile } from "../lib/upload";
-import { fmtBytes, fmtDate, plural } from "../lib/format";
-import { Card, Empty, HelpButton, Notice, PageHead, Skeleton, useLoad, useToast } from "../components/ui";
+import { fmtBytes, plural } from "../lib/format";
+import { Card, HelpButton, Notice, PageHead, useLoad, useToast } from "../components/ui";
+import { DumpHistory } from "../components/DumpHistory";
 import { PLATFORMS, PLATFORM_LABEL } from "@shared/constants";
 import { Icon } from "../components/Icon";
-import { HeldNotice } from "../components/HeldNotice";
 import { NotFollowedList, SteerPanel, UnderstoodNote, type SteerLook, type SteerTrack } from "../components/Steer";
 import type { SteerControls, Understood } from "@shared/steer";
 import "../styles/dump.css";
@@ -72,7 +72,10 @@ export function Dump() {
   const [over, setOver] = useState(false);
   const [sending, setSending] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const recent = useLoad(() => get<DumpSummary[]>("/api/dumps"), [dumpId]);
+  // Your dumps (paged, searchable, archivable: app/components/DumpHistory.tsx) reloads when this changes.
+  const [historyKey, setHistoryKey] = useState(0);
+  // Free space before every upload (day 358): every file counted, the free 10 GB.
+  const storage = useLoad(() => get<{ free: number; line: string; light: "green" | "yellow" | "red" }>("/api/uploads/storage"), [dumpId]);
   const current = useLoad(() => (dumpId ? get<{ dump: DumpSummary; assets: AssetRow[] }>(`/api/dumps/${dumpId}`) : Promise.resolve(null)), [dumpId]);
   // Uploads outlive the render that started them; always reload through the latest loader.
   const reloadRef = useRef(current.reload);
@@ -187,7 +190,7 @@ export function Dump() {
       toast.ok("Dumped. We’ll email you when the clips are ready to review.");
       setLocal([]);
       reloadCurrent();
-      recent.reload();
+      setHistoryKey((n) => n + 1);
     } catch (e) {
       toast.bad(e);
     } finally {
@@ -406,39 +409,17 @@ export function Dump() {
                   {sending ? "Sending…" : door ? `Dump ${uploadedCount || ""} ${uploadedCount === 1 ? DOORS[door].noun[0] : DOORS[door].noun[1]}`.replace("  ", " ") : "Dump"}
                 </button>
                 <span className="hint">We’ll email you when the clips are ready to review.</span>
+                {storage.data ? (
+                  <span className={`hint dump-space${storage.data.light !== "green" ? " warn" : ""}`} data-free-space>
+                    Storage: {storage.data.line}.{storage.data.light !== "green" ? <> <Link to="/settings#storage">What takes the space</Link></> : null}
+                  </span>
+                ) : null}
               </div>
             </>
           ) : null}
         </div>
 
-        <aside className="section">
-          <h2>Recent dumps</h2>
-          {recent.loading && !recent.data ? <Skeleton lines={4} /> : null}
-          {recent.data && recent.data.length === 0 ? <Empty title="Nothing dumped yet">Choose videos, add a note and press Dump. Each dump shows up here with how its clips are coming along.</Empty> : null}
-          {(recent.data ?? []).filter((d) => d.held_note).map((d) => (
-            <HeldNotice key={d.id} dumpId={d.id} note={`${fmtDate(d.created_at)}: ${d.held_note}`} onDone={recent.reload} />
-          ))}
-          {recent.data && recent.data.length > 0 ? (
-            <Card className="flat">
-              <div className="list">
-                {recent.data.map((d) => (
-                  <Link key={d.id} to={d.status === "ready" ? "/review" : `/dump/${d.id}`} className="list-row">
-                    <div className="grow">
-                      <div className="title">
-                        {fmtDate(d.created_at)} · {d.door === "new" ? "New videos" : d.door === "youtube" ? "Full video for YouTube" : "Old posts"} · {plural(d.files, "video")}
-                      </div>
-                      <div className="meta">{d.clips_made ? `${plural(d.clips_made, "clip")} made` : d.status === "cutting" && d.progress ? `${d.progress.step}…` : ""}</div>
-                    </div>
-                    {d.held_note ? <span className="pill warn">Held</span> : null}
-                    <span className={`pill ${d.status === "ready" ? "ok" : d.status === "failed" ? "bad" : d.status === "reviewed" ? "ok" : ""}`}>
-                      {d.status === "ready" ? "Ready for review" : d.status === "reviewed" ? "Reviewed" : d.status === "failed" ? "Needs a look" : d.status === "uploading" ? "Draft" : "Cutting"}
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            </Card>
-          ) : null}
-        </aside>
+        <DumpHistory refreshKey={historyKey} />
       </div>
       <HelpButton guide={door === "recycle" ? "recycle-old-videos" : "dump-new-footage"} />
     </div>

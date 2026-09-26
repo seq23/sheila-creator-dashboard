@@ -95,3 +95,42 @@
 .connect-danger p {
   max-width: var(--measure);
 }
+
+/* Day 358: the storage meter and the tidy rules */
+.storage-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2xs);
+}
+.storage-meter {
+  height: var(--space-xs);
+}
+.storage-kinds,
+.tidy-rules {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.storage-kinds li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-xs);
+  padding: var(--space-2xs) 0;
+  border-top: 1px solid var(--line);
+  font-size: var(--text-sm);
+}
+.storage-kinds .grow {
+  flex: 1;
+  min-width: 0;
+}
+.storage-rule {
+  display: block;
+}
+.tidy-rules li {
+  padding: var(--space-3xs) 0;
+  font-size: var(--text-sm);
+  color: var(--text-soft);
+}

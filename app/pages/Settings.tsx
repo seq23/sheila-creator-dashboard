@@ -12,6 +12,7 @@ import { PLATFORMS, PLATFORM_LABEL } from "@shared/constants";
 import { Icon } from "../components/Icon";
 import { EditingCard } from "../components/EditingSettings";
 import { AUTO_VOICE_HINT } from "@shared/autoVoice";
+import { StorageSection } from "../components/StorageSection";
 import "../styles/settings.css";
 
 export function Settings() {
@@ -165,6 +166,7 @@ export function Settings() {
 
         <div className="settings-col">
           <EditingCard owner={owner} />
+          <StorageSection owner={owner} />
           <HealthSection health={health.data} onChange={(rows) => health.setData(rows)} />
 
           <section className="section">

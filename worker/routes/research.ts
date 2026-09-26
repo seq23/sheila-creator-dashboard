@@ -41,7 +41,10 @@ const COLS = "version, body, sources, status, approved_at, created_at";
 
 research.get("/", async (c) => {
   const row = await c.env.DB.prepare(`SELECT ${COLS} FROM research_briefs WHERE status != 'superseded' ORDER BY version DESC LIMIT 1`).first<BriefDb>();
-  const { results: versions } = await c.env.DB.prepare("SELECT version, status, approved_at, created_at FROM research_briefs ORDER BY version DESC LIMIT 20").all();
+  // Day 358: old briefs are archived (a tap, or the tidy rules at 90 days); "Show archived" lists them.
+  const archived = c.req.query("archived") === "1";
+  const { results: versions } = await c.env.DB.prepare(`SELECT version, status, approved_at, created_at, archived_at FROM research_briefs WHERE ${archived ? "archived_at IS NOT NULL" : "archived_at IS NULL"} ORDER BY version DESC LIMIT 50`).all();
+  const archivedTotal = (await c.env.DB.prepare("SELECT COUNT(*) AS n FROM research_briefs WHERE archived_at IS NOT NULL").first<{ n: number }>())?.n ?? 0;
   const { results: uploads } = await c.env.DB.prepare("SELECT id, file_name, uploaded_at FROM research_uploads ORDER BY uploaded_at DESC").all();
   const job = await c.env.DB.prepare("SELECT id, status, safe_error, created_at, finished_at FROM jobs WHERE type = 'research' ORDER BY created_at DESC LIMIT 1").first();
   const approved = await c.env.DB.prepare("SELECT version, approved_at FROM research_briefs WHERE status = 'approved' ORDER BY version DESC LIMIT 1").first<{ version: number; approved_at: string }>();
@@ -53,6 +56,7 @@ research.get("/", async (c) => {
     webSkipped: brief ? brief.sources.some((s) => s.id === WEB_SKIPPED_SOURCE_ID) : false,
     approved: approved ?? null,
     versions,
+    archivedVersions: archivedTotal,
     uploads,
     job,
     profileLocked,
