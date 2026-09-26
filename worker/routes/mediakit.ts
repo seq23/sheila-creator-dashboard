@@ -267,7 +267,8 @@ async function ownerView(env: Env, ownerEmail: string) {
     views: await viewsSummary(env),
     figures,
     check: kitCheck({ kit: draft, figures, approvedClipIds: approved, wonDealsNotInKit: won.length, ownerEmail, draftDiffers: !sameKit(draft, pub?.content ?? null), published: !!pub, now: new Date() }),
-    clips: clips.map((x) => ({ id: x.id, hook: x.hook_text, score: x.score, mediaUrl: `/media/${x.media_token}`, coverUrl: x.cover_r2_key ? `/media/${x.media_token}?cover=1` : null })),
+    // hook_text is also read by the Voice screen's "Attach to clip" list (app/pages/Voice.tsx).
+    clips: clips.map((x) => ({ id: x.id, hook: x.hook_text, hook_text: x.hook_text, score: x.score, mediaUrl: `/media/${x.media_token}`, coverUrl: x.cover_r2_key ? `/media/${x.media_token}?cover=1` : null })),
     profile: profile ? { locked: true, themes: themeList(profile.themes), audience: audienceLine(profile.audience) } : { locked: false, themes: [], audience: "" },
     helper: {
       followers,
