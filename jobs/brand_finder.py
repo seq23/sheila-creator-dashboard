@@ -20,6 +20,7 @@ Logs: step names and counts only (common.log). No brand names, links or addresse
 from __future__ import annotations
 
 import json
+import urllib.error
 import os
 import re
 from typing import Any
@@ -27,10 +28,9 @@ from urllib.parse import urljoin, urlparse
 
 import requests
 
-from common import Job, log, run
+from common import Job, json_object_in, log, openrouter_content, run
 
 FIRECRAWL = "https://api.firecrawl.dev/v1"
-OPENROUTER = "https://openrouter.ai/api/v1/chat/completions"
 HUNTER = "https://api.hunter.io/v2/domain-search"
 MODEL = "openrouter/free"
 
@@ -92,20 +92,14 @@ def llm(key: str | None, system: str, user: str) -> dict[str, Any] | None:
     if not key:
         return None
     try:
-        r = requests.post(
-            OPENROUTER,
-            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json", "X-Title": "Sheila Studio"},
-            json={"model": MODEL, "max_tokens": 2400, "response_format": {"type": "json_object"}, "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]},
-            timeout=120,
-        )
-    except requests.RequestException:
+        text, _ = openrouter_content(key, {"model": MODEL, "max_tokens": 2400, "response_format": {"type": "json_object"}, "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]}, timeout=120, usable=json_object_in)
+    except urllib.error.HTTPError as e:
+        log("llm.error", status=e.code)
+        return None
+    except (urllib.error.URLError, TimeoutError, ValueError):
         log("llm.error", kind="network")
         return None
-    if r.status_code >= 400:
-        log("llm.error", status=r.status_code)
-        return None
     try:
-        text = r.json()["choices"][0]["message"]["content"]
         return json.loads(text[text.index("{"): text.rindex("}") + 1])
     except (KeyError, ValueError, IndexError):
         log("llm.unparsed")

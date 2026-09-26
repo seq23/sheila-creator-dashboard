@@ -38,7 +38,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import WORK, Job, download_input, log, run, upload_output  # noqa: E402
+from common import WORK, Job, download_input, json_object_in, log, openrouter_content, run, upload_output  # noqa: E402
 
 OUT_W, OUT_H = 1080, 1920
 FPS = 30
@@ -465,17 +465,10 @@ def llm_moments(asset: dict[str, Any], duration: float, transcript: Transcript, 
             "transcript": lines,
         }
     )
-    body = json.dumps({"model": OPENROUTER_MODEL, "max_tokens": 2500, "response_format": {"type": "json_object"}, "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]}).encode()
+    payload = {"model": OPENROUTER_MODEL, "max_tokens": 2500, "response_format": {"type": "json_object"}, "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]}
     for attempt in range(2):
         try:
-            req = urllib.request.Request(
-                "https://openrouter.ai/api/v1/chat/completions",
-                data=body,
-                headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json", "X-Title": "Sheila Studio"},
-            )
-            with urllib.request.urlopen(req, timeout=120) as res:
-                data = json.loads(res.read().decode())
-            text = data["choices"][0]["message"]["content"]
+            text, _ = openrouter_content(key, payload, timeout=120, usable=json_object_in)
             m = re.search(r"\{.*\}", text, re.S)
             items = json.loads(m.group(0) if m else text).get("moments", [])
             out: list[Moment] = []

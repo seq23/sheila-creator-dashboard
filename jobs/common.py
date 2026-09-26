@@ -42,6 +42,56 @@ def log(step: str, **fields: Any) -> None:
     sys.stdout.flush()
 
 
+# ---------- OpenRouter: the ONE place a job talks to the model ----------
+# "openrouter/free" routes each call to whichever free model is up; reasoning models spend
+# max_tokens thinking and can stop mid-answer (finish_reason "length"). Phase 0 live test,
+# 25 Sep 2026: a 2,500-token budget came back as JSON cut off mid-sentence. An answer that
+# stopped for length is asked again with four times the room (up to 16,000). The
+# `jobs-one-openrouter-client` validator keeps every job on this function.
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+OPENROUTER_MAX_TOKENS_CEILING = 16_000
+
+
+def openrouter_content(key: str, payload: dict[str, Any], timeout: float = 180, usable: Any = None) -> tuple[str, dict[str, Any]]:
+    """POST a chat completion; returns (content, raw response). HTTP errors propagate.
+
+    `usable(content) -> bool`: when an answer that stopped for length is not usable, ask again
+    with more room (at most twice)."""
+    body = dict(payload)
+    data: dict[str, Any] = {}
+    content = ""
+    for _ in range(3):
+        req = urllib.request.Request(OPENROUTER_URL, data=json.dumps(body).encode(), method="POST", headers={
+            "Authorization": f"Bearer {key}",
+            "Content-Type": "application/json",
+            "X-Title": "Sheila Studio",
+        })
+        with urllib.request.urlopen(req, timeout=timeout) as res:
+            data = json.loads(res.read().decode())
+        choice = (data.get("choices") or [{}])[0]
+        content = (choice.get("message") or {}).get("content") or ""
+        cut_short = choice.get("finish_reason") == "length"
+        if not cut_short or (usable is not None and usable(content)):
+            return content, data
+        more = min(OPENROUTER_MAX_TOKENS_CEILING, int(body.get("max_tokens") or 1200) * 4)
+        if more <= int(body.get("max_tokens") or 0):
+            break
+        log("llm.more_room", max_tokens=more)
+        body["max_tokens"] = more
+    return content, data
+
+
+def json_object_in(text: str) -> bool:
+    start, end = text.find("{"), text.rfind("}")
+    if start < 0 or end < 0:
+        return False
+    try:
+        json.loads(text[start : end + 1])
+        return True
+    except ValueError:
+        return False
+
+
 @dataclass
 class Job:
     id: str

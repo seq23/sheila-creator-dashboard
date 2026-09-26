@@ -291,7 +291,7 @@ deals.post("/brands/:id/pitch", async (c) => {
   if (!c.get("fake")) {
     const llm = await getLlm(c.env);
     const { system, user } = pitchPrompt(input);
-    const r = await llm.complete({ system, user, json: true, maxTokens: 900 });
+    const r = await llm.complete({ system, user, json: true, maxTokens: 900, accept: (t) => !!parsePitch(t, input) });
     const parsed = r.ok ? parsePitch(r.text, input) : null;
     if (parsed) draft = parsed;
     else {
