@@ -57,6 +57,11 @@ describe("chapters, description and tags YouTube accepts", () => {
     for (let i = 1; i < ch.length; i++) expect(ch[i].t - ch[i - 1].t).toBeGreaterThanOrEqual(10);
     expect(ch.every((c) => c.title.length > 0 && c.title.length <= 60)).toBe(true);
     expect(draftChapters(segs(4), 80)).toEqual([]);
+    // the same words over and over (a looped intro, found on the staging proof, 26 Sep 2026): every name still differs
+    const looped = Array.from({ length: 12 }, (_, i) => ({ start: i * 17, end: i * 17 + 15, text: "Here is the one thing I always do. Then the plates go down." }));
+    const names = draftChapters(looped, 200).map((c) => c.title);
+    expect(names.length).toBeGreaterThanOrEqual(3);
+    expect(new Set(names.map((n) => n.toLowerCase())).size).toBe(names.length);
     expect(draftChapters([], 900)).toEqual([]);
   });
   it("the description carries the chapters and at most three hashtags", () => {
