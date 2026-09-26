@@ -14,14 +14,14 @@
   "result": {
     "clips": [
       {
-        "id": "clp_ne6ettg8ilro9uyt",
+        "id": "clp_pt67mlwwpn1i2w18",
         "asset_id": "ast_selftestwide",
         "start_s": 36.63,
-        "end_s": 60.01,
+        "end_s": 60.0,
         "recipe": "talking_head",
-        "hook_text": "Try it tomorrow, and tell me how it goes.",
+        "hook_text": "Try it tomorrow and tell me how it goes.",
         "hook_alt": "Nobody tells you this part.",
-        "caption": "Try it tomorrow, and tell me how it goes. Follow for more real days",
+        "caption": "Try it tomorrow and tell me how it goes. Follow for more real days",
         "hashtags": [
           "#morningroutines",
           "#smallbusinesslife",
@@ -33,11 +33,19 @@
           "youtube"
         ],
         "score": 0.752,
-        "r2_key": "clips/dmp_selftestnew/clp_ne6ettg8ilro9uyt.mp4",
-        "cover_r2_key": "clips/dmp_selftestnew/clp_ne6ettg8ilro9uyt.jpg"
+        "r2_key": "clips/dmp_selftestnew/clp_pt67mlwwpn1i2w18.mp4",
+        "cover_r2_key": "clips/dmp_selftestnew/clp_pt67mlwwpn1i2w18.jpg",
+        "look": "bold_hook",
+        "parts": [
+          [
+            36.63,
+            60.0
+          ]
+        ],
+        "layout": null
       },
       {
-        "id": "clp_kq1flfjxbljgzok5",
+        "id": "clp_c2htbccbj9vq61yd",
         "asset_id": "ast_selftestwide",
         "start_s": 9.2,
         "end_s": 41.44,
@@ -56,14 +64,22 @@
           "youtube"
         ],
         "score": 0.858,
-        "r2_key": "clips/dmp_selftestnew/clp_kq1flfjxbljgzok5.mp4",
-        "cover_r2_key": "clips/dmp_selftestnew/clp_kq1flfjxbljgzok5.jpg"
+        "r2_key": "clips/dmp_selftestnew/clp_c2htbccbj9vq61yd.mp4",
+        "cover_r2_key": "clips/dmp_selftestnew/clp_c2htbccbj9vq61yd.jpg",
+        "look": "karaoke",
+        "parts": [
+          [
+            9.2,
+            41.44
+          ]
+        ],
+        "layout": null
       },
       {
-        "id": "clp_gmgpurvl3td3fvge",
+        "id": "clp_yvdfkmhczvxgrm3l",
         "asset_id": "ast_selftestwide",
         "start_s": 43.67,
-        "end_s": 60.01,
+        "end_s": 60.0,
         "recipe": "hook_first",
         "hook_text": "make coffee, I write three goals, and I go\u2026",
         "hook_alt": "Nobody tells you this part.",
@@ -79,18 +95,49 @@
           "youtube"
         ],
         "score": 0.731,
-        "r2_key": "clips/dmp_selftestnew/clp_gmgpurvl3td3fvge.mp4",
-        "cover_r2_key": "clips/dmp_selftestnew/clp_gmgpurvl3td3fvge.jpg"
+        "r2_key": "clips/dmp_selftestnew/clp_yvdfkmhczvxgrm3l.mp4",
+        "cover_r2_key": "clips/dmp_selftestnew/clp_yvdfkmhczvxgrm3l.jpg",
+        "look": "grid_four",
+        "parts": [
+          [
+            56.03,
+            59.03
+          ],
+          [
+            43.67,
+            60.0
+          ]
+        ],
+        "layout": {
+          "cells": [
+            {
+              "kind": "self"
+            },
+            {
+              "kind": "clip",
+              "clip_id": "clp_j0wem6i6sdngjr3d"
+            },
+            {
+              "kind": "clip",
+              "clip_id": "clp_umr5qo5sm2bozvld"
+            },
+            {
+              "kind": "clip",
+              "clip_id": "clp_5e04o5b3iltpzky9"
+            }
+          ],
+          "voice": 1
+        }
       },
       {
-        "id": "clp_8bnal6l0yl7qd2l0",
+        "id": "clp_j0wem6i6sdngjr3d",
         "asset_id": "ast_selftestwide",
-        "start_s": 4.86,
-        "end_s": 41.44,
+        "start_s": 14.63,
+        "end_s": 50.8,
         "recipe": "hook_first",
-        "hook_text": "I make coffee, I write three goals, and I\u2026",
+        "hook_text": "I skipped it and everything felt harder.",
         "hook_alt": "The one thing I'd never skip.",
-        "caption": "I make coffee, I write three goals, and I go for a short walk. Follow for more real days",
+        "caption": "I skipped it and everything felt harder. Follow for more real days",
         "hashtags": [
           "#morningroutines",
           "#smallbusinesslife",
@@ -101,19 +148,31 @@
           "instagram",
           "youtube"
         ],
-        "score": 0.821,
-        "r2_key": "clips/dmp_selftestnew/clp_8bnal6l0yl7qd2l0.mp4",
-        "cover_r2_key": "clips/dmp_selftestnew/clp_8bnal6l0yl7qd2l0.jpg"
+        "score": 0.854,
+        "r2_key": "clips/dmp_selftestnew/clp_j0wem6i6sdngjr3d.mp4",
+        "cover_r2_key": "clips/dmp_selftestnew/clp_j0wem6i6sdngjr3d.jpg",
+        "look": "cinematic",
+        "parts": [
+          [
+            17.23,
+            20.23
+          ],
+          [
+            14.63,
+            50.8
+          ]
+        ],
+        "layout": null
       },
       {
-        "id": "clp_i8hxpdyjvx9z6ga2",
+        "id": "clp_umr5qo5sm2bozvld",
         "asset_id": "ast_selftestwide",
         "start_s": 14.63,
-        "end_s": 60.01,
+        "end_s": 60.0,
         "recipe": "story",
-        "hook_text": "I skipped it, and everything felt harder.",
+        "hook_text": "I skipped it and everything felt harder.",
         "hook_alt": "Nobody tells you this part.",
-        "caption": "I skipped it, and everything felt harder. Follow for more real days",
+        "caption": "I skipped it and everything felt harder. Follow for more real days",
         "hashtags": [
           "#morningroutines",
           "#smallbusinesslife",
@@ -125,18 +184,26 @@
           "youtube"
         ],
         "score": 0.762,
-        "r2_key": "clips/dmp_selftestnew/clp_i8hxpdyjvx9z6ga2.mp4",
-        "cover_r2_key": "clips/dmp_selftestnew/clp_i8hxpdyjvx9z6ga2.jpg"
+        "r2_key": "clips/dmp_selftestnew/clp_umr5qo5sm2bozvld.mp4",
+        "cover_r2_key": "clips/dmp_selftestnew/clp_umr5qo5sm2bozvld.jpg",
+        "look": "clean",
+        "parts": [
+          [
+            14.63,
+            60.0
+          ]
+        ],
+        "layout": null
       },
       {
-        "id": "clp_lmzfgiddwnqm1ipp",
+        "id": "clp_5e04o5b3iltpzky9",
         "asset_id": "ast_selftestwide",
-        "start_s": 25.0,
-        "end_s": 55.41,
+        "start_s": 40.0,
+        "end_s": 60.0,
         "recipe": "montage",
-        "hook_text": "I write three goals, and I go for a\u2026",
+        "hook_text": "I never skip in the morning.",
         "hook_alt": "The one thing I'd never skip.",
-        "caption": "I write three goals, and I go for a short walk. Follow for more real days",
+        "caption": "I never skip in the morning. Follow for more real days",
         "hashtags": [
           "#morningroutines",
           "#smallbusinesslife",
@@ -147,9 +214,28 @@
           "instagram",
           "youtube"
         ],
-        "score": 0.822,
-        "r2_key": "clips/dmp_selftestnew/clp_lmzfgiddwnqm1ipp.mp4",
-        "cover_r2_key": "clips/dmp_selftestnew/clp_lmzfgiddwnqm1ipp.jpg"
+        "score": 0.793,
+        "r2_key": "clips/dmp_selftestnew/clp_5e04o5b3iltpzky9.mp4",
+        "cover_r2_key": "clips/dmp_selftestnew/clp_5e04o5b3iltpzky9.jpg",
+        "look": "split",
+        "parts": [
+          [
+            40.0,
+            60.0
+          ]
+        ],
+        "layout": {
+          "cells": [
+            {
+              "kind": "self"
+            },
+            {
+              "kind": "clip",
+              "clip_id": "clp_pt67mlwwpn1i2w18"
+            }
+          ],
+          "voice": 0
+        }
       }
     ],
     "engine": {
@@ -161,9 +247,10 @@
     "assets": [
       {
         "id": "ast_selftestwide",
-        "duration_s": 60.01
+        "duration_s": 60.0
       }
     ],
-    "skipped": []
+    "skipped": [],
+    "source_marks": []
   }
 }

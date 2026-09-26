@@ -102,11 +102,11 @@ export function EditingCard({ owner }: { owner: boolean }) {
         </div>
       </Card>
       <Card>
-        <Switch label="Captions" hint="The words you say, on screen, in each look’s style." checked={v.editing.captions} onChange={(x) => owner && save({ captions: x })} />
-        <Switch label="End card" hint="Your logo and handle for the last 1.5 seconds of every clip." checked={v.editing.end_card} onChange={(x) => owner && save({ end_card: x })} />
+        <Switch label="Captions" hint="Off = no words on screen (the hook still shows). On = the words you say, in each look’s style." checked={v.editing.captions} onChange={(x) => owner && save({ captions: x })} />
+        <Switch label="End card" hint="Off = clips end on your footage. On = your logo and handle for the last 1.5 seconds." checked={v.editing.end_card} onChange={(x) => owner && save({ end_card: x })} />
         <Switch
           label="Music bed"
-          hint={v.music.length ? "One of your songs, quietly under your voice." : "Add a song under My music first. Only songs you upload are ever used."}
+          hint={v.music.length ? "Off = only your voice. On = one of your own songs, quietly under your voice." : "Off until you add a song under My music. Only songs you upload are ever used."}
           checked={v.editing.music}
           onChange={(x) => owner && save({ music: x })}
         />

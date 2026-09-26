@@ -117,6 +117,9 @@ def spec_for(door: str, dump_id: str, assets: list[dict]) -> dict:
         "recipes": cut.DEFAULT_RECIPES,
         "quality_bar": 0.45,
         "output_prefix": f"clips/{dump_id}/",
+        # like the Worker's rotationFor: singles and grids interleaved, so a real dump renders grids
+        "rotation": ["bold_hook", "karaoke", "grid_four", "cinematic", "clean", "split", "reaction", "brand_card", "grid_eight", "side_by_side", "grid_six", "hero_strip"],
+        "branding": {"handle": "@sheilastudio", "cta": "Follow for more real days", "colors": {}},
     }
 
 
@@ -462,6 +465,8 @@ def main() -> int:
             used = {c["look"] for c in result["clips"]}
             if len(result["clips"]) >= 3 and len(used) < 3:
                 problems.append(f"{spec['door']}: {len(result['clips'])} clips but only {len(used)} looks")
+            if spec["door"] == "new" and not any(c["layout"] for c in result["clips"]):
+                problems.append("a real dump rendered no grid look")
             log("selftest.run", door=spec["door"], clips=len(result["clips"]), looks=len(used), transcript=result["engine"]["transcript"], picker=result["engine"]["picker"], crop=result["engine"]["crop"], subtitles=result["engine"]["subtitles"])
             if spec["door"] == "new":
                 fixture_result = {"dump_id": spec["dump_id"], "assets": [{"id": a["id"], "r2_key": f"raw/{spec['dump_id']}/{a['id']}", "allowed_platforms": a["allowed_platforms"]} for a in spec["assets"]], "result": result}
