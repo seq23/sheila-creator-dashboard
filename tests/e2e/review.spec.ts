@@ -34,7 +34,7 @@ interface Clip {
 }
 
 /** Create a dump, upload one small video, press Dump, run the fake cutter. Returns the dump id. */
-async function readyDump(request: APIRequestContext, clips = 10): Promise<string> {
+async function readyDump(request: APIRequestContext, clips = 10, fake: Record<string, unknown> = {}): Promise<string> {
   const { id } = await (await request.post("/api/dumps", { data: { door: "new", notes: "e2e review" } })).json();
   const bytes = Buffer.alloc(64_000);
   for (let i = 0; i < bytes.length; i += 4) bytes.writeUInt32LE((Math.random() * 0xffffffff) >>> 0, i);
@@ -49,7 +49,7 @@ async function readyDump(request: APIRequestContext, clips = 10): Promise<string
   const dumped = await request.post(`/api/dumps/${id}/dump`);
   expect(dumped.ok(), await dumped.text()).toBe(true);
   const { jobId } = await dumped.json();
-  const ran = await request.post(`/api/jobs/${jobId}/run-fake`, { data: { clips } });
+  const ran = await request.post(`/api/jobs/${jobId}/run-fake`, { data: { clips, ...fake } });
   expect(ran.ok(), await ran.text()).toBe(true);
   return id;
 }
@@ -224,4 +224,38 @@ test("approve all clears New and marks the dump reviewed", async ({ page }) => {
   expect(await clipsOf(page.request, dumpId, "approved")).toHaveLength(8);
   // The hidden two are still waiting, untouched.
   expect((await clipsOf(page.request, dumpId, "new")).filter((c) => c.hidden)).toHaveLength(2);
+});
+
+// Phase 0 live test, 25 Sep 2026: another creator's downloaded TikToks (watermark "TikTok
+// @texasgardenfairyx") went through to Review and nothing held them back from the calendar.
+test("someone else's watermark holds the clips off the calendar until she taps This is my video", async ({ page }) => {
+  const dumpId = await readyDump(page.request, 3, { source_marks: [{ platform: "tiktok", handles: ["someone.else_99"] }] });
+  const ids = (await clipsOf(page.request, dumpId, "new", true)).map((c) => c.id);
+  expect((await page.request.post("/api/clips/bulk", { data: { action: "approve", ids } })).ok()).toBe(true);
+  const inList = (xs: { id: string }[]) => ids.filter((id) => xs.some((x) => x.id === id));
+  const onCalendar = () => d1<{ n: number }>(`SELECT COUNT(*) AS n FROM posts WHERE clip_id IN ('${ids.join("','")}') AND status IN ('planned','in_buffer','posted')`)[0]!.n;
+
+  await page.goto("/review?tab=approved");
+  await page.getByRole("tab", { name: /Approved/ }).click();
+  const note = group(page, dumpId).locator("[data-held-note]");
+  await expect(note).toContainText("Looks like someone else's video");
+  await expect(note).toContainText("@someone.else_99");
+  await expect(note.getByRole("link", { name: "Why?" })).toHaveAttribute("href", "/help/someone-elses-video");
+
+  // Held: not in the pool, not planned by Fill, refused by a manual add.
+  expect(inList(await (await page.request.get("/api/posts/pool")).json())).toEqual([]);
+  expect((await page.request.post("/api/posts/plan", { data: { weeks: 2 } })).ok()).toBe(true);
+  expect(onCalendar()).toBe(0);
+  const manual = await page.request.post("/api/posts", { data: { clip_id: ids[0], platform: "tiktok", scheduled_at: new Date(Date.now() + 3 * 86400_000).toISOString() } });
+  expect(manual.status()).toBe(409);
+  expect(await manual.json()).toMatchObject({ fix_guide: "someone-elses-video" });
+
+  // One tap: hers now, so it may go on the calendar.
+  await group(page, dumpId).getByRole("button", { name: "This is my video" }).click();
+  await expect(page.locator(".toast").filter({ hasText: "can go on your calendar" })).toBeVisible();
+  await expect(group(page, dumpId).locator("[data-held-note]")).toHaveCount(0);
+  expect(inList(await (await page.request.get("/api/posts/pool")).json()).length).toBe(ids.length);
+
+  // leave the calendar as the other specs expect it
+  d1(`DELETE FROM posts WHERE clip_id IN ('${ids.join("','")}'); UPDATE clips SET status = 'rejected', reject_reason = 'e2e' WHERE id IN ('${ids.join("','")}')`);
 });

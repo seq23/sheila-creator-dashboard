@@ -9,6 +9,7 @@ import { fmtBytes, fmtDate, plural } from "../lib/format";
 import { Card, Empty, HelpButton, Notice, PageHead, Skeleton, useLoad, useToast } from "../components/ui";
 import { PLATFORMS, PLATFORM_LABEL } from "@shared/constants";
 import { Icon } from "../components/Icon";
+import { HeldNotice } from "../components/HeldNotice";
 import "../styles/dump.css";
 
 type Door = "new" | "recycle";
@@ -286,6 +287,9 @@ export function Dump() {
           <h2>Recent dumps</h2>
           {recent.loading && !recent.data ? <Skeleton lines={4} /> : null}
           {recent.data && recent.data.length === 0 ? <Empty title="Nothing dumped yet">Choose videos, add a note and press Dump. Each dump shows up here with how its clips are coming along.</Empty> : null}
+          {(recent.data ?? []).filter((d) => d.held_note).map((d) => (
+            <HeldNotice key={d.id} dumpId={d.id} note={`${fmtDate(d.created_at)}: ${d.held_note}`} onDone={recent.reload} />
+          ))}
           {recent.data && recent.data.length > 0 ? (
             <Card className="flat">
               <div className="list">
@@ -297,6 +301,7 @@ export function Dump() {
                       </div>
                       <div className="meta">{d.clips_made ? `${plural(d.clips_made, "clip")} made` : d.status === "cutting" && d.progress ? `${d.progress.step}…` : ""}</div>
                     </div>
+                    {d.held_note ? <span className="pill warn">Held</span> : null}
                     <span className={`pill ${d.status === "ready" ? "ok" : d.status === "failed" ? "bad" : d.status === "reviewed" ? "ok" : ""}`}>
                       {d.status === "ready" ? "Ready for review" : d.status === "reviewed" ? "Reviewed" : d.status === "failed" ? "Needs a look" : d.status === "uploading" ? "Draft" : "Cutting"}
                     </span>

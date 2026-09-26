@@ -1,6 +1,7 @@
 // Calendar + scheduling (section 10). The dashboard holds the whole calendar; the hourly
 // Buffer sync (crons/buffer-sync.ts) hands Buffer only the next 7 days. Every rule that
 // decides something lives in domain/slotting.ts and domain/sync.ts; this file gathers rows.
+import { POSTABLE_CLIP_SQL } from "../domain/sourceCheck";
 import { Hono } from "hono";
 import type { Env, Vars } from "../env";
 import { requireUser } from "../lib/auth";
@@ -54,7 +55,7 @@ export async function planAhead(env: Env, opts: { weeks?: number; startWeek?: nu
     `SELECT c.id, c.asset_id, c.score, c.platforms, d.door,
        EXISTS (SELECT 1 FROM posts p WHERE p.clip_id = c.id AND p.status = 'unscheduled') AS held
      FROM clips c JOIN dumps d ON d.id = c.dump_id
-     WHERE c.status = 'approved'`,
+     WHERE ${POSTABLE_CLIP_SQL}`,
   ).all<{ id: string; asset_id: string; score: number; platforms: string; door: "new" | "recycle"; held: number }>();
   const existing = await activePosts(env);
   const hasActive = new Set(existing.map((p) => p.clip_id));
@@ -131,7 +132,7 @@ posts.get("/pool", async (c) => {
   const { results } = await c.env.DB.prepare(
     `SELECT c.id, c.hook_text, c.recipe, c.platforms, c.score, c.media_token, c.cover_r2_key, d.door
      FROM clips c JOIN dumps d ON d.id = c.dump_id
-     WHERE c.status = 'approved' AND NOT EXISTS (SELECT 1 FROM posts p WHERE p.clip_id = c.id AND p.status IN ${ACTIVE_SQL})
+     WHERE ${POSTABLE_CLIP_SQL} AND NOT EXISTS (SELECT 1 FROM posts p WHERE p.clip_id = c.id AND p.status IN ${ACTIVE_SQL})
      ORDER BY c.score DESC LIMIT 100`,
   ).all<{ id: string; hook_text: string; recipe: ClipRow["recipe"]; platforms: string; score: number; media_token: string | null; cover_r2_key: string | null; door: "new" | "recycle" }>();
   const out: PoolClip[] = results.map((r) => ({ id: r.id, hook_text: r.hook_text, recipe: r.recipe, door: r.door, score: r.score, platforms: parseJson<Platform[]>(r.platforms, [...PLATFORMS]), cover_url: coverUrl(r.media_token, r.cover_r2_key) }));
@@ -159,9 +160,10 @@ posts.post("/", async (c) => {
   if (!body?.clip_id || !body.platform || !PLATFORMS.includes(body.platform) || !body.scheduled_at || Number.isNaN(Date.parse(body.scheduled_at))) return fail(c, 400, "Pick a clip, a platform and a time.");
   const at = new Date(body.scheduled_at).toISOString();
   if (at <= nowIso()) return fail(c, 422, "That time has already passed. Pick a later one.");
-  const clip = await c.env.DB.prepare("SELECT status, platforms FROM clips WHERE id = ?").bind(body.clip_id).first<{ status: string; platforms: string }>();
+  const clip = await c.env.DB.prepare("SELECT c.status, c.platforms, a.source_owner, a.source_note FROM clips c LEFT JOIN assets a ON a.id = c.asset_id WHERE c.id = ?").bind(body.clip_id).first<{ status: string; platforms: string; source_owner: string | null; source_note: string | null }>();
   if (!clip) return fail(c, 404, "That clip is gone.");
   if (clip.status !== "approved") return fail(c, 409, "Only approved clips can go on the calendar. Approve it in Review first.", "review-and-approve-clips");
+  if (clip.source_owner === "other") return fail(c, 409, clip.source_note ?? "Looks like someone else's video. Tap This is my video on its dump if it is yours.", "someone-elses-video");
   if (!parseJson<Platform[]>(clip.platforms, [...PLATFORMS]).includes(body.platform)) return fail(c, 422, `This clip is not set to go to ${PLATFORM_LABEL[body.platform]}. Tick it in Review to allow it.`, "edit-a-caption");
   const dup = await c.env.DB.prepare(`SELECT id FROM posts WHERE clip_id = ? AND platform = ? AND status IN ${ACTIVE_SQL}`).bind(body.clip_id, body.platform).first();
   if (dup) return fail(c, 409, `This clip is already on the calendar for ${PLATFORM_LABEL[body.platform]}.`, "move-or-remove-a-post");

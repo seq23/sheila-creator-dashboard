@@ -33,7 +33,15 @@ const PILL: Record<string, { text: string; cls: string }> = {
   upload: { text: "Upload", cls: "rs-pill upload" },
   uncertain: { text: "Uncertain", cls: "rs-pill unsure" },
 };
-const label = (c: Claim) => (c.confidence === "uncertain" ? "uncertain" : c.basis);
+/** Same rule as the server's claimLabel (worker/domain/brief.ts): uncited or weak → uncertain. */
+const label = (c: Claim, sources?: Map<string, BriefSource>) => (c.confidence === "uncertain" || (sources && !c.source_ids.some((id) => sources.has(id))) ? "uncertain" : c.basis);
+
+/** The "How often" rows are drawn here from the baseline studies, not stored in the brief. */
+function frequencyClaim(p: Platform, sources: Map<string, BriefSource>): Claim {
+  const f = FREQUENCY[p];
+  const ids = f.sources.filter((id) => sources.has(id));
+  return { text: f.text, source_ids: ids, basis: "web", confidence: f.sure && ids.length ? "solid" : "uncertain" };
+}
 
 /** Section 10b frequency baseline, shown under "How often" with its studies. */
 const FREQUENCY: Record<Platform, { text: string; sources: string[]; sure: boolean }> = {
@@ -97,6 +105,9 @@ export function Research() {
 
   const brief = data?.brief ?? null;
   const sources = useMemo(() => new Map((brief?.sources ?? []).map((s) => [s.id, s])), [brief]);
+  // The header counts what the page shows: the stored claims (server count) plus the "How often"
+  // rows drawn here (live test 25 Sep 2026: header said 2 uncertain, the page showed 3).
+  const uncertainShown = (data?.counts?.uncertain ?? 0) + (brief ? PLATFORMS.filter((p) => label(frequencyClaim(p, sources), sources) === "uncertain").length : 0);
   const body = editing ?? brief?.body ?? null;
   const isDraft = brief?.status === "draft";
   // One next step: approve a draft waiting for her; save while editing it; otherwise refresh.
@@ -191,7 +202,7 @@ export function Research() {
             <span className={PILL.web.cls}>Web</span>
             <span className={PILL.upload.cls}>Upload</span>
             <span className={PILL.uncertain.cls}>Uncertain</span>
-            <span className="hint">Every claim links its source. {data?.counts?.uncertain ? `${plural(data.counts.uncertain, "claim")} marked uncertain.` : ""}</span>
+            <span className="hint">Every claim links its source. {uncertainShown ? `${plural(uncertainShown, "claim")} marked uncertain.` : ""}</span>
           </div>
 
           {isDraft ? (
@@ -235,9 +246,7 @@ export function Research() {
               </Block>
               <Block id="often" title="How often">
                 {PLATFORMS.map((p) => {
-                  const f = FREQUENCY[p];
-                  const ids = f.sources.filter((id) => sources.has(id));
-                  const claim: Claim = { text: f.text, source_ids: ids, basis: "web", confidence: f.sure && ids.length ? "solid" : "uncertain" };
+                  const claim = frequencyClaim(p, sources);
                   return <ClaimRow key={p} lead={`${PLATFORM_LABEL[p]}: ${body.best_times[p].length} a week`} claim={claim} sources={sources} editing={false} />;
                 })}
               </Block>
@@ -328,10 +337,10 @@ function Claims({ list, sources, editing, onText }: { list: Claim[]; sources: Ma
 }
 
 function ClaimRow({ claim, sources, lead, editing, onText }: { claim: Claim; sources: Map<string, BriefSource>; lead?: string; editing: boolean; onText?: (t: string) => void }) {
-  const pill = PILL[label(claim)];
+  const pill = PILL[label(claim, sources)];
   const cited = claim.source_ids.map((id) => sources.get(id)).filter((s): s is BriefSource => !!s);
   return (
-    <div className="rs-claim" data-label={label(claim)}>
+    <div className="rs-claim" data-label={label(claim, sources)}>
       <span className={pill.cls}>{pill.text}</span>
       <div className="rs-claim-body">
         {lead ? <div className="rs-lead">{lead}</div> : null}

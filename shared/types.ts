@@ -51,6 +51,8 @@ export interface DumpSummary {
   ready_at: string | null;
   error_summary: string | null;
   progress: { step: string; done: number; total: number } | null;
+  /** "Looks like someone else's video: …" when a video's watermark is another creator's. */
+  held_note: string | null;
 }
 
 export interface AssetRow {

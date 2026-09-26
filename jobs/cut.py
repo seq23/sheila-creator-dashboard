@@ -738,6 +738,60 @@ def score_moment(m: Moment, transcript: Transcript, runs: list[tuple[float, floa
 
 # ---------------------------------------------------------------- the whole dump
 
+
+# ---------- whose video is this? (watermark check) ----------
+# Phase 0 live test, 25 Sep 2026: downloaded TikToks of another creator went through the cutter
+# and nothing noticed the burned-in "TikTok @handle" watermark. We OCR a few frames and report
+# any platform watermark and the @handles near it; the Worker decides with her own handles
+# (worker/domain/sourceCheck.ts). Without tesseract the check is skipped and says so in the log.
+HANDLE_RE = re.compile(r"@([A-Za-z0-9][A-Za-z0-9._]{1,29})")
+WATERMARK_SAMPLES = (0.08, 0.3, 0.5, 0.7, 0.92)
+
+
+def parse_marks(texts: list[str]) -> dict[str, Any] | None:
+    """OCR text of sampled frames -> {platform, handles} or None when no watermark is seen.
+
+    TikTok stamps "TikTok" and "@handle" on every download. Instagram has no fixed watermark, so
+    it counts only when "Instagram" and an @handle are on the same line (never a caption that
+    just mentions Instagram)."""
+    platform = None
+    handles: list[str] = []
+    for text in texts:
+        for line in text.splitlines():
+            low = line.lower()
+            found = HANDLE_RE.findall(line)
+            if "tiktok" in low.replace(" ", ""):
+                platform = "tiktok"
+            elif "instagram" in low and found and platform is None:
+                platform = "instagram"
+            for h in found:
+                h = h.rstrip("._")
+                if h and h not in handles:
+                    handles.append(h)
+    if not platform:
+        return None
+    return {"platform": platform, "handles": handles[:10]}
+
+
+def source_marks(norm: Path, duration: float, work: Path, asset_id: str) -> dict[str, Any] | None:
+    if not shutil.which("tesseract"):
+        log("cut.source_check.skipped", reason="no_tesseract")
+        return None
+    texts: list[str] = []
+    for k, f in enumerate(WATERMARK_SAMPLES):
+        png = work / f"wm_{asset_id}_{k}.png"
+        try:
+            subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{max(0.0, duration * f):.2f}", "-i", str(norm), "-frames:v", "1", "-vf", "scale=1080:-2", str(png)], check=True, timeout=60)
+            out = subprocess.run(["tesseract", str(png), "stdout", "--psm", "11"], capture_output=True, text=True, timeout=60)
+            texts.append(out.stdout)
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+            continue
+        finally:
+            png.unlink(missing_ok=True)
+    mark = parse_marks(texts)
+    log("cut.source_check", frames=len(texts), watermark=bool(mark), handles=len(mark["handles"]) if mark else 0)
+    return {"asset_id": asset_id, **mark} if mark else None
+
 Uploader = Callable[[Path, str, str], None]
 Downloader = Callable[[str, Path], Path]
 Progress = Callable[[str, int, int], None]
@@ -754,8 +808,9 @@ def cut_dump(spec: dict[str, Any], work: Path, download: Downloader, upload: Upl
     target = int((spec.get("target_clips") or {}).get("max") or 20)
     engine = {"transcript": "none", "picker": "fallback", "crop": "center", "subtitles": "none"}
 
-    # 1-2. download + normalize
+    # 1-2. download + normalize (+ whose video it is)
     prepared = []
+    marks: list[dict[str, Any]] = []
     for i, a in enumerate(assets):
         progress("Getting your videos", i, len(assets))
         raw = download(a["r2_key"], work / f"raw_{i}")
@@ -764,6 +819,9 @@ def cut_dump(spec: dict[str, Any], work: Path, download: Downloader, upload: Upl
         raw.unlink(missing_ok=True)
         wav = work / f"audio_{i}.wav"
         extract_wav(norm, wav)
+        mark = source_marks(norm, info["duration"], work, a["id"])
+        if mark:
+            marks.append(mark)
         prepared.append((a, norm, info, wav))
     log("cut.prepared", assets=len(prepared))
 
@@ -845,6 +903,7 @@ def cut_dump(spec: dict[str, Any], work: Path, download: Downloader, upload: Upl
         "engine": engine,
         "assets": [{"id": a["id"], "duration_s": round(info["duration"], 2)} for a, _n, info, _w in prepared],
         "skipped": [{"asset_id": s["id"], "reason": s["reason"]} for s in spec.get("skipped_assets", [])],
+        "source_marks": marks,
     }
 
 

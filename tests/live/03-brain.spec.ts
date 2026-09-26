@@ -37,7 +37,7 @@ test("3 · upload a brand PDF and a scanned page → extract on Actions → OCR 
   await expect(page.getByText(/Start with your brand docs|Drop more brand docs/)).toBeVisible();
   if (await page.getByRole("button", { name: "Unlock to edit" }).isVisible()) {
     await page.getByRole("button", { name: "Unlock to edit" }).click();
-    await expect(page.locator(".pill", { hasText: "Not locked" })).toBeVisible();
+    await expect(page.locator(".pill").filter({ hasText: /^Not locked$/ })).toBeVisible();
   }
 
   const since = Date.now();
@@ -74,7 +74,16 @@ test("3 · upload a brand PDF and a scanned page → extract on Actions → OCR 
   // The draft is written from THESE docs: her studio, her city, her offers.
   await expect(page.getByLabel("Who she is")).toHaveValue(/Golden Table|Maren|tablescape/i);
   await page.getByRole("button", { name: "Lock profile" }).click();
-  await expect(page.locator(".pill", { hasText: "Locked" })).toBeVisible();
+  // exact text: "Not locked" also contains "locked" (a substring match passed on the unlocked pill)
+  await expect(page.locator(".pill").filter({ hasText: /^Locked$/ })).toBeVisible();
   const lockShot = await shot(page, "03-brain-profile-locked", { fullPage: true });
   evidence("3-brain", { extract_job: extract.jobId, run_id: run?.databaseId ?? rows[0]!.run_id, pdf_chars: pdf!.char_count, ocr_chars: scan!.char_count, docs_screenshot: docsShot, locked_screenshot: lockShot });
+});
+
+test("3b · after a reload the profile is still locked (stored, not just shown)", async ({ page }) => {
+  await page.goto("/brain");
+  await expect(page.locator(".pill").filter({ hasText: /^Locked$/ })).toBeVisible();
+  await expect(page.getByLabel("Who she is")).toBeDisabled();
+  expect(d1<{ locked: number }>("SELECT locked FROM brand_profile ORDER BY version DESC LIMIT 1")[0]?.locked).toBe(1);
+  evidence("3-brain", { locked_screenshot: await shot(page, "03-brain-profile-locked", { fullPage: true }) });
 });
