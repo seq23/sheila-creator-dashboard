@@ -2,42 +2,34 @@
 title: "Storage almost full"
 group: fix_it
 screen: settings
-last_checked: 2026-09-25
+last_checked: 2026-09-26
+keywords: storage, space, full, gb
 ---
 
-## What happened
+Your free storage is 10 GB. Raw footage is removed on its own 7 days after it's cut, so this usually fixes itself.
 
-Your free storage is 10 GB. Raw footage is removed on its own 7 days after it is cut, so this usually fixes itself.
-
-## Step 1
+## The Storage light
 
 ![Step 1](/help/screenshots/storage-almost-full-1.png)
+<!-- target: [data-health="Storage"] -->
 
-Open **Settings** and look at **Storage** under **Connections + health**.
+In **Settings**, **Storage** says how much is used. Yellow: wait a few days.
 
-## Step 2
+## Red? Delete clips you won't post
 
 ![Step 2](/help/screenshots/storage-almost-full-2.png)
+<!-- route: /review -->
+<!-- target: [data-clip-id="demo_new_3"] >> text=Delete this clip -->
 
-If it is yellow, wait a few days: footage that has been cut is removed after 7 days.
+In **Review**, tap **Delete this clip** on clips you'll never post.
 
-## Step 3
+## Hold off on very long videos
 
 ![Step 3](/help/screenshots/storage-almost-full-3.png)
+<!-- route: /dump -->
+<!-- target: [data-door="new"] -->
 
-If it is red, open **Review** and reject or delete clips you will never post.
-
-## Step 4
-
-![Step 4](/help/screenshots/storage-almost-full-4.png)
-
-Hold off on dumping very long videos until the light is green again.
-
-## Step 5
-
-![Step 5](/help/screenshots/storage-almost-full-5.png)
-
-If you need more room, ask your helper to raise the storage limit (about 2 cents per extra GB a month).
+Until it's green again, dump shorter videos.
 
 ## Did this work?
 

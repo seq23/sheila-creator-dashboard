@@ -1,45 +1,49 @@
 ---
-title: "Edit a caption"
+title: "Edit a caption or hook"
 group: everyday
 screen: review
-last_checked: 2026-09-25
+last_checked: 2026-09-26
+keywords: caption, hook, hashtags, text, words
 ---
 
-## Step 1
+## Tap Edit caption & hook
 
 ![Step 1](/help/screenshots/edit-a-caption-1.png)
+<!-- target: [data-clip-id="demo_new_3"] >> text=Edit caption & hook -->
 
-Open **Review** and find the clip.
+In **Review**, under the clip, tap **Edit caption & hook**.
 
-## Step 2
+## Change the hook
 
 ![Step 2](/help/screenshots/edit-a-caption-2.png)
+<!-- click: [data-clip-id="demo_new_3"] >> text=Edit caption & hook -->
+<!-- target: #e-hook -->
 
-Tap **Edit caption & hook** under the clip.
+The hook is the line on screen at the start. Type your own.
 
-## Step 3
+## Change the caption
 
 ![Step 3](/help/screenshots/edit-a-caption-3.png)
+<!-- click: [data-clip-id="demo_new_3"] >> text=Edit caption & hook -->
+<!-- target: #e-caption -->
 
-Change the **Caption** or the **Hashtags**. Write it the way you'd say it.
+Write the caption the way you'd say it.
 
-## Step 4
+## Change the hashtags
 
 ![Step 4](/help/screenshots/edit-a-caption-4.png)
+<!-- click: [data-clip-id="demo_new_3"] >> text=Edit caption & hook -->
+<!-- target: #e-tags -->
 
-Don't love the on-screen hook? Tap **Use the other hook** to swap in the second one, or type your own.
+Add or remove hashtags.
 
-## Step 5
+## Pick where it goes
 
 ![Step 5](/help/screenshots/edit-a-caption-5.png)
+<!-- click: [data-clip-id="demo_new_3"] >> text=Edit caption & hook -->
+<!-- target: .edit-platforms -->
 
-Untick any platform the clip shouldn't go to under **Goes to**.
-
-## Step 6
-
-![Step 6](/help/screenshots/edit-a-caption-6.png)
-
-Tap **Save**. Your words replace ours everywhere the clip posts.
+Untick an app the clip shouldn't go to, then tap **Save**.
 
 ## Did this work?
 

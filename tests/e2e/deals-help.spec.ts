@@ -151,8 +151,8 @@ test.describe("help center", () => {
   });
 
   test("No opens the guide's fix-it guide", async ({ page }) => {
-    await page.goto("/help/reply-to-a-brand-offer?step=4");
-    await expect(page.getByText("Step 4 of 4")).toBeVisible();
+    await page.goto("/help/reply-to-a-brand-offer?step=5");
+    await expect(page.getByText("Step 5 of 5")).toBeVisible();
     await page.getByRole("button", { name: "No, show me a fix" }).click();
     await expect(page).toHaveURL(/\/help\/negotiate-a-rate$/);
   });
@@ -163,7 +163,7 @@ test.describe("help center", () => {
     await expect(page.getByRole("region", { name: "Search results" }).getByText("Pitch a brand")).toBeVisible();
     await page.getByPlaceholder("What do you need help with?").fill("");
     await page.getByRole("button", { name: "Tick Log in" }).click();
-    await expect(page.getByText(/1 of 7 done/)).toBeVisible();
+    await expect(page.getByText(/1 of 8 done/)).toBeVisible();
     await page.reload();
     await expect(page.getByRole("button", { name: "Untick Log in" })).toBeVisible();
     await expect(page.getByRole("link", { name: "A post failed" })).toBeVisible();
@@ -171,14 +171,15 @@ test.describe("help center", () => {
 });
 
 test.describe("first-login tour", () => {
-  test("shows once on Home, walks five stops, and Replay the tour brings it back", async ({ page }) => {
+  test("shows once on Home, walks every stop of the current menu, and Replay the tour brings it back", async ({ page }) => {
     await page.goto("/");
     const tour = page.getByRole("dialog", { name: "Quick tour" });
     await expect(tour).toBeVisible();
-    const stops = ["Dump", "Review", "Calendar", "Deals", "Help"];
+    const stops = ["Dump", "Review", "Calendar", "Stats", "Voice overs", "Deals", "Media kit", "Help"];
     for (const [i, s] of stops.entries()) {
-      await expect(tour.getByRole("heading", { name: s })).toBeVisible();
-      await expect(tour).toContainText(`${i + 1} of 5`);
+      await expect(tour.getByRole("heading", { name: s, exact: true })).toBeVisible();
+      await expect(tour).toContainText(`${i + 1} of ${stops.length}`);
+      await expect(tour.getByRole("link", { name: "Show me how" })).toHaveAttribute("href", /^\/help\/[a-z0-9-]+$/);
       await tour.getByRole("button", { name: i === stops.length - 1 ? "Done" : "Next" }).click();
     }
     await expect(tour).toHaveCount(0);

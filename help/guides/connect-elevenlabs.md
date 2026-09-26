@@ -2,59 +2,52 @@
 title: "Connect ElevenLabs for the premium voice (optional)"
 group: getting_started
 screen: connect
-last_checked: 2026-09-25
-target: "role=textbox[name=\"Voice overs · ElevenLabs (premium) key\"]"
+last_checked: 2026-09-26
+keywords: elevenlabs, premium voice, voice over, clone
 fix: reconnect-elevenlabs
 ---
 
-Your voice overs always work with the free built-in voice: good quality, a few minutes each.
-Connect your own ElevenLabs account for the premium voice: best quality, seconds each, paid
-from your ElevenLabs credits. The dashboard shows how many you have used on this card.
+Your voice overs always work with the free built-in voice. Connect your own ElevenLabs account for the premium voice: best quality, seconds each, paid from your ElevenLabs credits.
 
-## Open ElevenLabs
+## Open API keys in ElevenLabs
 
 ![Step 1](/help/screenshots/connect-elevenlabs-1.png)
-<!-- route: external -->
+<!-- mock: elevenlabs-home -->
 
-Go to [elevenlabs.io](https://elevenlabs.io) and log in. Starter and above include instant
-voice cloning; on a plan without it the built-in voice is used.
+Log in at **elevenlabs.io**. Tap your profile at the bottom left, then **API keys**. Starter and above include voice cloning.
 
-## Find your API keys
+## Create a key
 
 ![Step 2](/help/screenshots/connect-elevenlabs-2.png)
-<!-- route: external -->
+<!-- mock: elevenlabs-create -->
 
-Tap your profile at the bottom left, then **API keys**.
+Tap **Create API key**, name it Sheila Studio, leave the access as it is and tap **Create**.
 
-## Create a key and copy it
+## Copy the key
 
 ![Step 3](/help/screenshots/connect-elevenlabs-3.png)
-<!-- route: external -->
+<!-- mock: elevenlabs-copy -->
 
-Tap **Create API key**, name it **Sheila Studio** and leave the access as it is. Tap
-**Create**, then copy the key. ElevenLabs shows it only once.
+Copy the key. ElevenLabs shows it only once.
 
-## Paste it in the dashboard
+## Paste it and tap Check key
 
 ![Step 4](/help/screenshots/connect-elevenlabs-4.png)
 <!-- route: /settings/connections -->
+<!-- api: POST /api/connections/elevenlabs/disconnect -->
 <!-- target: role=textbox[name="Voice overs · ElevenLabs (premium) key"] -->
 
-In the dashboard open **Settings**, then **Connections**. Scroll to **Voice overs · premium**, and
-paste the key into the **ElevenLabs** box.
+In the dashboard open **Settings**, then **Connect accounts**. Under **Voice overs · premium**, paste the key and tap **Check key**.
 
-## Tap Check key
+## See your plan and credits
 
 ![Step 5](/help/screenshots/connect-elevenlabs-5.png)
 <!-- route: /settings/connections -->
-<!-- target: .card:has-text("ElevenLabs") >> role=button[name="Check key"] -->
+<!-- api: POST /api/connections/elevenlabs/key {"key":"good-demo-creator"} -->
+<!-- target: [data-testid="elevenlabs-plan"] -->
 
-Tap **Check key**. You see your plan, the characters you have used this month, and whether
-voice cloning is on your plan. Your premium voice is made from the voice you saved on
-**Voice overs**, in about a minute.
+The card shows your plan, the characters used this month and whether cloning is on your plan. Your premium voice is made from the voice you saved.
 
 ## Did this work?
 
-If it says the key is not valid, copy it again from **API keys** and paste the whole key. If
-it says your plan does not include voice cloning, everything still works with the built-in
-voice; changing to Starter or above under **Subscription** turns the premium voice on.
+If not, tap **No** below and we'll open the matching fix-it guide or email your helper.

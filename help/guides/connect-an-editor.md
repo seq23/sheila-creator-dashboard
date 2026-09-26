@@ -1,50 +1,46 @@
 ---
-title: "Connect an editing app (Opus Clip, Vizard, Klap, Submagic, Descript)"
+title: "Use an editing app you already pay for (optional)"
 group: getting_started
 screen: connect
-last_checked: 2026-09-25
+last_checked: 2026-09-26
+keywords: editor, opus clip, vizard, klap, submagic, descript, capcut, editing app
 fix: reconnect-an-account
 ---
 
-The dashboard's own editor is free and always works. If you already pay for one of these apps,
-connect it and pick it for a job; it uses your credits there. If it ever fails or runs out of
-credits, the built-in editor does the job instead and the light on Settings tells you.
+The dashboard's own editor is free and always works. If you already pay for Opus Clip, Vizard, Klap, Submagic or Descript, connect it and pick it for a job. If it ever fails or runs out of credits, the built-in editor does the job instead. CapCut and InShot can't connect: use **Edit in CapCut** on a clip.
 
-- **Opus Clip**: cuts your dumps into clips
-- **Vizard**: cuts your dumps into clips
-- **Klap**: cuts your dumps into clips, or adds captions
-- **Submagic**: adds animated captions, or polishes each clip
-- **Descript**: polishes each clip (filler words out, clean sound)
-
-CapCut and InShot have no way to connect; use **Edit in CapCut** on a clip instead.
-
-## Open Connect
+## Find Editing apps
 
 ![Step 1](/help/screenshots/connect-an-editor-1.png)
 <!-- route: /settings/connections -->
-<!-- target: text=Editing apps · optional -->
+<!-- target: h2:text-is("Editing apps · optional") -->
 
-Open **Settings**, then **Connections**, and scroll to **Editing apps**.
+Open **Settings**, then **Connect accounts**, and scroll to **Editing apps · optional**. Each app has its own picture guide.
 
-## Paste the app's key
+## Who cuts your dumps
 
 ![Step 2](/help/screenshots/connect-an-editor-2.png)
-<!-- route: /settings/connections -->
-<!-- target: role=textbox[name="Editor · Opus Clip key"] -->
+<!-- route: /settings -->
+<!-- target: #editor-cut_from_source -->
 
-On the app's card, follow its three steps to copy your key, paste it and tap **Check key**. Each
-app has its own picture-by-picture guide.
+Back on **Settings**, under **Editing**, **Cutting a dump into clips** picks who cuts: built-in, Opus Clip or Vizard.
 
-## Pick it under Who edits
+## Who adds captions
 
 ![Step 3](/help/screenshots/connect-an-editor-3.png)
 <!-- route: /settings -->
-<!-- target: [data-editor-row="cut_from_source"] -->
+<!-- target: #editor-caption -->
 
-Open **Settings**, then **Editing**, **Who edits**. Pick the app for the job it does. Your next
-dump uses it.
+**Captions** picks who adds the words: built-in, Klap or Submagic.
+
+## Who polishes
+
+![Step 4](/help/screenshots/connect-an-editor-4.png)
+<!-- route: /settings -->
+<!-- target: #editor-enhance -->
+
+**Polish** picks who cleans up each clip: built-in, Submagic or Descript. An app that isn't connected says so and the built-in editor is used.
 
 ## Did this work?
 
-The app's card says **Connected** and its light is green. If a pick is greyed out, that app is
-not connected yet.
+If not, tap **No** below and we'll open the matching fix-it guide or email your helper.

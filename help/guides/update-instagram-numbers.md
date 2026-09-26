@@ -1,39 +1,48 @@
 ---
 title: "Update your Instagram numbers"
-group: getting_started
+group: everyday
 screen: stats
-last_checked: 2026-09-25
+last_checked: 2026-09-26
+keywords: instagram, followers, reach, numbers, insights
 ---
 
-## Step 1
+## Open your Professional dashboard
 
 ![Step 1](/help/screenshots/update-instagram-numbers-1.png)
+<!-- mock: instagram-profile -->
 
-On your phone, open the **Instagram app** and tap your profile picture (bottom right).
+In the Instagram app, tap your profile picture, then **Professional dashboard**.
 
-## Step 2
+## Note two numbers
 
 ![Step 2](/help/screenshots/update-instagram-numbers-2.png)
+<!-- mock: instagram-insights -->
 
-Tap **Professional dashboard** (just under your bio). If you don't see it, your account is personal: tap the menu (three lines) → **Account type and tools** → **Switch to professional account**. It's free.
+Under **Insights**, pick **Last 30 days**. Note **Accounts reached** (or Views) and your **Followers**.
 
-## Step 3
+## Type them on Stats
 
 ![Step 3](/help/screenshots/update-instagram-numbers-3.png)
+<!-- route: /stats -->
+<!-- target: #ig-followers -->
 
-Under **Insights**, pick **Last 30 days**. Note **Accounts reached** (or **Views**) and your **Followers** number.
+In the dashboard, open **Stats**. Under **Your Instagram numbers**, type your followers and reach.
 
-## Step 4
+## Tap Save my numbers
 
 ![Step 4](/help/screenshots/update-instagram-numbers-4.png)
+<!-- route: /stats -->
+<!-- target: role=button[name="Save my numbers"] -->
 
-In the dashboard, open **Stats**. In **Your Instagram numbers**, type your followers and your reach (or views), then tap **Save my numbers**. Your Instagram card updates right away.
+Tap **Save my numbers**. Your Instagram card updates right away.
 
-## Step 5
+## Get a monthly reminder
 
 ![Step 5](/help/screenshots/update-instagram-numbers-5.png)
+<!-- route: /stats -->
+<!-- target: role=button[name="Remind me monthly"] -->
 
-Tap **Remind me monthly** and a reminder line comes in your Monday recap email once a month. Update whenever you like; no sign-in is needed.
+Tap **Remind me monthly** for a reminder in your Monday email.
 
 ## Did this work?
 

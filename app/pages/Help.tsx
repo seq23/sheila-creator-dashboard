@@ -15,13 +15,15 @@ const MINUTES: Record<string, string> = {
   "connect-buffer": "3 min",
   "add-channels-in-buffer": "5 min",
   "connect-stats": "3 min",
-  "connect-hunter": "3 min",
   "upload-brand-docs": "5 min",
   "approve-research-brief": "5 min",
+  "media-kit": "10 min",
+  "record-your-voice": "5 min",
 };
 
-// Getting Started: the setup guides she walks once, in order (section 12c guide list).
-const CHECKLIST = ["log-in", "connect-buffer", "add-channels-in-buffer", "connect-stats", "connect-hunter", "upload-brand-docs", "approve-research-brief"];
+// Getting Started: the setup guides she walks once, in order (section 12c guide list). The
+// validator help-pictures checks every slug here is a real guide.
+export const CHECKLIST = ["log-in", "connect-buffer", "add-channels-in-buffer", "connect-stats", "upload-brand-docs", "approve-research-brief", "media-kit", "record-your-voice"];
 
 export function Help() {
   const nav = useNavigate();

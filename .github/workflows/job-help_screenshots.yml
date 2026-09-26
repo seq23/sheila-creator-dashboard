@@ -1,5 +1,6 @@
 # Help screenshots (section 12c): Playwright walks every guide in help/index.json with demo data
-# (tests/e2e/seed-demo.sql, never her real content), draws the numbered callouts, and saves
+# (tests/e2e/seed-demo.sql + seed-help-extra.sql, never her real content; steps on other sites are
+# labelled illustrations from tests/e2e/help-mocks.ts), draws the numbered callouts, and saves
 # phone + desktop images to help/screenshots/. Runs on every release and on demand; when the
 # pictures changed it opens a pull request, so the next deploy ships guides that match the
 # screens. The images are bundled into the app at build time (app/lib/guides.ts).
@@ -24,8 +25,8 @@ permissions:
 jobs:
   run:
     runs-on: ubuntu-latest
-    # ~3 min of shots on a normal run; 20 min is a fault detector, never a budget.
-    timeout-minutes: 20
+    # ~7 min of shots (339 steps x phone + desktop); 30 min is a fault detector, never a budget.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -41,11 +42,8 @@ jobs:
           SESSION_SECRET: ci-session-secret
           SECRETS_KEY: 3Azr0CP6a687IwEqn9ZTM7gF9VgieHdcyXDvKd9Yo24=
           JOB_SHARED_SECRET: ci-job-secret
-      - name: Rule 0 — the run must have produced pictures
-        run: |
-          n=$(ls help/screenshots/*.png 2>/dev/null | wc -l)
-          echo "screenshots: $n"
-          test "$n" -gt 0
+      - name: Rule 0 — every step has its own picture (none missing, none shared by accident)
+        run: node scripts/validate.mjs help-pictures
       - uses: actions/upload-artifact@v4
         with:
           name: help-screenshots

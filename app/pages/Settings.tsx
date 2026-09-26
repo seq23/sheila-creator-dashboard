@@ -61,7 +61,7 @@ export function Settings() {
           <Skeleton blocks={3} />
           <Skeleton blocks={2} />
         </div>
-        <HelpButton guide="change-posts-per-week" />
+        <HelpButton guide="settings-and-switches" />
       </div>
     );
   const total = PLATFORMS.reduce((n, p) => n + draft.weekly_caps[p], 0);
@@ -192,7 +192,7 @@ export function Settings() {
           </section>
         </div>
       </div>
-      <HelpButton guide="change-posts-per-week" />
+      <HelpButton guide="settings-and-switches" />
     </div>
   );
 }

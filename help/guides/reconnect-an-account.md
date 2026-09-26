@@ -1,43 +1,42 @@
 ---
-title: "Reconnect an account"
+title: "Reconnect an app in Buffer (TikTok, Instagram or YouTube)"
 group: fix_it
-screen: connect
-last_checked: 2026-09-25
+screen: settings
+last_checked: 2026-09-26
+keywords: disconnected, reconnect, instagram disconnected, tiktok disconnected, buffer channel
 ---
 
-## What happened
+An app got disconnected inside Buffer. Its posts wait safely until you reconnect.
 
-TikTok, Instagram or YouTube got disconnected inside Buffer. Posts for that platform wait safely until it is back.
-
-## Step 1
+## Which app is red
 
 ![Step 1](/help/screenshots/reconnect-an-account-1.png)
+<!-- target: [data-health="Instagram (via Buffer)"] -->
 
-Open **Buffer** (publish.buffer.com) and log in.
+In **Settings**, the app's light says **Not working**.
 
-## Step 2
+## Tap Reconnect in Buffer
 
 ![Step 2](/help/screenshots/reconnect-an-account-2.png)
+<!-- mock: buffer-reconnect -->
 
-Tap **Channels** at the top.
+Open Buffer, **Channels**. Tap **Reconnect** on that app and log in.
 
-## Step 3
+## Waiting posts go out
 
 ![Step 3](/help/screenshots/reconnect-an-account-3.png)
+<!-- route: /calendar -->
+<!-- target: [data-post="demo_post_h2"] -->
 
-Find the platform with the warning and tap **Reconnect**. If you see **Resume** instead, the queue is paused: tap **Resume**.
+Back in the dashboard, posts that waited go out on the next hourly run.
 
-## Step 4
+## The light turns green
 
 ![Step 4](/help/screenshots/reconnect-an-account-4.png)
+<!-- light: Instagram (via Buffer) | green | Posting OK -->
+<!-- target: [data-health="Instagram (via Buffer)"] -->
 
-Log in to that platform on its own page and tap **Allow**.
-
-## Step 5
-
-![Step 5](/help/screenshots/reconnect-an-account-5.png)
-
-Back in the dashboard, open **Settings** and tap **Check everything now**. The light turns green.
+Tap **Check everything now** in **Settings**; the light turns green.
 
 ## Did this work?
 

@@ -6,6 +6,10 @@ import { defineConfig, devices } from "@playwright/test";
 // This suite runs the server in code mode (the email-code login, as on staging). The no-login
 // production mode has its own server and config: playwright.open.config.ts (npm run e2e:open).
 const STORAGE = "test-results/.auth/owner.json";
+// The help screenshots (every guide step, phone and desktop) are their own job: `npm run
+// help:screenshots` sets HELP_SHOTS=1 (e2e.yml job help-screenshots, job-help_screenshots.yml).
+// The rest of the suite leaves them out so it stays fast.
+const HELP = process.env.HELP_SHOTS ? [] : [/help-screenshots\.spec\.ts/];
 const PORT = Number(process.env.E2E_PORT ?? 8787); // E2E_PORT lets parallel worktrees each run the suite
 
 export default defineConfig({
@@ -33,7 +37,7 @@ export default defineConfig({
   },
   projects: [
     { name: "setup", testMatch: /auth\.setup\.ts/ },
-    { name: "phone", use: { ...devices["iPhone 13"], browserName: "chromium", storageState: STORAGE }, dependencies: ["setup"], testIgnore: [/auth\.setup\.ts/, /open-mode\.spec\.ts/] },
-    { name: "desktop", use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 820 }, storageState: STORAGE }, dependencies: ["setup"], testIgnore: [/auth\.setup\.ts/, /open-mode\.spec\.ts/] },
+    { name: "phone", use: { ...devices["iPhone 13"], browserName: "chromium", storageState: STORAGE }, dependencies: ["setup"], testIgnore: [/auth\.setup\.ts/, /open-mode\.spec\.ts/, ...HELP] },
+    { name: "desktop", use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 820 }, storageState: STORAGE }, dependencies: ["setup"], testIgnore: [/auth\.setup\.ts/, /open-mode\.spec\.ts/, ...HELP] },
   ],
 });

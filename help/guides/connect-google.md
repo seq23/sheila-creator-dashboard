@@ -1,41 +1,42 @@
 ---
-title: "Connect YouTube stats"
+title: "Google sign-in for YouTube (optional extra detail)"
 group: getting_started
-screen: connect
-last_checked: 2026-09-25
+screen: stats
+last_checked: 2026-09-26
+keywords: google, youtube, sign in, watch time, optional
+fix: reconnect-google
 ---
 
-## Step 1
+You never need this: your YouTube numbers are read without signing in. Signing in adds average watch time.
+
+## Tap Connect with Google
 
 ![Step 1](/help/screenshots/connect-google-1.png)
+<!-- route: /stats -->
+<!-- target: a[href="/api/oauth/google/start"] -->
 
-This is **optional extra detail**. Your numbers already show on **Stats** without signing in. Google may show an "unverified app" warning until the app is approved; that is expected.
+On **Stats**, under **Extra detail (optional)**, tap **Connect with Google (optional)**.
 
-In the dashboard, tap **Settings → Connections**.
-
-## Step 2
+## If Google shows a warning
 
 ![Step 2](/help/screenshots/connect-google-2.png)
+<!-- mock: google-unverified -->
 
-Next to **YouTube**, tap **Connect with Google**.
+Google may say it hasn't verified the app yet. That is expected: tap **Advanced**, then **Go to Sheila Studio**.
 
-## Step 3
+## Pick your account
 
 ![Step 3](/help/screenshots/connect-google-3.png)
+<!-- mock: google-account -->
 
-Google's own page opens. Pick the Google account that owns your YouTube channel.
+Pick the Google account that owns your YouTube channel.
 
-## Step 4
+## Tick both boxes and continue
 
 ![Step 4](/help/screenshots/connect-google-4.png)
+<!-- mock: google-consent -->
 
-Tick both boxes (view your YouTube account, view YouTube Analytics reports) and tap **Continue**. We can read stats only; we can't post.
-
-## Step 5
-
-![Step 5](/help/screenshots/connect-google-5.png)
-
-You come back to Connections and YouTube shows green with your channel name.
+Tick both boxes and tap **Continue**. It can read your numbers only; it can't post.
 
 ## Did this work?
 

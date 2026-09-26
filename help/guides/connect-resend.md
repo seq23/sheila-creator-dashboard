@@ -1,43 +1,43 @@
 ---
-title: "Set up email (Resend)"
+title: "Set up email (your helper does this)"
 group: getting_started
-screen: connect
-last_checked: 2026-09-25
+screen: settings
+last_checked: 2026-09-26
+keywords: email, resend, notifications, alerts
+fix: reconnect-resend
 ---
 
-## What happened
+Email is how the dashboard tells you clips are ready, a post failed, or it's time to film. Your helper sets it up once; you never need to see the key.
 
-Email is how the dashboard tells you clips are ready, a post failed, or it is time to film. Without it, check Home instead.
-
-## Step 1
+## Your helper makes a Resend key
 
 ![Step 1](/help/screenshots/connect-resend-1.png)
+<!-- mock: resend-key -->
 
-Open **Resend** (resend.com) and sign up for the free plan.
+Your helper opens **resend.com**, creates an API key with **Sending access** and saves it on the server.
 
-## Step 2
+## Optional: send from your own address
 
 ![Step 2](/help/screenshots/connect-resend-2.png)
+<!-- mock: resend-domains -->
 
-Tap **Domains** and add your website's domain, or skip this to use the default sender.
+Your helper can add your website's domain so emails come from your own address.
 
-## Step 3
+## Tap Check everything now
 
 ![Step 3](/help/screenshots/connect-resend-3.png)
+<!-- route: /settings -->
+<!-- target: role=button[name="Check everything now"] -->
 
-Tap **API Keys**, then **Create API key**. Give it Sending access and copy it.
+Open **Settings** and tap **Check everything now**.
 
-## Step 4
+## Email (Resend) is green
 
 ![Step 4](/help/screenshots/connect-resend-4.png)
+<!-- route: /settings -->
+<!-- target: [data-health="Email (Resend)"] -->
 
-Send the key to your helper, who sets it once as a server secret.
-
-## Step 5
-
-![Step 5](/help/screenshots/connect-resend-5.png)
-
-Open **Settings** and tap **Check everything now**. **Email (Resend)** turns green.
+**Email (Resend)** turns green. You're set.
 
 ## Did this work?
 

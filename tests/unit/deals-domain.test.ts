@@ -226,7 +226,8 @@ describe("help guides", () => {
     g.steps.forEach((s, i) => {
       expect(s.image).toBe(`/help/screenshots/${slug}-${i + 1}.png`);
       expect(s.blocks.length).toBeGreaterThan(0);
-      expect(s.route === "external" || !!s.target, `${slug} step ${i + 1} needs a target`).toBe(true);
+      expect(s.route, `${slug} step ${i + 1}: an external step must be a mock`).not.toBe("external");
+      expect(!!s.mock || !!s.target, `${slug} step ${i + 1} needs a target or a mock`).toBe(true);
     });
     expect(g.meta.last_checked).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(g.meta.screen && SCREEN_ROUTES[g.meta.screen]).toBeTruthy();
@@ -238,7 +239,7 @@ describe("help guides", () => {
     );
     expect(g.meta).toMatchObject({ title: "T", screen: "deals", target: 'role=button[name="Go"]', fix: "a-post-failed" });
     expect(g.steps.map((s) => s.title)).toEqual(["Open it", "Two"]);
-    expect(g.steps[0]).toMatchObject({ click: ".card", target: 'role=button[name="Go"]', route: null });
+    expect(g.steps[0]).toMatchObject({ clicks: [".card"], target: 'role=button[name="Go"]', route: null, mock: null, shared: false });
     expect(g.steps[1]).toMatchObject({ target: ".x", route: "/deals?tab=kit" });
     expect(g.steps[1].blocks[0]).toEqual({ kind: "ul", items: [[{ t: "text", v: "one" }], [{ t: "text", v: "two" }]] });
     expect(g.outro.length).toBe(1);

@@ -2,46 +2,47 @@
 title: "Connect Klap (optional)"
 group: getting_started
 screen: connect
-last_checked: 2026-09-25
-target: "role=textbox[name=\"Editor · Klap key\"]"
+last_checked: 2026-09-26
+keywords: klap, editor, editing app, optional
 fix: reconnect-klap
 ---
 
-Klap cuts your dumps into clips, or adds captions, instead of the built-in editor, using your Klap credits. Everything works
-without it.
+Klap adds captions to your clips using your Klap credits, instead of the built-in editor. Everything works without it.
 
-## Open Klap
+## Create a key in Klap
 
 ![Step 1](/help/screenshots/connect-klap-1.png)
-<!-- route: external -->
+<!-- mock: klap-api -->
 
-Go to [klap.app](https://klap.app) and log in. Open **REST API**.
-
-## Create a key and copy it
-
-![Step 2](/help/screenshots/connect-klap-2.png)
-<!-- route: external -->
-
-Create a key, name it **Sheila Studio**, and copy it.
+Log in at **klap.app** and open its API page (paid plans). Create a key named Sheila Studio and copy it.
 
 ## Paste it and tap Check key
 
-![Step 3](/help/screenshots/connect-klap-3.png)
+![Step 2](/help/screenshots/connect-klap-2.png)
 <!-- route: /settings/connections -->
 <!-- target: role=textbox[name="Editor · Klap key"] -->
 
-In the dashboard open **Settings**, then **Connections**, **Editing apps**. Paste the key in the
-**Klap** card and tap **Check key**.
+In the dashboard open **Settings**, then **Connect accounts**, **Editing apps**. Paste the key in the **Klap** card and tap **Check key**.
 
-## Pick it under Who edits
+## It turns green
+
+![Step 3](/help/screenshots/connect-klap-3.png)
+<!-- route: /settings/connections -->
+<!-- api: POST /api/connections/klap/key {"key":"good-klap-demo-key"} -->
+<!-- target: .card:has(h3:text-is("Klap")) -->
+
+The **Klap** card says it's connected and its light is green.
+
+## Pick Klap under Editing
 
 ![Step 4](/help/screenshots/connect-klap-4.png)
 <!-- route: /settings -->
-<!-- target: section[aria-label="Editing"] -->
+<!-- api: POST /api/connections/klap/key {"key":"good-klap-demo-key"} -->
+<!-- api: PATCH /api/editing {"editors":{"caption":"klap"}} -->
+<!-- target: #editor-caption -->
 
-Open **Settings**, then **Editing**, **Who edits**, and pick **Klap**.
+Open **Settings**, then **Editing**. Under **Captions**, pick **Klap**. Your next dump uses it.
 
 ## Did this work?
 
-The card says **Connected**. If it says the key is not valid, copy the whole key again. If your
-plan has no API access, Klap says so; the built-in editor keeps working.
+If not, tap **No** below and we'll open the matching fix-it guide or email your helper.

@@ -1,33 +1,37 @@
 ---
-title: "Reconnect TikTok stats"
+title: "TikTok numbers are old"
 group: fix_it
-screen: connect
-last_checked: 2026-09-25
+screen: stats
+last_checked: 2026-09-26
+keywords: tiktok, stats old, reconnect tiktok
+fix: upload-your-tiktok-export
 ---
 
-## What happened
+TikTok numbers come from the export you upload, so "reconnecting" means uploading a fresh one. Posting isn't affected.
 
-TikTok stats stopped updating. Posting to TikTok goes through Buffer and is not affected.
-
-TikTok stats come from the export you download from TikTok Studio (TikTok has not approved a direct connection yet), so "reconnecting" means uploading a fresh export.
-
-## Step 1
+## TikTok stats light
 
 ![Step 1](/help/screenshots/reconnect-tiktok-1.png)
+<!-- route: /settings -->
+<!-- light: TikTok stats | yellow | Your TikTok export is 35 days old -->
+<!-- target: [data-health="TikTok stats"] -->
 
-In the dashboard open **Settings**, then **Connect accounts**.
+In **Settings**, **TikTok stats** turns yellow when the export is more than a month old.
 
-## Step 2
+## Download a fresh export
 
 ![Step 2](/help/screenshots/reconnect-tiktok-2.png)
+<!-- mock: tiktok-zip -->
 
-Under **Stats · for research**, find **TikTok** and tap **Upload TikTok export**.
+Download a new file from TikTok Studio (see **Upload your TikTok export**).
 
-## Step 3
+## Upload it
 
 ![Step 3](/help/screenshots/reconnect-tiktok-3.png)
+<!-- route: /stats -->
+<!-- target: role=button[name="Upload TikTok export"] -->
 
-Follow the **Upload your TikTok export** guide: download the export in TikTok Studio, then choose the file here. The numbers update within a few minutes.
+On **Stats**, tap **Upload TikTok export**.
 
 ## Did this work?
 

@@ -1,43 +1,35 @@
 ---
-title: "Reconnect YouTube stats"
+title: "Reconnect the Google sign-in (optional)"
 group: fix_it
 screen: connect
-last_checked: 2026-09-25
+last_checked: 2026-09-26
+keywords: google, youtube, sign in expired, reconnect
+fix: your-youtube-numbers
 ---
 
-## What happened
+The optional Google sign-in expired. Your YouTube numbers keep working without it.
 
-YouTube stats stopped updating, so research and your media kit use the last numbers we had.
-
-## Step 1
+## Tap Connect with Google
 
 ![Step 1](/help/screenshots/reconnect-google-1.png)
+<!-- route: /settings/connections -->
+<!-- target: a[href="/api/oauth/google/start"] -->
 
-In the dashboard open **Settings**, then **Connect accounts**.
+On **Settings**, **Connect accounts**, tap **Connect with Google**.
 
-## Step 2
+## Pick your account
 
 ![Step 2](/help/screenshots/reconnect-google-2.png)
+<!-- mock: google-account -->
 
-Under **Stats · for research**, find **YouTube** and tap **Reconnect**.
+Pick the Google account that owns your channel.
 
-## Step 3
+## Continue
 
 ![Step 3](/help/screenshots/reconnect-google-3.png)
+<!-- mock: google-consent -->
 
-Log in to Google on its own page.
-
-## Step 4
-
-![Step 4](/help/screenshots/reconnect-google-4.png)
-
-Pick your YouTube channel and tap **Allow**.
-
-## Step 5
-
-![Step 5](/help/screenshots/reconnect-google-5.png)
-
-Back in the dashboard, check that YouTube says **Numbers updated** with today's date.
+Tick both boxes and tap **Continue**.
 
 ## Did this work?
 

@@ -2,42 +2,44 @@
 title: "Reconnect web research (Firecrawl)"
 group: fix_it
 screen: connect
-last_checked: 2026-09-25
+last_checked: 2026-09-26
+keywords: web research (firecrawl), reconnect, key, not working, red
+fix: connect-firecrawl
 ---
 
-## What happened
+The Firecrawl key stopped working or its credits ran out. Research keeps working with the free search meanwhile.
 
-The web research key stopped working, so the research brief cannot search the web.
-
-## Step 1
+## The card says what's wrong
 
 ![Step 1](/help/screenshots/reconnect-firecrawl-1.png)
+<!-- api: POST /api/connections/firecrawl/key {"key":"bad-key-help-demo"} -->
+<!-- target: .card:has(h3:text-is("Firecrawl")) -->
 
-Open **Firecrawl** (firecrawl.dev) and log in.
+Open **Settings**, **Connect accounts**. The **Firecrawl** card says the key isn't working.
 
-## Step 2
+## Check the credits, or copy the key again
 
 ![Step 2](/help/screenshots/reconnect-firecrawl-2.png)
+<!-- mock: firecrawl-usage -->
 
-Tap **API Keys** on the left.
+Log in to Firecrawl. Check the credits, or copy the key again, then copy the key.
 
-## Step 3
+## Paste the new key
 
 ![Step 3](/help/screenshots/reconnect-firecrawl-3.png)
+<!-- api: POST /api/connections/firecrawl/key {"key":"bad-key-help-demo"} -->
+<!-- target: role=textbox[name="Web research · Firecrawl key"] -->
 
-Copy your key. If you have used all your free credits, the reset date is shown there.
+Tap **Disconnect** if you see it, paste the new key and tap **Check key**.
 
-## Step 4
+## The light turns green
 
 ![Step 4](/help/screenshots/reconnect-firecrawl-4.png)
+<!-- route: /settings -->
+<!-- api: POST /api/connections/firecrawl/key {"key":"good-demo-firecrawl"} -->
+<!-- target: [data-health="firecrawl"] -->
 
-In the dashboard open **Settings**, then **Connect accounts**.
-
-## Step 5
-
-![Step 5](/help/screenshots/reconnect-firecrawl-5.png)
-
-Under **Firecrawl**, paste the key and tap **Check key**.
+The card turns green, and so does its light on **Settings**.
 
 ## Did this work?
 

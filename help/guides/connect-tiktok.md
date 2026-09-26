@@ -1,27 +1,36 @@
 ---
-title: "Connect TikTok stats"
+title: "TikTok numbers (from your TikTok export)"
 group: getting_started
 screen: connect
-last_checked: 2026-09-25
+last_checked: 2026-09-26
+keywords: tiktok, stats, numbers, export
+fix: upload-your-tiktok-export
 ---
 
-## Step 1
+TikTok doesn't let other apps read your numbers, so they come from the file TikTok Studio gives you. Posting to TikTok goes through Buffer and isn't affected.
+
+## Find Upload TikTok export
 
 ![Step 1](/help/screenshots/connect-tiktok-1.png)
+<!-- route: /settings/connections -->
+<!-- target: a.btn[href="/stats"]:has-text("Upload TikTok export") -->
 
-TikTok has not approved a direct stats connection for this dashboard, so TikTok numbers come from the file TikTok gives you.
+On **Settings**, **Connect accounts**, under **Stats · no sign-in needed**, tap **Upload TikTok export**. It opens Stats.
 
-## Step 2
+## Download it from TikTok Studio
 
 ![Step 2](/help/screenshots/connect-tiktok-2.png)
+<!-- mock: tiktok-studio -->
 
-In **Settings → Connections**, next to **TikTok**, tap **Upload TikTok export**. It opens Stats.
+Open **TikTok Studio** on a computer, then **Analytics**. The guide **Upload your TikTok export** walks you through it.
 
-## Step 3
+## Upload it once a month
 
 ![Step 3](/help/screenshots/connect-tiktok-3.png)
+<!-- route: /stats -->
+<!-- target: section:has(#learn-h) -->
 
-Follow **Upload your TikTok export** to download the file from TikTok Studio and upload it. Do this once a month.
+Upload the file on **Stats**. Once a month keeps your numbers fresh.
 
 ## Did this work?
 

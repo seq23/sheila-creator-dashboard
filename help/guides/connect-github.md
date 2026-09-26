@@ -1,43 +1,36 @@
 ---
-title: "The job runner (GitHub)"
+title: "The job runner (your helper does this)"
 group: getting_started
-screen: connect
-last_checked: 2026-09-25
+screen: settings
+last_checked: 2026-09-26
+keywords: github, job runner, jobs, cutting
+fix: reconnect-github
 ---
 
-## What happened
+The job runner is the free service that cuts your clips, reads your documents and writes research. Your helper sets it up once.
 
-The job runner is GitHub Actions. It cuts your clips, reads your documents and writes research, for free.
-
-## Step 1
+## Your helper makes a job token
 
 ![Step 1](/help/screenshots/connect-github-1.png)
+<!-- mock: github-token -->
 
-Your helper sets this up once, as part of the setup session.
+Your helper creates a token in GitHub for this dashboard only and saves it on the server.
 
-## Step 2
+## The job runner light
 
 ![Step 2](/help/screenshots/connect-github-2.png)
+<!-- route: /settings -->
+<!-- target: [data-health="Job runner (GitHub)"] -->
 
-They create a job token in GitHub (Settings, Developer settings, Fine-grained tokens) for this dashboard only.
+Open **Settings**. **Job runner (GitHub)** is green when it's working.
 
-## Step 3
+## It shows on Home too
 
 ![Step 3](/help/screenshots/connect-github-3.png)
+<!-- route: / -->
+<!-- target: .home-health -->
 
-They save it as a server secret. You never need to see it.
-
-## Step 4
-
-![Step 4](/help/screenshots/connect-github-4.png)
-
-Open **Settings** and tap **Check everything now**.
-
-## Step 5
-
-![Step 5](/help/screenshots/connect-github-5.png)
-
-Check that **Job runner (GitHub)** is green.
+Home's **Health** card shows the same lights, worst first.
 
 ## Did this work?
 

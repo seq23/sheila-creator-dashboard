@@ -2,42 +2,43 @@
 title: "I didn't get an email"
 group: fix_it
 screen: settings
-last_checked: 2026-09-25
+last_checked: 2026-09-26
+keywords: no email, didn't get email, spam, notifications
+fix: reconnect-resend
 ---
 
-## What happened
+An email from the dashboard didn't arrive. Home still shows everything, so nothing is missed.
 
-An email from the dashboard did not arrive. The dashboard still shows everything on Home, so nothing is missed.
-
-## Step 1
+## Check spam
 
 ![Step 1](/help/screenshots/i-didnt-get-an-email-1.png)
+<!-- mock: email-spam -->
 
-Check your spam or junk folder for mail from the dashboard, and mark it **Not spam**.
+Look in your spam or junk folder and mark it **Not spam**.
 
-## Step 2
+## Check the address
 
 ![Step 2](/help/screenshots/i-didnt-get-an-email-2.png)
+<!-- route: /settings -->
+<!-- target: #emails -->
 
-Open **Settings** and check the address under **Emails go to**. Fix it and tap **Save** if it is wrong.
+In **Settings**, check **Emails go to**. Fix it and tap **Save**.
 
-## Step 3
+## Check the Email light
 
 ![Step 3](/help/screenshots/i-didnt-get-an-email-3.png)
+<!-- route: /settings -->
+<!-- target: [data-health="Email (Resend)"] -->
 
-Look at **Email (Resend)** under **Connections + health**. If it is red, tap **How to fix**.
+**Email (Resend)** should be green. If it's red, tap **How to fix**.
 
-## Step 4
+## Still nothing? Email your helper
 
 ![Step 4](/help/screenshots/i-didnt-get-an-email-4.png)
+<!-- route: /help -->
+<!-- target: .stuck -->
 
-Tap **Check everything now** and wait for the lights to update.
-
-## Step 5
-
-![Step 5](/help/screenshots/i-didnt-get-an-email-5.png)
-
-If everything is green and mail still does not arrive, tap **No** below to email your helper.
+Open **Help** and tap **Email my helper**.
 
 ## Did this work?
 

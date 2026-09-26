@@ -57,6 +57,98 @@ export function clearDemo() {
   d1(["--command", clean]);
 }
 
+const EXTRA = path.join("tests", "e2e", "seed-help-extra.sql");
+const LIGHTS = path.join("tests", "e2e", "seed-help-lights.sql");
+
+/** A seed file's own clean-up block (everything before the first INSERT). */
+function cleanupOf(file: string): string {
+  const text = readFileSync(path.join(ROOT, file), "utf8");
+  return text
+    .slice(0, text.indexOf("INSERT"))
+    .split("\n")
+    .filter((l) => l.trim() && !l.startsWith("--"))
+    .join(" ");
+}
+const BUCKET = "sheila-creator-dashboard-files";
+
+/** The services the help pictures show as connected (fake keys, FAKE_SERVICES=1). */
+export const HELP_CONNECTED: Record<string, string> = {
+  buffer: "good-key-e2e-000",
+  openrouter: "good-demo-openrouter",
+  elevenlabs: "good-demo-creator",
+};
+
+/**
+ * The help screenshots' base state on top of seedDemo(): the connections a set-up dashboard has
+ * (through the real Connect routes, so the cards and lights are the app's own), her typed
+ * Instagram numbers, an inbound offer read by the real offer reader, then the extra rows in
+ * seed-help-extra.sql (applied last, so its health board is what the screens show).
+ */
+export async function seedHelpBaseline(request: APIRequestContext) {
+  for (const [service, key] of Object.entries(HELP_CONNECTED)) {
+    const r = await request.post(`/api/connections/${service}/key`, { data: { key } });
+    if (!r.ok()) throw new Error(`demo: could not connect ${service}: ${r.status()}`);
+  }
+  const ig = await request.post("/api/stats/instagram-numbers", { data: { followers: 8200, avg_reach: 1900 } });
+  if (!ig.ok()) throw new Error(`demo: Instagram numbers refused: ${ig.status()}`);
+  d1(["--file", EXTRA]);
+  d1(["--file", LIGHTS]);
+  d1(["--command", helpPostsSql(new Date())]);
+  const offer = await request.post("/api/deals/deals/demo_deal_4/offer", {
+    data: {
+      text: "Hi Sheila! We love your table styling videos. We'd like 2 TikTok videos and 1 Instagram Reel featuring our new linen napkins for our holiday launch. Our budget is $600 total. We'd need usage rights in perpetuity across all our channels including paid ads, and exclusivity in home textiles for 6 months. Payment is net 90 after posting. Can you post by Oct 20? Best, Priya, Linen & Laurel",
+    },
+  });
+  if (!offer.ok()) throw new Error(`demo: offer reader refused: ${offer.status()}`);
+}
+
+/**
+ * Today's week on the Calendar for the help pictures: one post that went out (with its link), one
+ * that failed, one waiting in Buffer and one planned, all today between 14:00 and 21:00 UTC so they
+ * sit on today in any US time zone whatever day the job runs.
+ */
+export function helpPostsSql(now: Date): string {
+  const at = (hour: number) => {
+    const d = new Date(now);
+    d.setUTCHours(hour, 0, 0, 0);
+    return d.toISOString();
+  };
+  const rows: [string, string, string, number, string, string | null, string | null][] = [
+    ["demo_post_h1", "demo_clip_1", "youtube", 14, "posted", "https://www.youtube.com/shorts/demoyt00001", null],
+    ["demo_post_h2", "demo_clip_6", "instagram", 16, "failed", null, "Instagram did not accept the video. Instagram is disconnected inside Buffer: reconnect it there."],
+    ["demo_post_h3", "demo_clip_7", "tiktok", 18, "in_buffer", null, null],
+    ["demo_post_h4", "demo_clip_8", "tiktok", 21, "planned", null, null],
+  ];
+  const q = (v: string | null) => (v === null ? "NULL" : `'${v.replace(/'/g, "''")}'`);
+  return rows
+    .map(([id, clip, platform, hour, status, url, error]) => `INSERT OR REPLACE INTO posts (id, clip_id, platform, scheduled_at, status, url, error, posted_at) VALUES (${q(id)}, ${q(clip)}, ${q(platform)}, ${q(at(hour))}, ${q(status)}, ${q(url)}, ${q(error)}, ${status === "posted" ? q(at(hour)) : "NULL"});`)
+    .join(" ");
+}
+
+/** After a guide changed a connection or a light: the base connections and health board again. */
+export async function restoreHelpLights(request: APIRequestContext) {
+  for (const [service, key] of Object.entries(HELP_CONNECTED)) await request.post(`/api/connections/${service}/key`, { data: { key } });
+  await request.patch("/api/editing", { data: { editors: { cut_from_source: "built-in", caption: "built-in", enhance: "built-in" } } });
+  d1(["--file", LIGHTS]);
+}
+
+/** One health light as a step describes it (`<!-- light: Name | red | note -->`). */
+export function setLight(name: string, light: string, note: string) {
+  const q = (v: string) => `'${v.replace(/'/g, "''")}'`;
+  d1(["--command", `INSERT OR REPLACE INTO health (name, light, note, fix_guide, checked_at) VALUES (${q(name)}, ${q(light)}, ${q(note)}, (SELECT fix_guide FROM health WHERE name = ${q(name)}), '2026-09-26T04:00:00.000Z');`]);
+}
+
+/** Puts back what seedHelpBaseline changed (seedDemo's own clean-up runs in clearDemo). */
+export async function clearHelpBaseline(request: APIRequestContext) {
+  for (const s of Object.keys(HELP_CONNECTED)) await request.post(`/api/connections/${s}/disconnect`);
+  d1(["--command", `${cleanupOf(EXTRA)} ${cleanupOf(LIGHTS)} DELETE FROM connections WHERE service IN ('buffer', 'openrouter', 'elevenlabs'); DELETE FROM health WHERE name IN ('buffer', 'openrouter', 'elevenlabs', 'Voice · ElevenLabs');`]);
+}
+
+/** Store a file in the local R2 bucket the e2e Worker serves (covers for the demo clips). */
+export function putObject(key: string, file: string, contentType: string) {
+  execFileSync("npx", ["wrangler", "r2", "object", "put", `${BUCKET}/${key}`, "--local", "--file", file, "--content-type", contentType], { cwd: ROOT, stdio: "pipe", env: { ...process.env, CI: "1" } });
+}
+
 export async function setVoice(request: APIRequestContext, on: boolean) {
   const r = await request.patch("/api/settings", { data: { features: { voice: on } } });
   if (!r.ok()) throw new Error(`could not switch voice ${on ? "on" : "off"}: ${r.status()}`);

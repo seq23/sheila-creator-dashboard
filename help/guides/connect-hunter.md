@@ -1,50 +1,46 @@
 ---
-title: "Connect Hunter (optional)"
+title: "Connect Hunter for brand emails (optional)"
 group: getting_started
 screen: connect
-last_checked: 2026-09-25
-target: "role=textbox[name=\"Brand deals · Hunter.io key\"]"
+last_checked: 2026-09-26
+keywords: hunter, brand email, contact, optional
 fix: reconnect-hunter
 ---
 
-Hunter helps the brand finder find public business emails like partnerships@ on a brand's
-website. It is optional and free: 50 lookups a month. It never looks up personal addresses.
+Optional. Hunter helps the brand finder find public business emails like partnerships@ on a brand's website. It never looks up personal addresses.
 
 ## Make a free Hunter account
 
 ![Step 1](/help/screenshots/connect-hunter-1.png)
-<!-- route: external -->
+<!-- mock: hunter-sign-up -->
 
-Go to [hunter.io](https://hunter.io) and tap **Sign up**. Use your own email. The free plan is
-all you need.
+Open **hunter.io** and tap **Sign up**. The free plan (50 searches a month) is all you need.
 
 ## Copy your key
 
 ![Step 2](/help/screenshots/connect-hunter-2.png)
-<!-- route: external -->
+<!-- mock: hunter-api -->
 
-In Hunter, open your name at the top right, then **API**. Tap the copy button next to your
-key.
+In Hunter, open **API** and tap copy next to your key.
 
-## Paste it in the dashboard
+## Paste it and tap Check key
 
 ![Step 3](/help/screenshots/connect-hunter-3.png)
 <!-- route: /settings/connections -->
+<!-- api: POST /api/connections/hunter/disconnect -->
 <!-- target: role=textbox[name="Brand deals · Hunter.io key"] -->
 
-In the dashboard, open **Settings**, then **Connections**. Scroll to **Brand deals · optional**,
-find the **Hunter.io** card and paste the key into the box.
+In the dashboard open **Settings**, then **Connect accounts**. Find **Hunter.io**, paste the key and tap **Check key**.
 
-## Tap Check key
+## It turns green
 
 ![Step 4](/help/screenshots/connect-hunter-4.png)
 <!-- route: /settings/connections -->
-<!-- target: .card:has-text("Hunter.io") >> role=button[name="Check key"] -->
+<!-- api: POST /api/connections/hunter/key {"key":"good-demo-hunter"} -->
+<!-- target: .card:has(h3:text-is("Hunter.io")) -->
 
-Tap **Check key**. A green light and **credits left this month** mean it worked. The finder
-uses it on its next Monday run.
+The card turns green with the searches left this month. The finder uses it on its next run.
 
 ## Did this work?
 
-If it says the key is not valid, copy it again from Hunter's **API** page and paste the whole
-key.
+If not, tap **No** below and we'll open the matching fix-it guide or email your helper.

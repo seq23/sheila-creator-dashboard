@@ -281,7 +281,7 @@ export function Stats() {
           </section>
         </>
       ) : null}
-      <HelpButton guide="upload-your-tiktok-export" />
+      <HelpButton guide="read-your-stats" />
     </div>
   );
 }

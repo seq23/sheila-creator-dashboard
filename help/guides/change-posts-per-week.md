@@ -2,44 +2,31 @@
 title: "Change posts per week"
 group: everyday
 screen: settings
-last_checked: 2026-09-25
+last_checked: 2026-09-26
+keywords: how many posts, posts per week, more posts, fewer posts, limit
 ---
 
-## Step 1
+## Tap + or −
 
 ![Step 1](/help/screenshots/change-posts-per-week-1.png)
+<!-- target: role=button[name="More TikTok posts per week"] -->
 
-Tap **Settings** in the menu.
+Open **Settings**. Under **Posting**, tap **+** or **−** for each app. It saves on its own.
 
-## Step 2
+## Up to 10 a week per app
 
 ![Step 2](/help/screenshots/change-posts-per-week-2.png)
+<!-- target: .card:has(button[aria-label="More TikTok posts per week"]) -->
 
-Under **Posting**, find the platform you want to change.
+Each app goes up to 10 posts a week, never more. Raise one only if you have enough clips (see your runway on Home).
 
-## Step 3
+## Use the new numbers now
 
 ![Step 3](/help/screenshots/change-posts-per-week-3.png)
+<!-- route: /calendar -->
+<!-- target: .cal-bar -->
 
-Tap **+** or **−**. Each platform can go up to 10 posts a week, never more.
-
-## Step 4
-
-![Step 4](/help/screenshots/change-posts-per-week-4.png)
-
-The change saves on its own. You see "Saved" at the bottom.
-
-## Step 5
-
-![Step 5](/help/screenshots/change-posts-per-week-5.png)
-
-Open **Calendar** and tap **Fill the calendar** to use the new numbers right away. Otherwise the hourly run does it.
-
-## Step 6
-
-![Step 6](/help/screenshots/change-posts-per-week-6.png)
-
-Raise Instagram or YouTube only if its reach held up for two weeks in a row and you have enough clips (see **What runway means**).
+Open **Calendar** and tap **Fill the calendar** to use the new numbers right away.
 
 ## Did this work?
 

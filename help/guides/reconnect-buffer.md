@@ -2,48 +2,44 @@
 title: "Reconnect Buffer"
 group: fix_it
 screen: connect
-last_checked: 2026-09-25
+last_checked: 2026-09-26
+keywords: buffer, reconnect, key, not working, red
+fix: connect-buffer
 ---
 
-## What happened
+Buffer stopped accepting the dashboard's key. Planned posts wait safely.
 
-Buffer stopped accepting the dashboard's key, so nothing new goes to Buffer. Planned posts wait safely.
-
-## Step 1
+## The card says what's wrong
 
 ![Step 1](/help/screenshots/reconnect-buffer-1.png)
+<!-- api: POST /api/connections/buffer/key {"key":"bad-key-help-demo"} -->
+<!-- target: .card:has(h3:text-is("Buffer")) -->
 
-Open **Buffer** (publish.buffer.com) and log in.
+Open **Settings**, **Connect accounts**. The **Buffer** card says the key isn't working.
 
-## Step 2
+## Delete the old key and create a new one
 
 ![Step 2](/help/screenshots/reconnect-buffer-2.png)
+<!-- mock: buffer-new-key -->
 
-Tap your picture, then **Settings**, then **API**.
+Log in to Buffer. Delete the old key and create a new one, then copy the key.
 
-## Step 3
+## Paste the new key
 
 ![Step 3](/help/screenshots/reconnect-buffer-3.png)
+<!-- api: POST /api/connections/buffer/key {"key":"bad-key-help-demo"} -->
+<!-- target: role=textbox[name="Posting · Buffer key"] -->
 
-Tap **Create key**, name it Dashboard, and tap **Copy**.
+Tap **Disconnect** if you see it, paste the new key and tap **Check key**.
 
-## Step 4
+## The light turns green
 
 ![Step 4](/help/screenshots/reconnect-buffer-4.png)
+<!-- route: /settings -->
+<!-- api: POST /api/connections/buffer/key {"key":"good-key-e2e-000"} -->
+<!-- target: [data-health="Buffer"] -->
 
-In the dashboard open **Settings** and tap **Connect accounts**.
-
-## Step 5
-
-![Step 5](/help/screenshots/reconnect-buffer-5.png)
-
-Under **Posting · Buffer**, tap **Disconnect** if you see it, then paste the new key and tap **Check key**.
-
-## Step 6
-
-![Step 6](/help/screenshots/reconnect-buffer-6.png)
-
-Check that TikTok, Instagram and YouTube show under **Channels we found in your Buffer**.
+The card turns green, and so does its light on **Settings**.
 
 ## Did this work?
 

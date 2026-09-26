@@ -9,7 +9,19 @@
 // Per step, optional HTML comments steer the screenshot job and are never shown:
 //   <!-- target: selector -->   circle this element for this step
 //   <!-- route: /path -->        open this route for this step (default: the guide's screen)
-//   <!-- click: selector -->     click this first (e.g. open a card), then take the shot
+//   <!-- click: selector -->     click this first (e.g. open a card), then take the shot; several
+//                                run in order
+//   <!-- fill: selector => text -->  type this into a field before the shot (e.g. a search)
+//   <!-- api: METHOD /api/path {json} -->  put the app in the state the step describes through
+//                                its own API (e.g. a key refused), before the shot
+//   <!-- mock: name -->          a step on another site (Buffer, TikTok Studio, the Instagram app):
+//                                a clearly labelled illustration from tests/e2e/help-mocks.ts, never
+//                                a screenshot of a real account
+//   <!-- light: Name | red | note -->  set one health light for this step (e.g. a red row to fix)
+//   <!-- shared -->              this picture is deliberately the same as another step's
+// Every step is pictured: a target on the app's screen, a mock frame, or a Look's own picture
+// (validator help-pictures; the screenshot job fails a step whose target is not on screen).
+// Frontmatter may add `keywords:` (comma-separated words she might search for).
 
 export type Inline = { t: "text"; v: string } | { t: "bold"; v: string } | { t: "code"; v: string } | { t: "link"; v: string; href: string };
 export type Block = { kind: "p"; inline: Inline[] } | { kind: "ul" | "ol"; items: Inline[][] };
@@ -21,6 +33,7 @@ export interface GuideMeta {
   last_checked: string | null;
   target: string | null;
   fix: string | null;
+  keywords: string[];
 }
 
 export interface GuideStep {
@@ -29,7 +42,12 @@ export interface GuideStep {
   blocks: Block[];
   target: string | null;
   route: string | null;
-  click: string | null;
+  clicks: string[];
+  fills: { selector: string; text: string }[];
+  api: string[];
+  mock: string | null;
+  lights: { name: string; light: string; note: string }[];
+  shared: boolean;
 }
 
 export interface ParsedGuide {
@@ -117,12 +135,17 @@ function blocks(lines: string[]): Block[] {
   return out;
 }
 
-function directive(lines: string[], name: string): string | null {
+function directives(lines: string[], name: string): string[] {
+  const out: string[] = [];
   for (const l of lines) {
     const m = new RegExp(`^<!--\\s*${name}:\\s*(.+?)\\s*-->$`).exec(l.trim());
-    if (m) return m[1];
+    if (m) out.push(m[1]);
   }
-  return null;
+  return out;
+}
+
+function directive(lines: string[], name: string): string | null {
+  return directives(lines, name)[0] ?? null;
 }
 
 export function parseGuide(src: string): ParsedGuide {
@@ -134,6 +157,10 @@ export function parseGuide(src: string): ParsedGuide {
     last_checked: data.last_checked || null,
     target: data.target || null,
     fix: data.fix || null,
+    keywords: (data.keywords ?? "")
+      .split(",")
+      .map((k) => k.trim().toLowerCase())
+      .filter(Boolean),
   };
   const sections: { title: string | null; lines: string[] }[] = [{ title: null, lines: [] }];
   for (const line of body.split(/\r?\n/)) {
@@ -162,10 +189,21 @@ export function parseGuide(src: string): ParsedGuide {
       blocks: blocks(rest),
       target: directive(s.lines, "target") ?? meta.target,
       route: directive(s.lines, "route"),
-      click: directive(s.lines, "click"),
+      clicks: directives(s.lines, "click"),
+      fills: directives(s.lines, "fill").map((f) => {
+        const [selector, ...text] = f.split("=>");
+        return { selector: selector.trim(), text: text.join("=>").trim() };
+      }),
+      api: directives(s.lines, "api"),
+      mock: directive(s.lines, "mock"),
+      lights: directives(s.lines, "light").map((l) => {
+        const [name, light, ...note] = l.split("|").map((x) => x.trim());
+        return { name, light, note: note.join("|") };
+      }),
+      shared: s.lines.some((l) => /^<!--\s*shared\s*-->$/.test(l.trim())),
     });
   }
-  const text = [meta.title, ...steps.map((s) => s.title), ...[...intro, ...steps.flatMap((s) => s.blocks)].map(blockText)].join(" ").replace(/\s+/g, " ").toLowerCase();
+  const text = [meta.title, ...meta.keywords, ...steps.map((s) => s.title), ...[...intro, ...steps.flatMap((s) => s.blocks)].map(blockText)].join(" ").replace(/\s+/g, " ").toLowerCase();
   return { meta, intro, steps, outro, text };
 }
 
