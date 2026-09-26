@@ -182,16 +182,16 @@ export function Home() {
               </div>
               {data.followups.length === 0 ? (
                 <Empty title="No follow-ups due" secondary={{ to: "/deals", label: "Open Deals" }}>
-                  Pitches you send from Deals show up here on day 5 and day 12, so no brand goes quiet on you.
+                  Pitches you send from Deals show up here on day 5, 12 and 19, so no brand goes quiet on you.
                 </Empty>
               ) : (
                 <Card className="flat">
                   <div className="list">
                     {data.followups.map((f) => (
-                      <Link key={f.dealId} to="/deals" className="list-row">
+                      <Link key={f.dealId} to={`/deals?deal=${f.dealId}`} className="list-row">
                         <div className="grow">
                           <div className="title">{f.brand}</div>
-                          <div className="meta">Follow up {fmtDate(f.dueAt)}</div>
+                          <div className="meta">{f.what} · {fmtDate(f.dueAt)}</div>
                         </div>
                         <span className="pill warn">Due</span>
                       </Link>
