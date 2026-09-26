@@ -23,6 +23,8 @@ import { ADDON_BASIS, DELIVERABLES, engagementRate, packageLabel, suggestPackage
 import { bucketByTime, learningReady, rankRecipes } from "../domain/learning";
 import { loadObservations } from "../jobs/metrics";
 import { qrSvg } from "../domain/qr";
+// Someone else's video (watermark check) never reaches her public kit: same rule as the calendar.
+import { POSTABLE_CLIP_SQL } from "../domain/sourceCheck";
 import { readSettings } from "./settings";
 
 export const mediakit = new Hono<{ Bindings: Env; Variables: Vars }>();
@@ -176,7 +178,7 @@ export function kitUrl(env: Env, slug: string): string {
 async function showcaseClips(env: Env, ids: string[]): Promise<PublicKit["showcase"]> {
   const out: PublicKit["showcase"] = [];
   for (const id of ids) {
-    const c = await env.DB.prepare("SELECT id, hook_text, media_token, cover_r2_key FROM clips WHERE id = ? AND status = 'approved' AND media_token IS NOT NULL").bind(id).first<{ id: string; hook_text: string; media_token: string; cover_r2_key: string | null }>();
+    const c = await env.DB.prepare(`SELECT c.id, c.hook_text, c.media_token, c.cover_r2_key FROM clips c WHERE c.id = ? AND ${POSTABLE_CLIP_SQL} AND c.media_token IS NOT NULL`).bind(id).first<{ id: string; hook_text: string; media_token: string; cover_r2_key: string | null }>();
     if (c) out.push({ id: c.id, hook: c.hook_text, mediaUrl: `/media/${c.media_token}`, coverUrl: c.cover_r2_key ? `/media/${c.media_token}?cover=1` : null });
   }
   return out;
@@ -218,7 +220,7 @@ export async function buildPublicKit(env: Env, k: KitContent, slug: string, vers
 }
 
 async function approvedClipIds(env: Env): Promise<string[]> {
-  const { results } = await env.DB.prepare("SELECT id FROM clips WHERE status = 'approved' AND media_token IS NOT NULL ORDER BY score DESC, created_at DESC LIMIT 60").all<{ id: string }>();
+  const { results } = await env.DB.prepare(`SELECT c.id FROM clips c WHERE ${POSTABLE_CLIP_SQL} AND c.media_token IS NOT NULL ORDER BY c.score DESC, c.created_at DESC LIMIT 60`).all<{ id: string }>();
   return results.map((r) => r.id);
 }
 
@@ -268,7 +270,7 @@ async function ownerView(env: Env, ownerEmail: string) {
   const followers = await followersByPlatform(env);
   const own = await ownFeesByDeliverable(env, draft);
   const { results: clips } = await env.DB.prepare(
-    "SELECT id, hook_text, score, media_token, cover_r2_key FROM clips WHERE status = 'approved' AND media_token IS NOT NULL ORDER BY score DESC, created_at DESC LIMIT 40",
+    `SELECT c.id, c.hook_text, c.score, c.media_token, c.cover_r2_key FROM clips c WHERE ${POSTABLE_CLIP_SQL} AND c.media_token IS NOT NULL ORDER BY c.score DESC, c.created_at DESC LIMIT 40`,
   ).all<{ id: string; hook_text: string; score: number; media_token: string; cover_r2_key: string | null }>();
   return {
     draft,
