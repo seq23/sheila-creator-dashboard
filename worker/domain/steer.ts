@@ -6,7 +6,7 @@
 // Precedence, per control: a video's own note (for that video's clips) > a chip she tapped > the
 // dump's note > surprise (the built-in variety). A clash is said, never guessed away.
 import { PLATFORMS, RECIPES, type Platform, type Recipe } from "@shared/constants";
-import { CAPTION_CHOICES, CAPTION_LABEL, LENGTHS, MAX_COUNT, PACES, STEER_KEYS, type CaptionChoice, type Length, type NotFollowed, type Pace, type SteerControls, type Understood } from "@shared/steer";
+import { CAPTION_CHOICES, CAPTION_LABEL, LENGTHS, MAX_COUNT, PACES, STEER_KEYS, VOICE_CHOICES, VOICE_LABEL, type VoiceChoice, type CaptionChoice, type Length, type NotFollowed, type Pace, type SteerControls, type Understood } from "@shared/steer";
 import { GRIDS, LOOKS, LOOK_IDS, isGridLook, isLookId, lookById, type LookId, type ResolvedLook } from "./looks";
 
 export interface Track {
@@ -51,6 +51,7 @@ export function cleanControls(input: unknown, tracks: readonly Track[]): { contr
     const p = PLATFORMS.filter((x) => (v.platforms as unknown[]).includes(x));
     if (p.length) out.platforms = p;
   }
+  if (typeof v.voice === "string" && (VOICE_CHOICES as readonly string[]).includes(v.voice)) out.voice = v.voice as VoiceChoice;
   const words = (x: unknown) => (Array.isArray(x) ? [...new Set(x.filter((w): w is string => typeof w === "string").map((w) => w.trim().slice(0, 60)).filter((w) => w.length >= 2))].slice(0, 8) : []);
   const inc = words(v.include);
   const avo = words(v.avoid);
@@ -208,10 +209,16 @@ export function parseNotes(text: string, tracks: readonly Track[]): Understood {
     delete c.platforms;
   }
 
+  // voice over (her cloned voice on the clips with no talking; worker/domain/autoVoice.ts)
+  const VO = String.raw`voice[- ]?overs?|narration|narrating`;
+  if (new RegExp(String.raw`\b(?:no|without(?: a| any)?|skip(?: the)?|don'?t (?:add|use|want)(?: a| any)?|not? (?:any )?)\s+(?:${VO})\b|\b(?:${VO})\s+off\b`).test(t)) c.voice = "none";
+  else if (new RegExp(String.raw`\b(?:i'?ll|let me|i will|i want to)\s+(?:pick|choose|add)\s+(?:the |my )?(?:${VO})\b|\b(?:${VO})\s+(?:in|from) review\b`).test(t)) c.voice = "pick";
+  else if (new RegExp(String.raw`\b(?:voice[- ]?over|narrate)\s+(?:the |my |on the |over the )?(?:b[- ]?roll|quiet (?:clips|parts|bits)|montages?|silent (?:clips|parts)|clips with no talking)\b|\b(?:add|with|use)\s+(?:a |my )?(?:${VO})s?\b`).test(t)) c.voice = "quiet";
+
   // must be in / must be out
   const inc = [...phrasesAfter(t0.replace(/["“”]/g, ""), /\b(?:make sure (?:you |to )?(?:include|use|get|keep|show)|must (?:include|have|show)|definitely (?:use|include)|include|feature)\s+/g)];
   const avo = [...phrasesAfter(t0.replace(/["“”]/g, ""), /\b(?:don'?t use|do not use|don'?t include|do not include|leave out|skip the|avoid|nothing (?:about|with)|no clips? (?:of|about|with)|cut out)\s+/g)];
-  const noise = /^(music|captions?|subtitles?|grids?|songs?|the grid|a grid|any grid|my voice)$/;
+  const noise = /^(music|captions?|subtitles?|grids?|songs?|the grid|a grid|any grid|my voice|(?:a |any |the )?voice[- ]?overs?|narration)$/;
   const inClean = inc.filter((p) => !noise.test(p) && !LOOK_RULES.some((r) => r.re.test(` ${p} `)));
   const avClean = avo.filter((p) => !noise.test(p) && !LOOK_RULES.some((r) => r.re.test(` ${p} `)) && !/(tiktok|instagram|youtube|insta|shorts)/.test(p));
   if (inClean.length) c.include = [...new Set(inClean)].slice(0, 8);
@@ -245,6 +252,7 @@ export function describe(c: SteerControls, tracks: readonly Track[]): string[] {
   if (c.count) out.push(`How many: ${c.count} clip${c.count === 1 ? "" : "s"}`);
   if (c.captions) out.push(`Captions: ${CAPTION_LABEL[c.captions].toLowerCase()}`);
   if (c.platforms) out.push(`For: ${c.platforms.map((p) => PLATFORM_NAME[p]).join(", ")}`);
+  if (c.voice) out.push(`Voice over: ${c.voice === "pick" ? "none now, you pick in Review" : VOICE_LABEL[c.voice].toLowerCase()}`);
   if (c.include?.length) out.push(`Must include: ${c.include.map((x) => `"${x}"`).join(", ")}`);
   if (c.avoid?.length) out.push(`Leave out: ${c.avoid.map((x) => `"${x}"`).join(", ")}`);
   return out;

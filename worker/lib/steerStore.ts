@@ -18,7 +18,8 @@ export async function tracksOf(env: Env): Promise<(Track & { r2_key: string })[]
 
 const SYSTEM = `You read a video creator's note about how to cut her clips. Answer with JSON only, using only these keys when the note asks for them:
 {"looks": [look ids], "music": "none" | "any" | "track:<song id>", "pace": "calm"|"normal"|"fast", "length": "short"|"medium"|"long",
- "count": number, "captions": "clean"|"karaoke"|"boxed"|"none", "platforms": ["tiktok","instagram","youtube"], "include": [short phrases], "avoid": [short phrases]}
+ "count": number, "captions": "clean"|"karaoke"|"boxed"|"none", "platforms": ["tiktok","instagram","youtube"],
+ "voice": "quiet" (a voice over on the clips with no talking) | "none" (no voice over) | "pick" (she adds them herself later), "include": [short phrases], "avoid": [short phrases]}
 Leave out every key the note does not ask about. Never invent. include/avoid are moments she said must be in or left out, 1-6 words each.`;
 
 /** A note read into controls: rules always, the free AI too when connected. */

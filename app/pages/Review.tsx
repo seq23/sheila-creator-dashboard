@@ -259,6 +259,7 @@ export function Review() {
                   }, "Trying another version, about a minute. The current one stays until it's ready.")
                 }
                 onVoiceRedo={() => setVoiceFor(c)}
+                onVoiceAdd={() => setVoiceFor(c)}
                 onVoiceRemove={() =>
                   run(async () => {
                     const r = await post<{ clip: ReviewClip | null }>(`/api/clips/${c.id}/voice-over/remove`);
@@ -358,7 +359,7 @@ export function Review() {
           onQueued={(updated) => {
             if (updated) replaceClip(updated);
             setVoiceFor(null);
-            toast.ok("Making the voice over again in your voice, a few minutes. It plays here when it's in.");
+            toast.ok("Making the voice over in your voice, a few minutes. It plays here when it's in.");
             list.reload();
           }}
         />
@@ -406,6 +407,7 @@ function ClipCard(props: {
   onMusic: () => void;
   onAnother: () => void;
   onVoiceRedo: () => void;
+  onVoiceAdd: () => void;
   onVoiceRemove: () => void;
   onDelete: () => void;
   onPlatform: (p: Platform) => void;
@@ -436,14 +438,22 @@ function ClipCard(props: {
           {c.voice_over === "mixing" ? <span className="pill" data-voice-over="mixing">Adding your voice over…</span> : null}
           {c.voice_over === "failed" ? <span className="pill warn" data-voice-over="failed">Voice over not added · tap Redo to try again</span> : null}
         </div>
-        {c.voice_over && tab !== "rejected" ? (
+        {tab !== "rejected" ? (
           <div className="clip-voice" role="group" aria-label="Voice over">
-            <button className="btn quiet small" disabled={busy || c.voice_over === "mixing"} onClick={props.onVoiceRemove}>
-              Remove voice over
-            </button>
-            <button className="btn quiet small" disabled={busy || c.voice_over === "mixing"} onClick={props.onVoiceRedo}>
-              Redo voice over
-            </button>
+            {c.voice_over ? (
+              <>
+                <button className="btn quiet small" disabled={busy || c.voice_over === "mixing"} onClick={props.onVoiceRemove}>
+                  Remove voice over
+                </button>
+                <button className="btn quiet small" disabled={busy || c.voice_over === "mixing"} onClick={props.onVoiceRedo}>
+                  Redo voice over
+                </button>
+              </>
+            ) : (
+              <button className="btn quiet small" disabled={busy || !!c.pending_look || !!c.editing_note} onClick={props.onVoiceAdd}>
+                Add voice over
+              </button>
+            )}
           </div>
         ) : null}
         <div className="clip-look">
@@ -699,8 +709,14 @@ function MusicModal({ clip, onClose, onQueued }: { clip: ReviewClip; onClose: ()
 /** Redo a voice over: her words in a box (the script we wrote, or the one she wrote last), voiced and mixed again. */
 function VoiceOverModal({ clip, onClose, onQueued }: { clip: ReviewClip; onClose: () => void; onQueued: (updated: ReviewClip | null) => void }) {
   const toast = useToast();
+  const adding = !clip.voice_over;
   const [script, setScript] = useState(clip.voice_script ?? "");
   const [busy, setBusy] = useState(false);
+  // Add voice over: a script to start from (the free AI, fitted to the clip), and whether her voice is saved.
+  const draft = useLoad(() => (adding ? post<{ script: string; has_voice: boolean }>(`/api/clips/${clip.id}/voice-over/draft`) : Promise.resolve(null)), [clip.id]);
+  useEffect(() => {
+    if (draft.data?.script) setScript((s) => s || draft.data!.script);
+  }, [draft.data]);
   const seconds = clip.end_s - clip.start_s;
   const most = maxWords(seconds);
   const words = script.trim() ? script.trim().split(/\s+/).length : 0;
@@ -717,7 +733,14 @@ function VoiceOverModal({ clip, onClose, onQueued }: { clip: ReviewClip; onClose
   }
   return (
     <Modal title="Edit the script" onClose={onClose}>
-      <p className="hint">Change the words and we make the voice over again in your voice, then put it back on this clip. The clip is {Math.round(seconds)} seconds, room for about {most} words.</p>
+      {draft.data && !draft.data.has_voice ? (
+        <p className="hint" data-auto-voice="needs_voice">
+          <a href="/voice#voice-steps">Record your voice first</a>, then come back: the script below is kept only while this box is open.
+        </p>
+      ) : null}
+      <p className="hint">
+        {adding ? "A voice over in your voice, mixed into just this clip. Change the words as you like." : "Change the words and we make the voice over again in your voice, then put it back on this clip."} The clip is {Math.round(seconds)} seconds, room for about {most} words. It is labelled as AI audio when it posts.
+      </p>
       <div className="field">
         <label htmlFor="v-script">Voice over script</label>
         <textarea id="v-script" className="textarea" rows={5} maxLength={1200} value={script} onChange={(e) => setScript(e.target.value)} />
@@ -727,7 +750,7 @@ function VoiceOverModal({ clip, onClose, onQueued }: { clip: ReviewClip; onClose
       </div>
       <div className="btn-row">
         <button className="btn" data-primary disabled={busy || words === 0} onClick={save}>
-          {busy ? "Starting…" : "Re-voice and re-mix"}
+          {busy ? "Starting…" : adding ? "Voice it and mix it in" : "Re-voice and re-mix"}
         </button>
         <button className="btn quiet" onClick={onClose}>
           Cancel

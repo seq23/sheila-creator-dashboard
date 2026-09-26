@@ -26,6 +26,20 @@ export function autoVoiceState(switchOn: boolean, hasSample: boolean): AutoVoice
 }
 
 import { maxWords } from "@shared/autoVoice";
+import type { VoiceChoice } from "@shared/steer";
+
+/**
+ * What a dump (or one of its videos) does about voice overs. Her choice for this dump (the "Voice
+ * over" chip, or a note) wins over the Settings switch; with no choice, the switch decides: on →
+ * the clips with no talking, off → none. "quiet" without a saved voice is the quiet
+ * "needs_voice": nothing is made, nothing fails.
+ */
+export type VoicePlan = "quiet" | "none" | "pick" | "needs_voice";
+export function voiceFor(choice: VoiceChoice | undefined, switchOn: boolean, hasSample: boolean): VoicePlan {
+  const want: VoiceChoice = choice ?? (switchOn ? "quiet" : "none");
+  if (want === "quiet" && !hasSample) return "needs_voice";
+  return want;
+}
 export { AUTO_VOICE_HINT, maxWords } from "@shared/autoVoice";
 
 /** A script cut to fit the clip, at a sentence end when one is close. */
