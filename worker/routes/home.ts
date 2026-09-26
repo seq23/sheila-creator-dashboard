@@ -1,4 +1,5 @@
-// Home (section 4): runway, this week, what is waiting, health lights, follow-ups.
+// Home (section 4): runway, this week, what is waiting, health lights, follow-ups, and the quiet
+// "Your voice" card (voice narration is optional; this is its visible door).
 import { Hono } from "hono";
 import type { Env, Vars } from "../env";
 import { requireUser } from "../lib/auth";
@@ -8,6 +9,8 @@ import { weekBounds } from "../domain/slotting";
 import { readSettings } from "./settings";
 import { PLATFORMS, type Platform } from "@shared/constants";
 import type { DumpSummary, HomeSummary } from "@shared/types";
+import { chooseEngine, homeVoiceCard } from "../domain/voiceEngine";
+import { premiumState } from "../lib/premiumVoice";
 
 export const home = new Hono<{ Bindings: Env; Variables: Vars }>();
 home.use("*", requireUser);
@@ -50,14 +53,22 @@ home.get("/", async (c) => {
     )
     .all<Omit<DumpSummary, "progress"> & { progress: string | null }>();
 
+  const health = await listHealth(db);
+  const pv = await premiumState(c.env);
+  // A real error only: the built-in job failed, or ElevenLabs refused the key. Yellow (no cloning
+  // on her plan, low credits) is not a problem here; the built-in voice covers it.
+  const bad = health.find((h) => (h.name === "Voice" || h.name === "Voice · ElevenLabs") && h.light === "red");
+  const voice = homeVoiceCard({ hasSample: pv.hasSample, engine: chooseEngine(pv).engine, connection: pv.connection, problem: bad ? { note: bad.note, fix: bad.fix_guide } : null });
+
   const out: HomeSummary = {
     today: new Date().toISOString(),
     runway: { weeks: runwayWeeks(approved, need), approvedClips: approved, thresholdWeeks: s.runway_threshold_weeks, weeklyNeed: need },
     thisWeek: { posted, planned: weekPosts.length, perPlatform },
     waiting: { clips: waitingClips, dumpsCutting: cutting, briefNeedsApproval: !!briefDraft, profileUnlocked: !profileLocked },
-    health: await listHealth(db),
+    health,
     followups,
     recentDumps: recent.map((r) => ({ ...r, progress: parseJson(r.progress, null) })),
+    voice,
   };
   return c.json(out);
 });

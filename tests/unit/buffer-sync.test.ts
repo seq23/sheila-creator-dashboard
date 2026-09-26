@@ -267,7 +267,7 @@ describe("channel health lights", () => {
 
 describe("fake Buffer (the stand-in the sync runs against)", () => {
   beforeEach(() => resetFakeBuffer());
-  const input = (mediaUrl: string) => ({ channelId: "ch_tiktok", text: "t", mediaUrl, scheduledAt: "2026-09-29T19:00:00.000Z" });
+  const input = (mediaUrl: string) => ({ channelId: "ch_tiktok", platform: "tiktok" as const, title: "hook", text: "t", mediaUrl, scheduledAt: "2026-09-29T19:00:00.000Z" });
 
   it("created posts fill the queue, then read back as posted and leave it", async () => {
     const b = new FakeBuffer("good-key-0000");

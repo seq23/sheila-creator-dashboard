@@ -7,6 +7,10 @@ import { expect, test } from "@playwright/test";
 import { d1, evidence, latestRun, shot, waitForEmail, waitForRow } from "./helpers";
 
 const VIDEO = process.env.LIVE_DUMP_VIDEO ?? "";
+// "held": the video carries another creator's watermark and must come back held off the calendar;
+// "clear": a video of her own (no watermark) must not be held.
+const EXPECT = (process.env.LIVE_DUMP_EXPECT ?? "clear") as "held" | "clear";
+const LABEL = process.env.LIVE_DUMP_LABEL ?? "5-dump";
 
 test("5 · Dump a real video → cut on Actions → clips + 'clips ready' email → playable in Review", async ({ page }) => {
   test.setTimeout(30 * 60_000);
@@ -19,7 +23,7 @@ test("5 · Dump a real video → cut on Actions → clips + 'clips ready' email 
   await page.getByRole("button", { name: /New raw footage/ }).click();
   await page.locator('input[type="file"]').setInputFiles(VIDEO);
   await expect(page.getByText("Uploaded")).toBeVisible({ timeout: 10 * 60_000 });
-  await page.getByLabel("Notes for this dump").fill("Phase 0 live test: real talking-to-camera clip. TEST, not for posting to a real audience.");
+  await page.getByLabel("Notes for this dump").fill(EXPECT === "held" ? "Phase 0 live test: someone else's TikTok, must be held." : "Phase 0 live test: TEST POST clip for the throwaway channels.");
   const since = Date.now();
   const dumpCall = page.waitForResponse((r) => /\/api\/dumps\/[^/]+\/dump$/.test(r.url()));
   await page.getByRole("button", { name: "Dump", exact: true }).click();
@@ -54,6 +58,21 @@ test("5 · Dump a real video → cut on Actions → clips + 'clips ready' email 
     return v.readyState >= 2 && v.videoWidth > 0 ? `${v.videoWidth}x${v.videoHeight}` : "";
   }), { timeout: 60_000 }).toMatch(/^\d+x\d+$/);
   const dims = await video.evaluate((v: HTMLVideoElement) => ({ w: v.videoWidth, h: v.videoHeight, duration: v.duration }));
-  const reviewShot = await shot(page, "05-review-clip");
-  evidence("5-dump", { source_mb: sizeMb, dump_id: job!.ref_id, cut_job: jobId, run_id: run?.databaseId ?? job!.run_id, clips: clips.length, visible, clips_ready_email_id: mail.id, email_subject_count: visible, first_clip_video: dims, review_screenshot: reviewShot });
+  const reviewShot = await shot(page, `05-review-clip-${EXPECT}`);
+
+  // Whose video (watermark check, #20): held with the handle named, or left alone.
+  const owners = d1<{ source_owner: string | null; source_note: string | null }>(`SELECT source_owner, source_note FROM assets WHERE dump_id = '${job!.ref_id}'`);
+  let heldShot: string | null = null;
+  if (EXPECT === "held") {
+    expect(owners.map((o) => o.source_owner)).toEqual(["other"]);
+    await page.goto("/dump");
+    await expect(page.locator("[data-held-note]").first()).toContainText("Looks like someone else's video: we saw a TikTok watermark");
+    heldShot = await shot(page, "05-dump-held");
+    const pool = (await (await page.request.get("/api/posts/pool")).json()) as { id: string }[];
+    const ids = new Set(clips.map((c) => c.id));
+    expect(pool.filter((p) => ids.has(p.id)), "held clips never reach the calendar pool").toEqual([]);
+  } else {
+    expect(owners.every((o) => o.source_owner === null)).toBe(true);
+  }
+  evidence(LABEL, { expect: EXPECT, source_owner: owners.map((o) => o.source_owner), held_note: owners[0]?.source_note ?? null, held_screenshot: heldShot, source_mb: sizeMb, dump_id: job!.ref_id, cut_job: jobId, run_id: run?.databaseId ?? job!.run_id, clips: clips.length, visible, clips_ready_email_id: mail.id, email_subject_count: visible, first_clip_video: dims, review_screenshot: reviewShot });
 });

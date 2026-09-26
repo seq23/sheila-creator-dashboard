@@ -6,6 +6,7 @@ dist/
 .env.*
 !.env.example
 test-results/
+.live-auth/
 playwright-report/
 playwright-report-open/
 jobs/.venv/

@@ -56,6 +56,6 @@ export async function checkElevenLabs(env: Env, key: string): Promise<KeyCheck &
     if (r.failure === "auth") return { ok: false, error: "ElevenLabs says this key is not valid.", meta: {} };
     return { ok: false, error: "ElevenLabs did not answer. Try Check key again in a minute.", meta: {} };
   }
-  const note = r.plan.canClone ? "ElevenLabs connected. Your narrations will use the premium voice." : "Your ElevenLabs plan does not include voice cloning; the built-in voice will be used.";
+  const note = r.plan.canClone ? "ElevenLabs connected. Your voice overs will use the premium voice." : "Your ElevenLabs plan does not include voice cloning; the built-in voice will be used.";
   return { ok: true, error: null, meta: planMeta(r.plan), note };
 }

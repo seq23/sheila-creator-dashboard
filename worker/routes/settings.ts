@@ -5,7 +5,7 @@ import type { Env, Vars } from "../env";
 import { requireOwner, requireUser } from "../lib/auth";
 import { getSetting, listHealth, recordEvent, setSetting } from "../lib/db";
 import { fail, isEmail, readJson } from "../lib/http";
-import { DEFAULT_RECYCLE_COOLDOWN_DAYS, DEFAULT_RUNWAY_THRESHOLD_WEEKS, DEFAULT_WEEKLY_CAPS, HARD_CAP_PER_CHANNEL_PER_WEEK, PLATFORMS } from "@shared/constants";
+import { DEFAULT_FEATURES, DEFAULT_RECYCLE_COOLDOWN_DAYS, DEFAULT_RUNWAY_THRESHOLD_WEEKS, DEFAULT_WEEKLY_CAPS, HARD_CAP_PER_CHANNEL_PER_WEEK, PLATFORMS } from "@shared/constants";
 import type { Features, SettingsShape } from "@shared/types";
 
 export const settings = new Hono<{ Bindings: Env; Variables: Vars }>();
@@ -18,7 +18,7 @@ export async function readSettings(env: Env): Promise<SettingsShape> {
     getSetting(env.DB, "runway_threshold_weeks", DEFAULT_RUNWAY_THRESHOLD_WEEKS),
     getSetting<string[]>(env.DB, "notify_emails", []),
     getSetting<"research" | "custom">(env.DB, "posting_slots_source", "research"),
-    getSetting<Features>(env.DB, "features", { voice: false, deeper_research: false, weekly_recap: true, help_ask: false }),
+    getSetting<Features>(env.DB, "features", { ...DEFAULT_FEATURES }),
     getSetting(env.DB, "recycle_cooldown_days", DEFAULT_RECYCLE_COOLDOWN_DAYS),
     getSetting<string | null>(env.DB, "helper_email", null),
   ]);
@@ -50,7 +50,7 @@ settings.patch("/", requireOwner, async (c) => {
   }
   if (body.posting_slots_source) await setSetting(c.env.DB, "posting_slots_source", body.posting_slots_source === "custom" ? "custom" : "research");
   if (body.features) {
-    const current = await getSetting<Features>(c.env.DB, "features", { voice: false, deeper_research: false, weekly_recap: true, help_ask: false });
+    const current = await getSetting<Features>(c.env.DB, "features", { ...DEFAULT_FEATURES });
     await setSetting(c.env.DB, "features", { ...current, ...body.features });
   }
   if (body.recycle_cooldown_days !== undefined) {

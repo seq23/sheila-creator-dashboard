@@ -284,7 +284,7 @@ export function ClientBrain() {
                   ))}
                 </div>
                 <Notice tone={locked ? "ok" : "info"}>
-                  <span>{locked ? "The locked profile is used by research, clip picking, captions and narration scripts." : "Save your changes, then press Lock profile at the top when it sounds like you. Until it’s locked, no clips are cut."}</span>
+                  <span>{locked ? "The locked profile is used by research, clip picking, captions and voice over scripts." : "Save your changes, then press Lock profile at the top when it sounds like you. Until it’s locked, no clips are cut."}</span>
                 </Notice>
               </>
             )}

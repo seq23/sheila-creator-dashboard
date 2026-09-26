@@ -121,7 +121,7 @@ const CONNECTION_COPY: Record<string, { title: string; steps: string[]; guide: s
   openrouter: { title: "The AI (OpenRouter)", steps: ["Open OpenRouter and go to Keys.", "Create a new key and copy it.", "In your dashboard open Settings, Connect accounts, paste it under OpenRouter and press Check key."], guide: "reconnect-openrouter" },
   firecrawl: { title: "Web research (Firecrawl)", steps: ["Open Firecrawl and go to API Keys.", "Copy your key.", "In your dashboard open Settings, Connect accounts, paste it under Firecrawl and press Check key."], guide: "reconnect-firecrawl" },
   hunter: { title: "Hunter", steps: ["Open Hunter and go to API.", "Copy your key.", "In your dashboard open Settings, Connect accounts, paste it under Hunter and press Check key."], guide: "reconnect-hunter" },
-  elevenlabs: { title: "The premium voice (ElevenLabs)", steps: ["Open ElevenLabs, tap your profile, then API keys.", "Create a new key and copy it.", "In your dashboard open Settings, Connect accounts, paste it under ElevenLabs and press Check key. Until then your narrations use the built-in voice."], guide: "reconnect-elevenlabs" },
+  elevenlabs: { title: "Premium voice overs (ElevenLabs)", steps: ["Open ElevenLabs, tap your profile, then API keys.", "Create a new key and copy it.", "In your dashboard open Settings, Connect accounts, paste it under ElevenLabs and press Check key. Until then your voice overs use the built-in voice."], guide: "reconnect-elevenlabs" },
 };
 
 async function connectionNeedsYouEmail(env: Env, name: string) {
@@ -177,7 +177,7 @@ export async function bufferSync(env: Env, opts: { force?: boolean } = {}): Prom
       token = (await env.DB.prepare("SELECT media_token FROM clips WHERE id = ?").bind(row.clip_id).first<{ media_token: string }>())?.media_token ?? token;
     }
     const text = [row.caption, row.hashtags].filter((x) => x && x.trim()).join("\n\n");
-    const r = await client.createPost({ channelId: buf.channels[row.platform]!.id, text, mediaUrl: `${env.PUBLIC_BASE_URL}/media/${token}`, scheduledAt: bufferDueAt(row.scheduled_at, now) });
+    const r = await client.createPost({ channelId: buf.channels[row.platform]!.id, platform: row.platform, title: row.hook_text, text, mediaUrl: `${env.PUBLIC_BASE_URL}/media/${token}`, scheduledAt: bufferDueAt(row.scheduled_at, now) });
     if (r.ok && r.id) {
       await env.DB.prepare("UPDATE posts SET status = 'in_buffer', buffer_post_id = ?, error = NULL WHERE id = ?").bind(r.id, row.id).run();
       loaded++;
@@ -215,7 +215,7 @@ export async function bufferSync(env: Env, opts: { force?: boolean } = {}): Prom
       if (d.next === "retry") {
         retried++;
         const ch = buf.channels[p.platform];
-        const again = ready[p.platform] && ch && p.media_token ? await client.createPost({ channelId: ch.id, text: [p.caption, p.hashtags].filter((x) => x && x.trim()).join("\n\n"), mediaUrl: `${env.PUBLIC_BASE_URL}/media/${p.media_token}`, scheduledAt: bufferDueAt(p.scheduled_at, now) }) : null;
+        const again = ready[p.platform] && ch && p.media_token ? await client.createPost({ channelId: ch.id, platform: p.platform, title: p.hook_text, text: [p.caption, p.hashtags].filter((x) => x && x.trim()).join("\n\n"), mediaUrl: `${env.PUBLIC_BASE_URL}/media/${p.media_token}`, scheduledAt: bufferDueAt(p.scheduled_at, now) }) : null;
         if (again?.ok && again.id) await env.DB.prepare("UPDATE posts SET buffer_post_id = ?, retries = ?, error = ? WHERE id = ?").bind(again.id, d.retries, st.error, p.id).run();
         else await env.DB.prepare("UPDATE posts SET status = 'planned', buffer_post_id = NULL, retries = ?, error = ? WHERE id = ?").bind(d.retries, again?.error ?? st.error, p.id).run();
         continue;

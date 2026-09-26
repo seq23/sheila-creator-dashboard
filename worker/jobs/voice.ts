@@ -77,14 +77,14 @@ export const voiceJob: JobHandler = {
     await env.DB.prepare("UPDATE narrations SET status = 'ready', r2_key = ?, duration_s = ? WHERE id = ?").bind(r.r2_key, Number.isFinite(seconds) && seconds > 0 ? seconds : null, refId).run();
     if (r.model_key && r.model_key.startsWith("voice/model/")) await env.DB.prepare("UPDATE voice SET model_r2_key = ?, updated_at = ? WHERE id = 1").bind(r.model_key, nowIso()).run();
     await recordEvent(env.DB, "voice.narration.generated", refId, { job: jobId, bytes: head.size, seconds: Number(r.duration_s ?? 0) });
-    await setHealth(env.DB, "Voice", "green", "Last narration generated", null);
+    await setHealth(env.DB, "Voice", "green", "Last voice over made", null);
     log.info("voice.apply", { bytes: head.size });
   },
 
   async onFailure(env, jobId, refId, safeError) {
     if (refId) await env.DB.prepare("UPDATE narrations SET status = 'failed' WHERE id = ?").bind(refId).run();
     await recordEvent(env.DB, "voice.narration.failed", refId, { job: jobId });
-    await setHealth(env.DB, "Voice", "red", "A narration did not finish. Try Generate again; a shorter script is faster.", "record-your-voice");
+    await setHealth(env.DB, "Voice", "red", "A voice over did not finish. Try Generate again; a shorter script is faster.", "record-your-voice");
     log.warn("voice.failed", { len: safeError.length });
   },
 

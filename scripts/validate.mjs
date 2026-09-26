@@ -19,6 +19,7 @@ export const REGISTER = {
   "jobs-registered": "every job type in the schema must have a handler or dispatch silently does nothing",
   "looks": "a Look without a description, a preview picture or test coverage is an option she picks blind, or one nothing proves renders (owner, 25 Sep 2026: clips must vary)",
   "no-content-in-logs": "public repo: a console.* outside worker/lib/log.ts can leak her content into Actions logs (section 13)",
+  "nothing-hidden": "the owner's rule: nothing hidden, nothing switched off; a screen behind a flag, or a feature defaulting off, is a thing she cannot find",
   "no-secrets": "a key in the repo is public the moment it is pushed",
   "routes-mounted": "a route file nothing mounts is code that exists but nothing invokes",
   "screens-registered": "every page file must be routed in App.tsx or it is unreachable",
