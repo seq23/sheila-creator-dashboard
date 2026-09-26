@@ -2,6 +2,7 @@
 // and demo data (tests/e2e/seed-demo.sql). Brand deals and the media kit: mediakit-deals.spec.ts.
 import { expect, test } from "@playwright/test";
 import { clearDemo, seedDemo, setVoice, TOUR_OFF } from "./demo";
+import { sql } from "./helpers";
 
 test.describe.configure({ mode: "serial" });
 
