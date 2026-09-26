@@ -53,6 +53,12 @@ export default async function ({ root }) {
   for (const a of ["look", "music", "another", "replace", "voice-over"]) check(actions.includes(`"${a}"`), `worker/routes/clips.ts: a full video must refuse "${a}" (CUT_ACTIONS)`);
   check(/clips\.use\("\/:id\/:action", fullVideoGuard\)/.test(clips), "worker/routes/clips.ts: fullVideoGuard must be mounted");
 
+  // Buffer posts YouTube Shorts only (proven on staging 26 Sep 2026): a full video it can't take is
+  // never sent to it (it failed twice and emailed her), it is hers to upload.
+  const sync = await read("worker/crons/buffer-sync.ts");
+  check(/const toBuffer = plannedRows\.filter\(\(r\) => !\(r\.full_video && parseJson<\{ handoff\?: boolean \}>\(r\.youtube, \{\}\)\.handoff\)\);/.test(sync) && /choosePostsToLoad\(toBuffer,/.test(sync), "worker/crons/buffer-sync.ts: a full video Buffer can't post must never be sent to Buffer");
+  check(/handoff: !bufferCanTake\(/.test(await read("worker/jobs/fullvideo.ts")), "worker/jobs/fullvideo.ts: a landscape or long full video must be marked for her to upload");
+
   const unit = await read("tests/unit/full-video.test.ts");
   check(unit.includes("a full-video dump never goes through the cutter"), "tests/unit/full-video.test.ts: the test that a full-video dump never goes through the cutter is missing");
   const pyTest = await read("jobs/tests/test_fullvideo.py");

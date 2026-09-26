@@ -190,8 +190,12 @@ export async function bufferSync(env: Env, opts: { force?: boolean } = {}): Prom
             (SELECT COUNT(*) FROM narrations n WHERE n.clip_id = c.id AND n.mix_status = 'ready' AND n.ai_generated = 1) AS ai_voice, c.full_video, c.youtube
      FROM posts p JOIN clips c ON c.id = p.clip_id WHERE p.status = 'planned' AND ${POSTABLE_CLIP_SQL}`,
   ).all<{ id: string; platform: Platform; scheduled_at: string; retries: number; clip_id: string; caption: string; hashtags: string; media_token: string | null; hook_text: string; ai_voice: number; full_video: number; youtube: string | null }>();
-  const loadPlan = choosePostsToLoad(plannedRows, used, ready, now);
-  const byId = new Map(plannedRows.map((r) => [r.id, r]));
+  // A full video Buffer can't post (landscape or over 3 minutes: Buffer posts YouTube Shorts only)
+  // never goes to Buffer: it is hers to upload (Home: Upload it yourself), and it stays on the
+  // Calendar as the day to do it. Sending it anyway failed twice and emailed her (staging, 26 Sep).
+  const toBuffer = plannedRows.filter((r) => !(r.full_video && parseJson<{ handoff?: boolean }>(r.youtube, {}).handoff));
+  const loadPlan = choosePostsToLoad(toBuffer, used, ready, now);
+  const byId = new Map(toBuffer.map((r) => [r.id, r]));
   let loaded = 0;
   let createFailed = 0;
   for (const cand of loadPlan.load) {

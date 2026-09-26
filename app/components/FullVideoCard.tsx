@@ -124,7 +124,7 @@ export function FullVideoBody({ clip, tab, busy, onChanged }: { clip: Clip; tab:
       ) : null}
 
       {v.post ? <PostLine clip={clip} v={v} /> : null}
-      {v.handoff && v.post?.status !== "posted" ? <Handoff clip={clip} v={v} onChanged={onChanged} /> : null}
+      {v.handoff && v.post?.status !== "posted" ? clip.status === "approved" ? <Handoff clip={clip} v={v} onChanged={onChanged} /> : <p className="hint" data-handoff-note>You upload this one yourself after you approve it (two taps): YouTube lets apps post only Shorts, vertical and 3 minutes or less.</p> : null}
       {editing ? <EditFull clip={clip} v={v} onClose={() => setEditing(false)} onSaved={(u) => { onChanged(u); setEditing(false); }} /> : null}
     </div>
   );
@@ -172,7 +172,7 @@ function Handoff({ clip, v, onChanged }: { clip: Clip; v: FullVideo; onChanged: 
   return (
     <Notice tone="warn">
       <div data-handoff>
-        <strong>Buffer couldn't take this video.</strong> Upload it yourself in two taps: download it, then upload it on YouTube with the title below. We mark it posted when it shows on your channel.
+        <strong>Upload this one yourself{v.post ? `, on ${fmtDate(v.post.scheduled_at)}` : ""}.</strong> YouTube lets apps post only Shorts (vertical, 3 minutes or less), so a full video goes up from your account: download it, upload it on YouTube with the title and description below, set it to {v.privacy === "public" ? "Public" : v.privacy === "unlisted" ? "Unlisted" : "Private"}, and pick your thumbnail. We mark it posted when it shows on your channel.
         <div className="btn-row">
           {clip.media_url && !v.file_deleted ? (
             <a className="btn small" href={`${clip.media_url}${clip.media_url.includes("?") ? "&" : "?"}download=1`} download>

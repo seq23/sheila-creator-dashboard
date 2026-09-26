@@ -186,6 +186,20 @@ export function spaceLine(uploadBytes: number, usedBytes: number): { line: strin
   return { line: `This video: ${sizeWords(uploadBytes)} · free space left: ${sizeWords(left)} of 10 GB`, fits };
 }
 
+/**
+ * Can Buffer post it? PROVEN on staging 26 Sep 2026 (a 1280x720, 200 s TEST video): Buffer's API
+ * posts to YouTube only as a Short and refused it with "Video must be no longer than 3 minutes for
+ * YouTube Shorts., Video must be vertical (portrait orientation) for YouTube Shorts."; its schema has
+ * no post type for YouTube (YoutubePostMetadataInput has none). So Buffer takes a full video only
+ * when it is vertical and 3 minutes or less; every other one is hers to upload in two taps (Download
+ * for YouTube, then YouTube's upload page). YouTube's own API won't help: uploads from an app Google
+ * hasn't audited stay private, and the audit is the Google verification the owner ruled out.
+ */
+export const SHORTS_MAX_S = 180;
+export function bufferCanTake(v: { width: number; height: number; duration_s: number }): boolean {
+  return v.height > v.width && v.duration_s <= SHORTS_MAX_S;
+}
+
 /** YouTube Studio: the video's edit page when we know its id, else Studio's home (she picks it). */
 export function studioLink(url: string | null): string {
   const id = url?.match(/(?:v=|youtu\.be\/|shorts\/|video\/)([\w-]{11})/)?.[1];

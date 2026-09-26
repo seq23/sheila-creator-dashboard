@@ -21,7 +21,7 @@ import { getLlm } from "../services/openrouter";
 import { fakeServices } from "../env";
 import { KIT_NAME, lockedProfile } from "../routes/mediakit";
 import { clipCuttingLight } from "../crons/buffer-sync";
-import { cleanTags, cleanTitle, composeDescription, draftChapters, starterDraft, type FullVideoDetails, type Segment } from "../domain/fullVideo";
+import { bufferCanTake, cleanTags, cleanTitle, composeDescription, draftChapters, starterDraft, type FullVideoDetails, type Segment } from "../domain/fullVideo";
 import { FAKE_JPG_B64, FAKE_MP4_B64 } from "./cut";
 
 export const fullVideoKey = (dumpId: string, clipId: string) => `full/${dumpId}/${clipId}.mp4`;
@@ -119,7 +119,8 @@ export async function applyFullResult(env: Env, jobId: string, dumpId: string, r
     duration_s: p.duration,
     size_bytes: p.size,
     studio_done_at: null,
-    handoff: false,
+    // Landscape or over 3 minutes: Buffer can't post it (YouTube Shorts only), so it is hers to upload.
+    handoff: !bufferCanTake({ width: p.width, height: p.height, duration_s: p.duration }),
   };
   const at = nowIso();
   await env.DB.batch([
