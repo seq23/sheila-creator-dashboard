@@ -338,7 +338,7 @@ describe("Review: Remove and Redo (Edit the script)", () => {
     const tooLong = "word ".repeat(maxWords(clip.end_s - clip.start_s) + 5).trim();
     const refused = await call("POST", `/api/clips/${n.clip_id}/voice-over`, { script: tooLong });
     expect(refused.status).toBe(422);
-    expect(refused.json.error).toMatch(/^That's about \d+ seconds of talking; this clip is \d+ seconds\. Shorten it a little\.$/);
+    expect(refused.json.error).toBe(`That's ${maxWords(clip.end_s - clip.start_s) + 5} words; this ${Math.round(clip.end_s - clip.start_s)}-second clip has room for about ${maxWords(clip.end_s - clip.start_s)}. Shorten it a little.`);
     expect((await call("POST", `/api/clips/${n.clip_id}/voice-over`, { script: "hi" })).status).toBe(422);
 
     const script = "Three candles and a runner. That is the whole trick.";

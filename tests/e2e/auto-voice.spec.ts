@@ -110,7 +110,7 @@ test("on, voice saved: clips with no talking come back voiced; Review offers Rem
   await box.fill(mine);
   await expect(dialog.locator("[data-word-count]")).toContainText("10 of about");
   await dialog.getByRole("button", { name: "Re-voice and re-mix" }).click();
-  await expect(page.locator(".toast").last()).toContainText("Making the voice over again");
+  await expect(page.locator(".toast").last()).toContainText("Making the voice over in your voice");
   await expect(card.locator('[data-voice-over="mixing"]')).toBeVisible();
   await runJob(page.request, (r) => r.startsWith("auto/"));
   const after = (await clipsOf(page.request, dumpId)).find((c) => c.id === voiced[0].id)!;

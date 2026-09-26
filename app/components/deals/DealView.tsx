@@ -668,18 +668,31 @@ function DeliveryPanel({ d, onChanged }: { d: DealDetail; onChanged: () => void 
   const [platform, setPlatform] = useState<Platform>("tiktok");
   const [due, setDue] = useState("");
   const [note, setNote] = useState("");
-  async function set(p: Partial<DeliveryState>) {
+  async function set(p: Partial<DeliveryState>): Promise<boolean> {
     try {
       await patch(`/api/deals/deals/${d.deal.id}`, { delivery: p });
       onChanged();
+      return true;
     } catch (e) {
       toast.bad(e);
+      return false;
     }
   }
   const stamp = (on: boolean) => (on ? new Date().toISOString() : null);
-  // Ticks show at once; the saved state comes back with the reload.
+  // Ticks show at once; the saved state comes back with the reload. A reload only clears the ticks
+  // it confirms: clearing them all let the reload from one tick's save undo the next tick while its
+  // own save was still on the way (e2e mediakit-deals, 26 Sep 2026: "Clicking the checkbox did not
+  // change its state"). A save that fails puts the box back.
   const [ticked, setTicked] = useState<Record<string, boolean>>({});
-  useEffect(() => setTicked({}), [d.delivery.steps]);
+  useEffect(
+    () =>
+      setTicked((t) => {
+        const next = { ...t };
+        for (const st of d.delivery.steps) if (next[st.key] === st.done) delete next[st.key];
+        return next;
+      }),
+    [d.delivery.steps],
+  );
   return (
     <Card className="delivery-card">
       <h3>Delivery</h3>
@@ -698,12 +711,24 @@ function DeliveryPanel({ d, onChanged }: { d: DealDetail; onChanged: () => void 
                 onChange={(e) => {
                   const on = e.target.checked;
                   setTicked((t) => ({ ...t, [st.key]: on }));
-                  if (st.key === "brief") void set({ briefReceivedAt: stamp(on) });
-                  if (st.key === "concept") void set({ conceptOkAt: stamp(on) });
-                  if (st.key === "draft") void set({ draftSentAt: stamp(on) });
-                  if (st.key === "approved") void set({ approvedAt: stamp(on) });
-                  if (st.key === "posted") void set({ postedAt: stamp(on), adLabelOn: on });
-                  if (st.key === "report") void set({ reportSentAt: stamp(on) });
+                  const patchFor: Record<string, Partial<DeliveryState>> = {
+                    brief: { briefReceivedAt: stamp(on) },
+                    concept: { conceptOkAt: stamp(on) },
+                    draft: { draftSentAt: stamp(on) },
+                    approved: { approvedAt: stamp(on) },
+                    posted: { postedAt: stamp(on), adLabelOn: on },
+                    report: { reportSentAt: stamp(on) },
+                  };
+                  const p = patchFor[st.key];
+                  if (p)
+                    void set(p).then((ok) => {
+                      if (!ok)
+                        setTicked((t) => {
+                          const next = { ...t };
+                          delete next[st.key];
+                          return next;
+                        });
+                    });
                 }}
               />
               <span>

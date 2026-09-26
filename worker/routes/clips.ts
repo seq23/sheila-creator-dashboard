@@ -674,7 +674,7 @@ clips.post("/:id/voice-over", async (c) => {
   if (script.length < 10) return fail(c, 422, "Write a sentence or two for the voice over.", "record-your-voice");
   const seconds = clip.end_s - clip.start_s;
   const words = script.split(" ").length;
-  if (words > maxWords(seconds)) return fail(c, 422, `That's about ${Math.round(words / 2.3)} seconds of talking; this clip is ${Math.round(seconds)} seconds. Shorten it a little.`, "record-your-voice");
+  if (words > maxWords(seconds)) return fail(c, 422, `That's ${words} words; this ${Math.round(seconds)}-second clip has room for about ${maxWords(seconds)}. Shorten it a little.`, "record-your-voice");
   if (!(await hasVoiceSample(c.env))) return fail(c, 409, "Record your voice first, on Voice overs.", "record-your-voice");
   if (await lockedByBuffer(c.env, id)) return fail(c, 409, "This clip is already loaded into Buffer. Remove it from the Calendar first.", "move-or-remove-a-post");
   const r = await redoVoiceOver(c.env, id, script);
