@@ -1,0 +1,151 @@
+# Production promote: on a green nightly `e2e` run of main, with nobody in the loop.
+#
+# BUILD FIRST, TEST IN BATCHES (26 Sep 2026). `land <pr>` merges on the fast check and deploys
+# STAGING; production waited for a person to run `land --promote sheila-creator-dashboard` after
+# the 08:00 UTC `e2e` run went green. That was a wait on the owner. This workflow fires on that
+# run's completion and, ONLY when it succeeded on main, deploys production from exactly the sha it
+# passed on — never main's head, which may have moved since. A red nightly deploys nothing and is
+# fixed first (bisect from the last green sha).
+#
+# It runs the repo's own `scripts/deploy-production.sh` (build fresh, remote D1 migrations, deploy
+# with FAKE_SERVICES=0, healthz + login-mode smoke): never a bare `wrangler deploy`. Then it records
+# a GitHub Deployment (environment `production`), the same record `land --promote` writes from a
+# laptop and reads to know what production runs, so the two paths agree: a sha production already
+# runs is skipped here, not deployed twice. `land --promote sheila-creator-dashboard [--run-e2e]`
+# remains the by-hand path.
+#
+# workflow_dispatch takes a sha (default main's head) and is REFUSED unless a green e2e run exists
+# on it — run `gh workflow run e2e.yml --ref main` first (or `land --promote … --run-e2e`).
+#
+# Secrets: CLOUDFLARE_API_TOKEN (vault credential `cloudflare-claude-deploy`; Workers + D1 on
+# account 8d147e242033699dd37c6f5a451f48d2) and CLOUDFLARE_ACCOUNT_ID. A missing token is a NAMED
+# STOP the run prints, not a guess.
+#
+# Validator `promote-on-green` (scripts/validators) pins the shape of this file and e2e.yml.
+name: promote
+
+on:
+  workflow_run:
+    workflows: [e2e]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "Commit to ship to production (default: main's head). Must have a green e2e run."
+        required: false
+        default: ""
+
+# Two promotes never race (two `d1 migrations apply` against one database); they queue.
+concurrency:
+  group: promote-production
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    name: Promote to production
+    # A `workflow_run` fires on failure and cancellation too. Deploying a commit the suite failed
+    # on is the accident this exists to prevent, so the gate is explicit.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    # deploy-production.sh takes ~3 min (build, migrations, deploy, smoke); 20 is a fault
+    # detector, never a budget.
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read # reads e2e runs for the dispatch check
+      deployments: write # the production record `land --promote` reads
+
+    steps:
+      - name: Refuse to run without the deploy token (named stop)
+        env:
+          HAS_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+          HAS_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
+        run: |
+          if [ "$HAS_TOKEN" != "true" ] || [ "$HAS_ACCOUNT" != "true" ]; then
+            echo "::error::NAMED STOP: repo secrets CLOUDFLARE_API_TOKEN (vault cloudflare-claude-deploy) and CLOUDFLARE_ACCOUNT_ID must both be set. Until then: land --promote sheila-creator-dashboard."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the dispatch path resolves a sha and lists runs on it
+
+      - name: Pick the sha (the one the e2e run proved; a dispatch must name one with a green run)
+        id: pick
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+          INPUT_SHA: ${{ github.event.inputs.sha }}
+        run: |
+          set -euo pipefail
+          case "${{ github.event_name }}" in
+            workflow_run) sha="$RUN_SHA" ;;
+            workflow_dispatch)
+              sha="$(git rev-parse "${INPUT_SHA:-origin/main}")"
+              green="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/e2e.yml/runs?head_sha=$sha&status=success&per_page=1" --jq '.workflow_runs | length')"
+              if [ "$green" != 1 ]; then
+                echo "::error::REFUSED: no successful e2e run on $sha. Run it first: gh workflow run e2e.yml --ref main (or land --promote sheila-creator-dashboard --run-e2e)"
+                exit 1
+              fi ;;
+          esac
+          live="$(gh api "repos/${GITHUB_REPOSITORY}/deployments?environment=production&per_page=1" --jq '.[0].sha // empty')"
+          if [ "$live" = "$sha" ]; then
+            echo "production already runs $sha (GitHub deployment record); nothing to promote" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "promoting $sha (production was ${live:-unrecorded})"
+
+      - name: Check out exactly that sha
+        if: steps.pick.outputs.skip != 'true'
+        run: git checkout -q "${{ steps.pick.outputs.sha }}"
+
+      - uses: actions/setup-node@v4
+        if: steps.pick.outputs.skip != 'true'
+        with:
+          node-version: 22
+          cache: npm
+
+      - if: steps.pick.outputs.skip != 'true'
+        run: npm ci
+
+      - name: Deploy production (build, migrations, deploy, healthz + login-mode smoke)
+        if: steps.pick.outputs.skip != 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          # Without this wrangler answers 7403, which reads like a revoked token and is not one.
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npm run deploy:production
+
+      - name: Smoke (what land's smoke_check reads)
+        if: steps.pick.outputs.skip != 'true'
+        run: |
+          body=""
+          for i in 1 2 3 4 5 6 7 8; do
+            body="$(curl -s https://sheilastudio.seq-taylor.workers.dev/healthz || true)"
+            case "$body" in *'"ok":true'*) break ;; esac
+            sleep 5
+          done
+          echo "smoke: $body"
+          case "$body" in *'"ok":true'*) ;; *) echo "::error::smoke failed: healthz did not answer ok:true"; exit 1 ;; esac
+
+      # One GitHub Deployment per production deploy (environment `production`), the record
+      # `land --promote` reads to know what production runs.
+      - name: Record the production deployment
+        if: steps.pick.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ steps.pick.outputs.sha }}
+          NOTE: ${{ github.event_name == 'workflow_dispatch' && 'promote.yml workflow_dispatch (green e2e checked)' || 'promote.yml on green e2e' }}
+        run: |
+          set -euo pipefail
+          id="$(printf '{"ref":"%s","environment":"production","auto_merge":false,"required_contexts":[],"description":"%s from %s","production_environment":true}' "$SHA" "$NOTE" "${SHA:0:7}" \
+                 | gh api -X POST "repos/${GITHUB_REPOSITORY}/deployments" --input - --jq .id)"
+          printf '{"state":"success","environment":"production","description":"%s","environment_url":"https://sheilastudio.seq-taylor.workers.dev"}' "$NOTE" \
+                 | gh api -X POST "repos/${GITHUB_REPOSITORY}/deployments/$id/statuses" --input - >/dev/null
+          echo "PROMOTED $SHA to production ($NOTE); GitHub deployment $id." | tee -a "$GITHUB_STEP_SUMMARY"
