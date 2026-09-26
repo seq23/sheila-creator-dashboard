@@ -2,7 +2,8 @@
 // silently dropped. For every control in shared/steer.ts STEER_KEYS this checks the whole chain
 // exists: a note fixture reads it (tests/unit/fixtures/steer-notes.json), the Worker maps it into
 // the cut spec (worker/jobs/cut.ts), the job honors it (jobs/cut.py / jobs/looks.py), and a test
-// proves it (tests/unit/steer.test.ts spec tests, jobs/selftest_cut.py check_steer). A control
+// proves it (tests/unit/steer.test.ts spec tests, jobs/selftest_cut.py check_steer). Voice over is
+// honored after the cut, by the automatic voice overs (worker/lib/autoVoice.ts voicePlans). A control
 // with a missing link is a chip or a note that does nothing. Zero controls fails (Rule 0).
 import { readFile } from "node:fs/promises";
 import path from "node:path";
@@ -16,6 +17,7 @@ const CHAIN = {
   count: [["worker/jobs/cut.ts", "steerTarget("], ["jobs/cut.py", '(spec.get("steer") or {}).get("count")'], ["jobs/selftest_cut.py", "asked for 2 clips"]],
   captions: [["worker/jobs/cut.ts", "steerLook("], ["worker/domain/steer.ts", "out.captions = c.captions"], ["tests/unit/steer.test.ts", 'l!.captions === "none"']],
   platforms: [["worker/jobs/cut.ts", "steerPlatforms("], ["tests/unit/steer.test.ts", "allowed_platforms"]],
+  voice: [["worker/lib/autoVoice.ts", "voiceFor(mergeControls(chips, note"], ["worker/domain/autoVoice.ts", "export function voiceFor("], ["worker/jobs/cut.ts", "askedVoice.includes(\"quiet\")"], ["tests/unit/auto-voice.test.ts", "the Voice over chip"]],
   include: [["worker/jobs/cut.ts", "include: ctl.include"], ["jobs/cut.py", "apply_steer("], ["jobs/selftest_cut.py", "she asked to include is missing"]],
   avoid: [["worker/jobs/cut.ts", "avoid: ctl.avoid"], ["jobs/cut.py", "apply_steer("], ["jobs/selftest_cut.py", "she asked to leave out was kept"]],
 };

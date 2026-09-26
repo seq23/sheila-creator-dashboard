@@ -53,6 +53,8 @@ export function Dump() {
   const [understood, setUnderstood] = useState<Understood | null>(null);
   const understandTimer = useRef<number | null>(null);
   const editing = useLoad(() => get<{ looks: SteerLook[]; music: SteerTrack[] }>("/api/editing"));
+  // The Voice over chip's default: the Settings switch, and whether her voice is saved.
+  const voiceState = useLoad(() => get<{ auto: "on" | "needs_voice" | "off"; hasSample: boolean }>("/api/voice"));
   const [dumpId, setDumpId] = useState<string | null>(routeId ?? null);
   const [notes, setNotes] = useState("");
   const [local, setLocal] = useState<Local[]>([]);
@@ -362,7 +364,13 @@ export function Dump() {
                 <div className="hint">You can ask for looks (like a 2x4 grid), music, pace, length, how many clips, captions, platforms, and moments to keep in or leave out.</div>
                 <UnderstoodNote understood={understood} />
               </div>
-              <SteerPanel steer={steer} onChange={changeSteer} looks={editing.data?.looks ?? []} tracks={editing.data?.music ?? []} />
+              <SteerPanel
+                steer={steer}
+                onChange={changeSteer}
+                looks={editing.data?.looks ?? []}
+                tracks={editing.data?.music ?? []}
+                voice={{ choice: voiceState.data?.auto === "off" ? "none" : "quiet", hasVoice: !!voiceState.data?.hasSample }}
+              />
               <div className="row wrap">
                 <button className="btn big" data-primary={hasVideos && door ? true : undefined} disabled={!door || sending || uploading || uploadedCount === 0} onClick={send} data-dump-button>
                   {sending ? "Sending…" : door ? `Dump ${uploadedCount || ""} ${uploadedCount === 1 ? DOORS[door].noun[0] : DOORS[door].noun[1]}`.replace("  ", " ") : "Dump"}

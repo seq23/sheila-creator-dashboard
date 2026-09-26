@@ -1,10 +1,10 @@
 // How she steers a dump, on the Dump screen (worker/domain/steer.ts has the rules):
 //   - Surprise me (the default): we pick, varied across the batch, and say what we tried
-//   - or tap chips: Look, Music, Pace, Clip length, How many, Captions, Platforms. An untapped
+//   - or tap chips: Look, Music, Pace, Clip length, How many, Captions, Platforms, Voice over. An untapped
 //     group stays "Surprise me" for that one thing. Every group is always shown (nothing hidden).
 // Under the note: "Here's what we understood", and anything we can't do as asked, before Dump.
 import type { NotFollowed, SteerControls, Understood } from "@shared/steer";
-import { CAPTION_CHOICES, CAPTION_LABEL, COUNT_CHOICES, LENGTHS, PACES } from "@shared/steer";
+import { CAPTION_CHOICES, CAPTION_LABEL, COUNT_CHOICES, LENGTHS, PACES, VOICE_CHOICES, VOICE_LABEL, type VoiceChoice } from "@shared/steer";
 import { PLATFORMS, PLATFORM_LABEL, type Platform } from "@shared/constants";
 import "../styles/steer.css";
 
@@ -42,7 +42,16 @@ function Group({ name, children, surprise, onSurprise }: { name: string; childre
   );
 }
 
-export function SteerPanel({ steer, onChange, looks, tracks, disabled }: { steer: SteerControls; onChange: (s: SteerControls) => void; looks: SteerLook[]; tracks: SteerTrack[]; disabled?: boolean }) {
+/**
+ * What happens about voice overs when she taps nothing: the Settings switch "Automatic voice overs"
+ * (on → "quiet", off → "none"), and whether her voice is saved (GET /api/voice `auto`).
+ */
+export interface VoiceDefault {
+  choice: VoiceChoice;
+  hasVoice: boolean;
+}
+
+export function SteerPanel({ steer, onChange, looks, tracks, disabled, voice }: { steer: SteerControls; onChange: (s: SteerControls) => void; looks: SteerLook[]; tracks: SteerTrack[]; disabled?: boolean; voice: VoiceDefault }) {
   const set = (patch: Partial<SteerControls>) => {
     const next = { ...steer, ...patch } as Record<string, unknown>;
     for (const k of Object.keys(next)) if (next[k] === undefined) delete next[k];
@@ -128,6 +137,30 @@ export function SteerPanel({ steer, onChange, looks, tracks, disabled }: { steer
           </Chip>
         ))}
       </Group>
+      {/* Voice over: no "Surprise me" here; untapped, her Settings switch decides, and the chip it picks is marked. */}
+      <div className="steer-group" role="group" aria-label="Voice over">
+        <div className="steer-name">Voice over</div>
+        <div className="steer-chips">
+          {VOICE_CHOICES.map((v) => {
+            const isDefault = !steer.voice && voice.choice === v;
+            return (
+              <Chip key={v} on={steer.voice === v || isDefault} onClick={() => set({ voice: steer.voice === v ? undefined : v })}>
+                {VOICE_LABEL[v]}
+                {isDefault ? " (your setting)" : ""}
+              </Chip>
+            );
+          })}
+        </div>
+        <span className="hint" data-voice-hint>
+          {(steer.voice ?? voice.choice) === "quiet"
+            ? voice.hasVoice
+              ? "Clips with no talking get a voice over in your voice; clips where you talk never do. You can remove any of them in Review."
+              : "Record your voice first (Voice overs, the steps at the top); until then no voice overs are made."
+            : (steer.voice ?? voice.choice) === "pick"
+              ? "No voice overs now; tap Add voice over on any clip in Review."
+              : "No voice overs on this dump. You can still add one to any clip in Review."}
+        </span>
+      </div>
     </fieldset>
   );
 }

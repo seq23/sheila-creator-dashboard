@@ -94,9 +94,21 @@ did not). No fourth cron expression: the monthly refresh is a daily check that a
 `/voice`) is always in the menu, Home has a quiet "Your voice overs" card (not set up / built-in
 ready / premium on / a real error with its fix link), and every Settings → Features switch is
 on by default (migration `0010_features_on.sql`, `DEFAULT_FEATURES` in `shared/constants.ts`,
-validator `nothing-hidden`). `features.voice` is the switch "Voice overs on clips" (on the Voice
-overs screen and in Settings): off = clips stay real footage with no voice over; her voice can
-still be recorded and saved.
+validator `nothing-hidden`). `features.voice` is the switch "Automatic voice overs" (on the Voice
+overs screen and in Settings; owner, 26 Sep 2026). On = after every built-in cut, each clip with
+under 15% talking (`clips.speech`, measured by the cut job; NULL = unmeasured = talking) gets a
+script (free model, fitted to the clip; a starter script when the AI is busy), her voice, and the
+mix, in ONE voice job run per dump (`auto/<batch>` ref, `worker/jobs/voice_batch.ts`, the model
+loads once; the run logs and returns its minutes, event `voice.batch.done`). A clip where she talks
+is never voiced automatically (validator `auto-voice-silent-only`). Every voice over is her cloned
+voice, so the post goes to Buffer with `isAiGenerated: true` (TikTok, Instagram, YouTube). Off =
+only the voice overs she adds herself (manual voice overs work either way). On with no voice saved
+= the switch says "Record your voice first"; nothing fails, no light. Per dump she can override the
+switch with the Dump chip "Voice over" (On quiet clips / None for this dump / Let me pick in Review)
+or a note ("no voice over", "voice over the b-roll"); a video's own note wins for its clips
+(`voicePlans` in `worker/lib/autoVoice.ts`). Review: Add voice over, Remove voice over, Redo voice
+over (Edit the script: her words, re-voiced and re-mixed). A failed batch is a yellow Voice light
+and a Redo, never red.
 
 Two engines, named the same on every screen, in `narrations.engine` and in the code
 (`worker/domain/voiceEngine.ts`):

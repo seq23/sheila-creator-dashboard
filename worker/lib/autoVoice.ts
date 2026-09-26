@@ -18,7 +18,10 @@ import { dispatchJob } from "../services/github";
 import { getLlm } from "../services/openrouter";
 import { fakeServices } from "../env";
 import { currentEngine, ensurePremiumVoice, premiumNarrate } from "./premiumVoice";
-import { fitScript, isSilentClip, maxWords, starterScript } from "../domain/autoVoice";
+import { fitScript, isSilentClip, maxWords, starterScript, voiceFor, type VoicePlan } from "../domain/autoVoice";
+import { cleanControls, mergeControls } from "../domain/steer";
+import { readUnderstood, tracksOf } from "./steerStore";
+import { parseJson } from "./db";
 import { KIT_NAME, lockedProfile } from "../routes/mediakit";
 import { DEFAULT_FEATURES } from "@shared/constants";
 import type { Features } from "@shared/types";
@@ -94,16 +97,38 @@ async function voiceClips(env: Env, items: { clip: TargetClip; script: string; a
   return { batch, premium, builtIn };
 }
 
-/** After a built-in cut: a voice over for every new clip with no talking, when the switch is on and her voice is saved. */
+/**
+ * Her voice-over plan for a dump, per video: the video's own note > the "Voice over" chip > the
+ * dump's note > the Settings switch (worker/domain/autoVoice.ts voiceFor).
+ */
+export async function voicePlans(env: Env, dumpId: string): Promise<{ dump: VoicePlan; assets: Map<string, VoicePlan> }> {
+  const [on, sample, tracks] = [await autoVoiceOn(env), await hasVoiceSample(env), await tracksOf(env)];
+  const dump = await env.DB.prepare("SELECT steer, steer_notes FROM dumps WHERE id = ?").bind(dumpId).first<{ steer: string | null; steer_notes: string | null }>();
+  const chips = cleanControls(parseJson(dump?.steer ?? null, {}), tracks).controls;
+  const note = readUnderstood(dump?.steer_notes ?? null)?.controls ?? {};
+  const { results } = await env.DB.prepare("SELECT id, steer_notes FROM assets WHERE dump_id = ?").bind(dumpId).all<{ id: string; steer_notes: string | null }>();
+  const assets = new Map(results.map((a) => [a.id, voiceFor(mergeControls(chips, note, readUnderstood(a.steer_notes)?.controls ?? {}).controls.voice, on, sample)]));
+  return { dump: voiceFor(mergeControls(chips, note).controls.voice, on, sample), assets };
+}
+
+/**
+ * After a built-in cut: a voice over for every new clip with no talking, where her plan for that
+ * clip's video is "quiet" (on quiet clips) and her voice is saved. "none" and "pick" make nothing;
+ * with "pick" she adds them one by one in Review.
+ */
 export async function autoVoiceDump(env: Env, dumpId: string): Promise<{ state: "off" | "needs_voice" | "voiced"; clips: number }> {
-  if (!(await autoVoiceOn(env))) return { state: "off", clips: 0 };
-  if (!(await hasVoiceSample(env))) return { state: "needs_voice", clips: 0 }; // quiet: the switch says so; no light, no email
+  const plans = await voicePlans(env, dumpId);
+  const quiet = (p: VoicePlan) => p === "quiet";
+  if (![plans.dump, ...plans.assets.values()].some(quiet)) {
+    // quiet either way: the switch and the Dump screen say "Record your voice first"; no light, no email
+    return { state: [plans.dump, ...plans.assets.values()].includes("needs_voice") ? "needs_voice" : "off", clips: 0 };
+  }
   const { results } = await env.DB.prepare(
-    "SELECT c.id, c.hook_text, c.caption, c.start_s, c.end_s, c.speech FROM clips c WHERE c.dump_id = ? AND c.status IN ('draft', 'approved') AND NOT EXISTS (SELECT 1 FROM narrations n WHERE n.clip_id = c.id)",
+    "SELECT c.id, c.asset_id, c.hook_text, c.caption, c.start_s, c.end_s, c.speech FROM clips c WHERE c.dump_id = ? AND c.status IN ('draft', 'approved') AND NOT EXISTS (SELECT 1 FROM narrations n WHERE n.clip_id = c.id)",
   )
     .bind(dumpId)
-    .all<TargetClip>();
-  const targets = results.filter((c) => isSilentClip(c.speech));
+    .all<TargetClip & { asset_id: string }>();
+  const targets = results.filter((c) => quiet(plans.assets.get(c.asset_id) ?? plans.dump) && isSilentClip(c.speech));
   if (!targets.length) return { state: "voiced", clips: 0 };
   const items = [];
   for (const clip of targets) items.push({ clip, script: await draftScript(env, clip), auto: true });

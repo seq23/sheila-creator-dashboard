@@ -47,7 +47,7 @@ import {
 } from "../domain/looks";
 import { getSetting } from "../lib/db";
 import { CUT_REF } from "../lib/jobStorage";
-import { autoVoiceDump } from "../lib/autoVoice";
+import { hasVoiceSample, autoVoiceDump } from "../lib/autoVoice";
 import { cleanControls, mergeControls, recipesAllowed, steerLook, steerMusic, steerPlatforms, steerRecipes, steerTarget, whatWeTried } from "../domain/steer";
 import { readUnderstood, tracksOf } from "../lib/steerStore";
 import type { NotFollowed, SteerControls } from "@shared/steer";
@@ -707,6 +707,10 @@ export async function steerOutcome(env: Env, dumpId: string, report: unknown, cl
   const nf: NotFollowed[] = [...(note?.not_followed ?? []), ...mergeControls(chips, note?.controls ?? {}).not_followed];
   const { results: assetNotes } = await env.DB.prepare("SELECT steer_notes FROM assets WHERE dump_id = ? AND steer_notes IS NOT NULL").bind(dumpId).all<{ steer_notes: string }>();
   for (const a of assetNotes) nf.push(...(readUnderstood(a.steer_notes)?.not_followed ?? []));
+  // Voice over "on quiet clips" asked for (chip or note) while her voice isn't saved: said, never dropped.
+  const askedVoice = [mergeControls(chips, note?.controls ?? {}).controls.voice, ...assetNotes.map((a) => readUnderstood(a.steer_notes)?.controls.voice)];
+  if (askedVoice.includes("quiet") && !(await hasVoiceSample(env)))
+    nf.push({ what: "voice overs on the quiet clips", why: "your voice isn't saved yet (Voice overs, the steps at the top), so none were made; once it is, tap Add voice over on a clip in Review" });
   if (Array.isArray(report))
     for (const r of report.slice(0, 20)) if (r && typeof r.what === "string" && typeof r.why === "string") nf.push({ what: r.what.slice(0, 120), why: r.why.slice(0, 240) });
   const seen = new Set<string>();

@@ -22,6 +22,15 @@ export const CAPTION_LABEL: Record<CaptionChoice, string> = { clean: "Simple", k
 export const COUNT_CHOICES = [5, 10, 20, 30] as const;
 export const MAX_COUNT = 30;
 
+/**
+ * Voice over for this dump (owner, 26 Sep 2026: "is it either all or none?"): on the clips with no
+ * talking (the default when Automatic voice overs is on and her voice is saved), none for this
+ * dump, or none now and she adds them one by one in Review. worker/domain/autoVoice.ts voiceFor.
+ */
+export const VOICE_CHOICES = ["quiet", "none", "pick"] as const;
+export type VoiceChoice = (typeof VOICE_CHOICES)[number];
+export const VOICE_LABEL: Record<VoiceChoice, string> = { quiet: "On quiet clips", none: "None for this dump", pick: "Let me pick in Review" };
+
 /** Music: "none", "any" (her songs, one per clip in turn) or one song ("track:<id>"). */
 export type MusicChoice = "none" | "any" | `track:${string}`;
 
@@ -33,6 +42,7 @@ export interface SteerControls {
   count?: number;
   captions?: CaptionChoice;
   platforms?: Platform[];
+  voice?: VoiceChoice;
   /** Moments that must be in: words she said, a person, a product. */
   include?: string[];
   /** Moments to leave out. */
@@ -54,5 +64,5 @@ export interface Understood {
   by: "rules" | "rules+ai";
 }
 
-export const STEER_KEYS = ["looks", "music", "pace", "length", "count", "captions", "platforms", "include", "avoid"] as const;
+export const STEER_KEYS = ["looks", "music", "pace", "length", "count", "captions", "platforms", "voice", "include", "avoid"] as const;
 export type SteerKey = (typeof STEER_KEYS)[number];
