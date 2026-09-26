@@ -3,7 +3,8 @@
 // renderContext() in worker/jobs/cut.ts, so what she switches here is what the next dump renders.
 //
 //   GET    /api/editing                 { editing, looks, music }
-//   PATCH  /api/editing                 { looks?, captions?, end_card?, music? }   (owner)
+//   PATCH  /api/editing                 { looks?, captions?, end_card?, music?, editors? }   (owner)
+//                                       editors: Who edits, per job: "built-in" or a connected editor
 //   POST   /api/editing/music           { id, key }  after the upload finished (owner)
 //   DELETE /api/editing/music/:id                                                    (owner)
 import { Hono } from "hono";
@@ -14,6 +15,8 @@ import { fail, readJson } from "../lib/http";
 import { log } from "../lib/log";
 import { GRIDS, LOOKS, cleanEditing, editingFromStored, editingToStored, lookThumb, type EditingSettings, type LookId, type StoredEditing } from "../domain/looks";
 import { MUSIC_MAX_BYTES } from "./uploads";
+import { CAPABILITY_TEXT, CHOOSABLE, cleanEditorChoice, editorChoiceFromStored, editorsFor, effectiveEditor, type ChoosableCapability, type EditorChoice } from "../domain/editors";
+import { connectedEditors } from "../lib/editorJobs";
 
 export const editing = new Hono<{ Bindings: Env; Variables: Vars }>();
 editing.use("*", requireUser);
@@ -34,10 +37,23 @@ export interface MusicTrack {
   created_at: string;
 }
 
+/** Who edits, per job: every editor that can do it is listed, connected or not (nothing hidden). */
+export interface EditorRow {
+  capability: ChoosableCapability;
+  name: string;
+  what: string;
+  choice: EditorChoice[ChoosableCapability];
+  /** Who actually does it now: her pick while connected, else the built-in editor. */
+  effective: EditorChoice[ChoosableCapability];
+  options: { id: string; name: string; connected: boolean }[];
+}
+
 export interface EditingView {
   editing: EditingSettings;
   looks: LookView[];
   music: MusicTrack[];
+  editors: EditorRow[];
+  templates: { name: string; what: string };
 }
 
 export const LOOK_VIEWS: LookView[] = LOOKS.map((l) => ({
@@ -57,21 +73,40 @@ async function tracks(env: Env): Promise<MusicTrack[]> {
   return results;
 }
 
+async function editorRows(env: Env, raw: StoredEditing): Promise<EditorRow[]> {
+  const choice = editorChoiceFromStored(raw.editors);
+  const connected = await connectedEditors(env);
+  return CHOOSABLE.map((cap) => ({
+    capability: cap,
+    name: CAPABILITY_TEXT[cap].name,
+    what: CAPABILITY_TEXT[cap].what,
+    choice: choice[cap],
+    effective: effectiveEditor(choice, cap, connected),
+    options: [{ id: "built-in", name: "Built-in (free)", connected: true }, ...editorsFor(cap).map((e) => ({ id: e.id, name: e.name, connected: connected.has(e.id) }))],
+  }));
+}
+
 async function view(env: Env): Promise<EditingView> {
-  return { editing: editingFromStored(await stored(env)), looks: LOOK_VIEWS, music: await tracks(env) };
+  const raw = await stored(env);
+  return { editing: editingFromStored(raw), looks: LOOK_VIEWS, music: await tracks(env), editors: await editorRows(env, raw), templates: CAPABILITY_TEXT.templates };
 }
 
 editing.get("/", async (c) => c.json(await view(c.env)));
 
 editing.patch("/", requireOwner, async (c) => {
-  const body = await readJson<Partial<EditingSettings>>(c);
+  const body = await readJson<Partial<EditingSettings> & { editors?: unknown }>(c);
   if (!body) return fail(c, 400, "Nothing to save.");
   const raw = await stored(c.env);
+  if (body.editors !== undefined) {
+    const picked = cleanEditorChoice(body.editors, editorChoiceFromStored(raw.editors), await connectedEditors(c.env));
+    if ("error" in picked) return fail(c, 422, picked.error, "connect-an-editor");
+    raw.editors = picked.choice;
+  }
   const next = cleanEditing(body, editingFromStored(raw));
   if (!next) return fail(c, 422, "Keep at least one look switched on, so every dump gets one.", "looks-and-styles");
   if (next.music && !(await tracks(c.env)).length) return fail(c, 409, "Add a song under My music first. The music bed only ever uses songs you upload.", "looks-and-styles");
   await setSetting(c.env.DB, "editing", editingToStored(next, raw));
-  await recordEvent(c.env.DB, "settings.editing", null, { looks: next.looks.length, captions: next.captions, end_card: next.end_card, music: next.music }, c.get("user").email);
+  await recordEvent(c.env.DB, "settings.editing", null, { looks: next.looks.length, captions: next.captions, end_card: next.end_card, music: next.music, editors: raw.editors ?? null }, c.get("user").email);
   return c.json(await view(c.env));
 });
 

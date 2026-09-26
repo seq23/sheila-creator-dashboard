@@ -47,23 +47,30 @@ import {
 } from "../domain/looks";
 import { getSetting } from "../lib/db";
 import { CUT_REF } from "../lib/jobStorage";
+import { applyImport, buildImportSpec, fakeImport, importFailed, type ImportSpec } from "./cut_import";
+import { connectedEditors, editorChoice, queueClipEditors } from "../lib/editorJobs";
+import { effectiveEditor } from "../domain/editors";
 import { dispatchJob } from "../services/github";
 
 /** A cut job's ref: a dump ("dmp_…"), or one clip of it to re-render ("dmp_…/clp_…"). */
-export function parseCutRef(refId: string | null): { dumpId: string; clipId: string | null } | null {
+export function parseCutRef(refId: string | null): { dumpId: string; clipId: string | null; import: boolean } | null {
   const m = CUT_REF.exec(refId ?? "");
-  return m ? { dumpId: m[1], clipId: m[2] ?? null } : null;
+  return m ? { dumpId: m[1], clipId: m[2] ?? null, import: !!m[3] } : null;
 }
 
 /** Everything a render needs from her settings: the editing switches, her songs, her branding. */
-export async function renderContext(env: Env): Promise<{ editing: ReturnType<typeof editingFromStored>; music: { r2_key: string }[]; branding: Branding }> {
-  const editing = editingFromStored(await getSetting<StoredEditing>(env.DB, "editing", {}));
+export async function renderContext(env: Env): Promise<{ editing: ReturnType<typeof editingFromStored>; own: ReturnType<typeof editingFromStored>; music: { r2_key: string }[]; branding: Branding }> {
+  const stored = editingFromStored(await getSetting<StoredEditing>(env.DB, "editing", {}));
+  // A connected captions editor (Who edits > Captions) adds the words: the built-in render leaves them off.
+  const captionsElsewhere = effectiveEditor(await editorChoice(env), "caption", await connectedEditors(env)) !== "built-in";
+  const editing = captionsElsewhere ? { ...stored, captions: false } : stored;
   const { results: tracks } = await env.DB.prepare("SELECT r2_key FROM music_tracks ORDER BY created_at").all<{ r2_key: string }>();
   const profile = await env.DB.prepare("SELECT sections FROM brand_profile WHERE locked = 1 ORDER BY version DESC LIMIT 1").first<{ sections: string }>();
   const buffer = await env.DB.prepare("SELECT meta FROM connections WHERE service = 'buffer' AND status = 'ok'").first<{ meta: string }>();
   const channels = parseJson<{ channels?: { platform?: string; handle?: string }[] }>(buffer?.meta, {}).channels ?? [];
   return {
     editing,
+    own: stored,
     music: editing.music ? tracks.map((t) => ({ r2_key: t.r2_key })) : [],
     branding: brandingFor(profile ? parseJson<Record<string, string>>(profile.sections, {}) : null, channels),
   };
@@ -167,9 +174,10 @@ interface AssetDb {
   content_hash: string | null;
 }
 
-async function buildSpec(env: Env, jobId: string, refId: string | null): Promise<CutSpec | RerenderSpec> {
+async function buildSpec(env: Env, jobId: string, refId: string | null): Promise<CutSpec | RerenderSpec | ImportSpec> {
   const ref = parseCutRef(refId);
   if (!ref) throw new Error("cut job has no dump");
+  if (ref.import) return buildImportSpec(env, jobId, ref.dumpId, ref.clipId);
   if (ref.clipId) return buildRerenderSpec(env, jobId, ref.dumpId, ref.clipId);
   return buildDumpSpec(env, jobId, ref.dumpId);
 }
@@ -298,7 +306,9 @@ async function buildRerenderSpec(env: Env, jobId: string, dumpId: string, clipId
   if (!clip || !clip.pending_look || !isLookId(clip.pending_look)) throw new Error("clip has no pending look");
   if (clip.raw_deleted_at) throw new Error("clip source cleared");
   const ctx = await renderContext(env);
-  const look = resolveLook(clip.pending_look, ctx.editing, ctx.music.length > 0);
+  // Her captions editor failed on this clip: the built-in captions go back on (her own switch decides).
+  const lastCaption = await env.DB.prepare("SELECT status FROM editor_jobs WHERE clip_id = ? AND capability = 'caption' ORDER BY created_at DESC LIMIT 1").bind(clipId).first<{ status: string }>();
+  const look = resolveLook(clip.pending_look, lastCaption?.status === "failed" ? ctx.own : ctx.editing, ctx.music.length > 0);
   const parts = clipParts(clip);
   let cells: RerenderStretch[] | null = null;
   let voice = 0;
@@ -560,26 +570,38 @@ export function plainFailure(safeError: string): string {
 async function applyResult(env: Env, jobId: string, refId: string | null, result: unknown): Promise<void> {
   const ref = parseCutRef(refId);
   if (!ref) throw new CutResultError("cut job has no dump");
+  if (ref.import) return applyImport(env, jobId, ref.dumpId, ref.clipId, result);
   if (ref.clipId) return applyRerender(env, jobId, ref.dumpId, ref.clipId, result);
-  const dumpId = ref.dumpId;
+  return applyDumpClips(env, jobId, ref.dumpId, result, {});
+}
+
+/**
+ * A dump's clips, from the built-in cutter or imported from a connected editor (`editor`, with
+ * the clip ids planned when its job finished): checked by parseCutResult, stored, the dump ready,
+ * the "Clips ready" email. After a built-in cut, her captions / polish editor gets the new clips.
+ */
+export async function applyDumpClips(env: Env, jobId: string, dumpId: string, result: unknown, opts: { editor?: string; planned?: Set<string> }): Promise<void> {
   const dump = await env.DB.prepare("SELECT id, door FROM dumps WHERE id = ?").bind(dumpId).first<{ id: string; door: "new" | "recycle" }>();
   if (!dump) throw new CutResultError("dump missing");
   // The allowed platforms are recomputed from the database, not taken from the job.
   const spec = await buildDumpSpec(env, jobId, dumpId);
   const allowed = new Map(spec.assets.map((a) => [a.id, a.allowed_platforms]));
   const rawKeys = new Set(spec.assets.map((a) => a.r2_key));
-  const { clips, dropped } = parseCutResult(result, { dumpId, allowed, rawKeys });
+  const parsed = parseCutResult(result, { dumpId, allowed, rawKeys });
+  // An editor's import may bring back only the clips planned for it, never extra ones.
+  const clips = opts.planned ? parsed.clips.filter((c) => opts.planned!.has(c.id)) : parsed.clips;
+  const dropped = parsed.dropped + (parsed.clips.length - clips.length);
   if (!clips.length) throw new CutResultError("no usable clips");
 
   const stmts: D1PreparedStatement[] = [env.DB.prepare("DELETE FROM clips WHERE dump_id = ? AND status = 'draft'").bind(dumpId)];
   for (const c of clips) {
     stmts.push(
       env.DB.prepare(
-        `INSERT INTO clips (id, asset_id, dump_id, start_s, end_s, recipe, hook_text, hook_alt, caption, hashtags, platforms, score, r2_key, cover_r2_key, media_token, status, hidden, look, parts, layout)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?)`,
+        `INSERT INTO clips (id, asset_id, dump_id, start_s, end_s, recipe, hook_text, hook_alt, caption, hashtags, platforms, score, r2_key, cover_r2_key, media_token, status, hidden, look, parts, layout, edited_with)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?)`,
       ).bind(
         c.id, c.asset_id, dumpId, c.start_s, c.end_s, c.recipe, c.hook_text, c.hook_alt, c.caption, c.hashtags, JSON.stringify(c.platforms), c.score, c.r2_key, c.cover_r2_key, mediaToken(), c.hidden ? 1 : 0,
-        c.look, JSON.stringify(c.parts), c.layout ? JSON.stringify(c.layout) : null,
+        opts.editor ? null : c.look, JSON.stringify(c.parts), opts.editor ? null : c.layout ? JSON.stringify(c.layout) : null, opts.editor ?? null,
       ),
     );
   }
@@ -599,7 +621,9 @@ async function applyResult(env: Env, jobId: string, refId: string | null, result
   const visible = clips.filter((c) => !c.hidden).length;
   const engine = (result as CutResult).engine ?? {};
   const looks = new Set(clips.map((c) => c.look).filter(Boolean)).size;
-  await recordEvent(env.DB, "dump.cut", dumpId, { clips: clips.length, visible, dropped, door: dump.door, engine, looks, held_videos: held.filter((h) => h.owner === "other").length });
+  await recordEvent(env.DB, "dump.cut", dumpId, { clips: clips.length, visible, dropped, door: dump.door, engine, looks, editor: opts.editor ?? "built-in", held_videos: held.filter((h) => h.owner === "other").length });
+  if (opts.editor) await env.DB.prepare("UPDATE editor_jobs SET status = 'done', updated_at = ? WHERE dump_id = ? AND capability = 'cut_from_source' AND status = 'importing'").bind(nowIso(), dumpId).run();
+  else await queueClipEditors(env, clips.map((c) => c.id), env.PUBLIC_BASE_URL);
   await clipCuttingLight(env, { status: "done", at: readyAt });
   log.info("cut.apply", { clips: clips.length, visible, dropped });
 
@@ -678,12 +702,14 @@ async function applyRerender(env: Env, _jobId: string, dumpId: string, clipId: s
   if (old.length) await env.FILES.delete(old);
   await remixVoiceOver(env, clipId);
   await recordEvent(env.DB, "clip.look_changed", clipId, { look: clip.pending_look });
+  await queueClipEditors(env, [clipId], env.PUBLIC_BASE_URL, "caption");
   log.info("cut.rerender.apply", {});
 }
 
 async function onFailure(env: Env, jobId: string, refId: string | null, safeError: string): Promise<void> {
   const ref = parseCutRef(refId);
   if (!ref) return;
+  if (ref.import) return importFailed(env, ref.dumpId, ref.clipId, safeError);
   if (ref.clipId) {
     await env.DB.prepare("UPDATE clips SET pending_look = NULL, pending_layout = NULL, rerender_job_id = NULL, rerender_error = ? WHERE id = ? AND rerender_job_id = ?")
       .bind(RERENDER_FAILED, ref.clipId, jobId)
@@ -701,7 +727,7 @@ async function onFailure(env: Env, jobId: string, refId: string | null, safeErro
 
 // A 2-second 90×160 H.264/AAC MP4 (made once with ffmpeg; plays in every browser) and four
 // 90×160 cover JPEGs in the brand colours. Bytes in code, so no fixture files to ship.
-const FAKE_MP4_B64 = "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";
+export const FAKE_MP4_B64 = "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";
 const FAKE_JPG_B64 = [
   "/9j/4AAQSkZJRgABAgAAAQABAAD//gAQTGF2YzYyLjI4LjEwMQD/2wBDAAgUFBcUFxsbGxsbGyAeICEhISAgICAhISEkJCQqKiokJCQhISQkKCgqKi4vLisrKisvLzIyMjw8OTlGRkhWVmf/xABNAAEBAAAAAAAAAAAAAAAAAAAABgEBAQEAAAAAAAAAAAAAAAAAAAUGEAEAAAAAAAAAAAAAAAAAAAAAEQEAAAAAAAAAAAAAAAAAAAAA/8AAEQgAoABaAwEiAAIRAAMRAP/aAAwDAQACEQMRAD8AtwGUVgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH/9k=",
   "/9j/4AAQSkZJRgABAgAAAQABAAD//gAQTGF2YzYyLjI4LjEwMQD/2wBDAAgUFBcUFxsbGxsbGyAeICEhISAgICAhISEkJCQqKiokJCQhISQkKCgqKi4vLisrKisvLzIyMjw8OTlGRkhWVmf/xABNAAEBAAAAAAAAAAAAAAAAAAAABQEBAQEAAAAAAAAAAAAAAAAAAAMGEAEAAAAAAAAAAAAAAAAAAAAAEQEAAAAAAAAAAAAAAAAAAAAA/8AAEQgAoABaAwEiAAIRAAMRAP/aAAwDAQACEQMRAD8AgAJtCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//9k=",
@@ -734,9 +760,10 @@ function hashNum(s: string): number {
   return h;
 }
 
-async function fakeRun(env: Env, jobId: string, refId: string | null, options: Record<string, unknown>): Promise<CutResult | { rerender: Record<string, unknown> }> {
+async function fakeRun(env: Env, jobId: string, refId: string | null, options: Record<string, unknown>): Promise<unknown> {
   const ref = parseCutRef(refId);
   if (!ref) throw new Error("cut job has no dump");
+  if (ref.import) return fakeImport(env, jobId, ref.dumpId, ref.clipId, options, unb64(FAKE_MP4_B64), unb64(FAKE_JPG_B64[0]));
   if (ref.clipId) {
     // The fake re-render copies the clip's file to the new name, as the real job uploads a new one.
     const spec = await buildRerenderSpec(env, jobId, ref.dumpId, ref.clipId);

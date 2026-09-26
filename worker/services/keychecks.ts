@@ -6,6 +6,8 @@ import { getBuffer } from "./buffer";
 import { getLlm } from "./openrouter";
 import { getElevenLabs } from "./elevenlabs";
 import { planMeta } from "../lib/premiumVoice";
+import { editorClient } from "./editors";
+import { editorDef, type ApiEditorId } from "../domain/editors";
 
 export interface KeyCheck {
   ok: boolean;
@@ -58,4 +60,24 @@ export async function checkElevenLabs(env: Env, key: string): Promise<KeyCheck &
   }
   const note = r.plan.canClone ? "ElevenLabs connected. Your voice overs will use the premium voice." : "Your ElevenLabs plan does not include voice cloning; the built-in voice will be used.";
   return { ok: true, error: null, meta: planMeta(r.plan), note };
+}
+
+/**
+ * A connected editor (docs/EDITORS.md): the key is checked with one real read of her account.
+ * Credits are shown when the vendor's answer carries them; none of the five documents them, so
+ * the card says where to see them instead. `note` is the sentence the card and toast show.
+ */
+export function checkEditor(editor: ApiEditorId) {
+  return async (env: Env, key: string): Promise<KeyCheck & { note?: string }> => {
+    const def = editorDef(editor)!;
+    const r = await editorClient(env, editor, key).account();
+    if (!r.ok) {
+      if (r.failure === "auth") return { ok: false, error: `${def.name} says this key is not valid.`, meta: {} };
+      if (r.failure === "credits") return { ok: false, error: `${def.name} says this account has no API credits left. Top up in ${def.name}, then Check key again.`, meta: {} };
+      return { ok: false, error: `${def.name} did not answer. Try Check key again in a minute.`, meta: {} };
+    }
+    const meta: Record<string, unknown> = { plan: r.plan, credits_left: r.credits_left ?? undefined, credits_total: r.credits_total ?? undefined, reports_credits: r.credits_left !== null };
+    const low = r.credits_left !== null && r.credits_total ? r.credits_left / r.credits_total < 0.1 : false;
+    return { ok: true, error: null, meta: { ...meta, low }, note: `${def.name} connected. Pick it under Settings → Editing → Who edits.` };
+  };
 }

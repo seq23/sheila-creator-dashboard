@@ -60,10 +60,15 @@ export function memoryR2() {
   };
 
   const bucket = {
-    async get(key: string, opts?: { range?: Headers }) {
+    async get(key: string, opts?: { range?: Headers | { offset: number; length?: number } }) {
       const s = objects.get(key);
       if (!s) return null;
-      return objectFor(key, s, parseRange(opts?.range, s.bytes.byteLength));
+      const r = opts?.range;
+      if (r && !(r instanceof Headers) && typeof r.offset === "number") {
+        const length = Math.min(r.length ?? s.bytes.byteLength - r.offset, s.bytes.byteLength - r.offset);
+        return objectFor(key, s, { offset: r.offset, length });
+      }
+      return objectFor(key, s, parseRange(r as Headers | undefined, s.bytes.byteLength));
     },
     async head(key: string) {
       const s = objects.get(key);

@@ -7,7 +7,9 @@ import { disconnect, listConnections, saveConnection, type Service } from "../li
 import { recordEvent, setHealth } from "../lib/db";
 import { fail, readJson } from "../lib/http";
 import { log } from "../lib/log";
-import { checkBufferKey, checkElevenLabs, checkFirecrawl, checkHunter, checkOpenRouter } from "../services/keychecks";
+import { checkBufferKey, checkEditor, checkElevenLabs, checkFirecrawl, checkHunter, checkOpenRouter } from "../services/keychecks";
+import { API_EDITORS, isApiEditor } from "../domain/editors";
+import { writeEditorCheckLight } from "../lib/editorJobs";
 import type { KeyCheck } from "../services/keychecks";
 import { dropPremiumVoice, ensurePremiumVoice, planFromMeta, recheckElevenLabs, writeElevenLabsLight } from "../lib/premiumVoice";
 
@@ -22,6 +24,7 @@ const CHECKS: Partial<Record<Service, (env: Env, key: string) => Promise<KeyChec
   firecrawl: checkFirecrawl,
   hunter: checkHunter,
   elevenlabs: checkElevenLabs,
+  ...Object.fromEntries(API_EDITORS.map((e) => [e, checkEditor(e)])),
 };
 
 /** Paste a key → live check → stored encrypted only if it works. */
@@ -62,7 +65,7 @@ connections.post("/:service/recheck", async (c) => {
   }
   const r = await check(c.env, key);
   await markConnection(c.env, service, r.ok ? "ok" : "error", r.error, r.meta);
-  await writeServiceHealth(c.env, service, r.ok, r.error ?? null);
+  await writeServiceHealth(c.env, service, r.ok, r.error ?? null, r.meta);
   return r.ok ? c.json({ ok: true, meta: r.meta }) : fail(c, 422, r.error ?? "Check failed.", `reconnect-${service}`);
 });
 
@@ -86,6 +89,11 @@ async function writeServiceHealth(env: Env, service: Service, ok: boolean, error
     if (ok) await ensurePremiumVoice(env);
     return;
   }
+  if (isApiEditor(service)) {
+    // A connected editor's light: yellow when its credits are nearly gone (when its API says so).
+    await writeEditorCheckLight(env, service, ok, error, meta);
+    return;
+  }
   await setHealth(env.DB, service, ok ? "green" : "red", ok ? "Connected" : (error ?? "Needs you"), ok ? null : `reconnect-${service}`);
 }
 
@@ -101,7 +109,7 @@ connections.post("/:service/disconnect", requireOwner, async (c) => {
 });
 
 connections.post("/disconnect-all", requireOwner, async (c) => {
-  const all: Service[] = ["buffer", "openrouter", "firecrawl", "resend", "hunter", "meta", "google", "tiktok", "github", "elevenlabs"];
+  const all: Service[] = ["buffer", "openrouter", "firecrawl", "resend", "hunter", "meta", "google", "tiktok", "github", "elevenlabs", ...API_EDITORS];
   await dropPremiumVoice(c.env, "disconnect");
   for (const s of all) {
     await disconnect(c.env, s);

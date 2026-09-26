@@ -19,7 +19,9 @@ import { POSTABLE_CLIP_SQL } from "../domain/sourceCheck";
 import { readSettings } from "../routes/settings";
 import { bufferRequests, getBuffer, type BufferChannel, type BufferClient } from "../services/buffer";
 import { emailFrame, sendEmail } from "../services/email";
-import { checkFirecrawl, checkHunter, checkOpenRouter, type KeyCheck } from "../services/keychecks";
+import { checkEditor, checkFirecrawl, checkHunter, checkOpenRouter, type KeyCheck } from "../services/keychecks";
+import { API_EDITORS } from "../domain/editors";
+import { writeEditorCheckLight } from "../lib/editorJobs";
 import { recheckElevenLabs } from "../lib/premiumVoice";
 import {
   bufferDueAt,
@@ -350,6 +352,13 @@ export async function recheckEverything(env: Env): Promise<void> {
     const r = await check(env, key);
     await markConnection(env, service, r.ok ? "ok" : "error", r.error, r.meta);
     await setHealth(env.DB, service, r.ok ? "green" : "red", r.ok ? "Connected" : (r.error ?? "Needs you"), r.ok ? null : `reconnect-${service}`);
+  }
+  for (const editor of API_EDITORS) {
+    const key = await getConnectionSecret(env, editor);
+    if (!key) continue;
+    const r = await checkEditor(editor)(env, key);
+    await markConnection(env, editor, r.ok ? "ok" : "error", r.error, r.meta);
+    await writeEditorCheckLight(env, editor, r.ok, r.error, r.meta);
   }
   await recheckElevenLabs(env); // the same code as the daily lane: one "Voice · ElevenLabs" light
   const waiting = (await env.DB.prepare("SELECT COUNT(*) AS n FROM posts WHERE status = 'planned' AND scheduled_at < ?").bind(new Date(Date.now() + 7 * 86400_000).toISOString()).first<{ n: number }>())?.n ?? 0;

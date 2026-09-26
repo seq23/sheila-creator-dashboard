@@ -120,7 +120,7 @@ export interface SettingsShape {
 }
 
 export interface ConnectionView {
-  service: "buffer" | "openrouter" | "firecrawl" | "resend" | "hunter" | "meta" | "google" | "tiktok" | "github" | "elevenlabs";
+  service: "buffer" | "openrouter" | "firecrawl" | "resend" | "hunter" | "meta" | "google" | "tiktok" | "github" | "elevenlabs" | "opusclip" | "vizard" | "klap" | "submagic" | "descript";
   status: "missing" | "ok" | "error" | "disconnected";
   meta: Record<string, unknown>;
   last_ok_at: string | null;

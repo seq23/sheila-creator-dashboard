@@ -12,6 +12,7 @@ import { Empty, HelpButton, Modal, PageHead, Skeleton, Switch, useLoad, useToast
 import { useApp } from "../state";
 import { HeldNotice } from "../components/HeldNotice";
 import { LookModal } from "../components/LookPicker";
+import { HandoffModal } from "../components/HandoffModal";
 import "../styles/review.css";
 
 type Tab = "new" | "approved" | "rejected";
@@ -27,6 +28,8 @@ export interface ReviewClip extends ClipRow {
   rerender_error: string | null;
   source_available: boolean;
   edited_with: string | null;
+  edited_with_name: string | null;
+  editing_note: string | null;
   /** Her voice over on this clip: being added, in it (the video plays with it), or it did not work. */
   voice_over: "mixing" | "ready" | "failed" | null;
 }
@@ -61,6 +64,7 @@ export function Review() {
   const [rejecting, setRejecting] = useState<string[] | null>(null);
   const [deleting, setDeleting] = useState<ReviewClip | null>(null);
   const [restyling, setRestyling] = useState<ReviewClip | null>(null);
+  const [handoff, setHandoff] = useState<ReviewClip | null>(null);
   const [busy, setBusy] = useState(false);
 
   const query = useMemo(() => {
@@ -77,7 +81,7 @@ export function Review() {
 
   // A clip getting a new look re-renders on the runner (about a minute): check back every 15 s
   // until none is pending, so the new version appears without a manual refresh.
-  const pending = (list.data?.groups ?? []).some((g) => g.clips.some((c) => c.pending_look));
+  const pending = (list.data?.groups ?? []).some((g) => g.clips.some((c) => c.pending_look || c.editing_note));
   useEffect(() => {
     if (!pending) return;
     const t = window.setInterval(() => list.reload(), 15_000);
@@ -238,6 +242,7 @@ export function Review() {
                 onRestore={() => restore(c.id)}
                 onEdit={() => setEditing(c)}
                 onRestyle={() => setRestyling(c)}
+                onHandoff={() => setHandoff(c)}
                 onDelete={() => setDeleting(c)}
                 onPlatform={(p) => togglePlatform(c, p)}
               />
@@ -312,6 +317,17 @@ export function Review() {
           }}
         />
       ) : null}
+      {handoff ? (
+        <HandoffModal
+          clip={handoff}
+          onClose={() => setHandoff(null)}
+          onReplaced={(updated) => {
+            if (updated) replaceClip(updated);
+            setHandoff(null);
+            list.reload();
+          }}
+        />
+      ) : null}
       {restyling ? (
         <LookModal
           clip={restyling}
@@ -340,6 +356,7 @@ function ClipCard(props: {
   onRestore: () => void;
   onEdit: () => void;
   onRestyle: () => void;
+  onHandoff: () => void;
   onDelete: () => void;
   onPlatform: (p: Platform) => void;
 }) {
@@ -369,6 +386,16 @@ function ClipCard(props: {
           {c.look_name ? (
             <span className="pill look-chip" data-look={c.look ?? undefined}>
               Look: {c.look_name}
+            </span>
+          ) : null}
+          {c.edited_with_name ? (
+            <span className="pill look-chip" data-edited-with={c.edited_with ?? undefined}>
+              Edited in {c.edited_with_name}
+            </span>
+          ) : null}
+          {c.editing_note ? (
+            <span className="pill warn look-pending" role="status">
+              {c.editing_note}
             </span>
           ) : null}
           {c.pending_look ? (
@@ -431,8 +458,13 @@ function ClipCard(props: {
             </button>
           ) : null}
           {tab !== "rejected" ? (
-            <button className="link-btn" onClick={props.onRestyle} disabled={!!c.pending_look}>
+            <button className="link-btn" onClick={props.onRestyle} disabled={!!c.pending_look || !!c.editing_note}>
               Change look
+            </button>
+          ) : null}
+          {tab !== "rejected" ? (
+            <button className="link-btn" onClick={props.onHandoff} disabled={!!c.pending_look || !!c.editing_note}>
+              Edit in CapCut
             </button>
           ) : null}
           <button className="link-btn danger-text" onClick={props.onDelete}>
