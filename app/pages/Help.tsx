@@ -4,7 +4,8 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import type { SettingsShape } from "@shared/types";
 import { get } from "../lib/api";
-import { CHECKLIST_KEY, GROUPS, INDEX, TOUR_KEY, guide, helperMail, lastScreen, readStore, searchGuides, writeStore } from "../lib/guides";
+import { CHECKLIST_KEY, GROUPS, TOUR_KEY, guide, helperMail, lastScreen, readStore, searchGuides, visibleGuides, writeStore } from "../lib/guides";
+import { useApp } from "../state";
 import { Card, HelpButton, PageHead, useLoad } from "../components/ui";
 import { Icon } from "../components/Icon";
 import "../styles/help.css";
@@ -24,11 +25,14 @@ const CHECKLIST = ["log-in", "connect-buffer", "add-channels-in-buffer", "connec
 
 export function Help() {
   const nav = useNavigate();
+  const { me } = useApp();
+  // Open mode (no login) drops the "Log in" guide from the checklist, the topics and search.
+  const shown = visibleGuides(me?.authMode);
   const [q, setQ] = useState("");
   const [ticks, setTicks] = useState<string[]>(() => readStore<string[]>(CHECKLIST_KEY, []));
   const settings = useLoad(() => get<SettingsShape>("/api/settings"));
-  const results = useMemo(() => searchGuides(q), [q]);
-  const checklist = CHECKLIST.map((slug) => INDEX.find((g) => g.slug === slug)).filter((g): g is (typeof INDEX)[number] => !!g);
+  const results = useMemo(() => searchGuides(q, me?.authMode), [q, me?.authMode]);
+  const checklist = CHECKLIST.map((slug) => shown.find((g) => g.slug === slug)).filter((g): g is (typeof shown)[number] => !!g);
   const done = checklist.filter((g) => ticks.includes(g.slug)).length;
 
   function toggle(slug: string) {
@@ -48,8 +52,8 @@ export function Help() {
 
   const helper = settings.data?.helper_email ?? null;
   const topics = GROUPS.filter((g) => g.key !== "getting_started" && g.key !== "fix_it");
-  const fixIt = INDEX.filter((g) => g.group === "fix_it" && !g.slug.startsWith("reconnect-") && !g.slug.startsWith("connect-"));
-  const reconnects = INDEX.filter((g) => g.group === "fix_it" && g.slug.startsWith("reconnect-") && g.slug !== "reconnect-an-account");
+  const fixIt = shown.filter((g) => g.group === "fix_it" && !g.slug.startsWith("reconnect-") && !g.slug.startsWith("connect-"));
+  const reconnects = shown.filter((g) => g.group === "fix_it" && g.slug.startsWith("reconnect-") && g.slug !== "reconnect-an-account");
 
   return (
     <div className="page help-home">
@@ -151,7 +155,7 @@ export function Help() {
               </div>
               <Card className="flat">
                 <div className="list">
-                  {INDEX.filter((g) => g.group === t.key).map((g) => (
+                  {shown.filter((g) => g.group === t.key).map((g) => (
                     <GuideRow key={g.slug} slug={g.slug} title={g.title} />
                   ))}
                 </div>

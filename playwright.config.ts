@@ -3,6 +3,8 @@ import { defineConfig, devices } from "@playwright/test";
 // Drives the built app through `wrangler dev` with fake services. A `setup` project logs in
 // once and shares the session; `phone` (390×844, the priority for Dump and Review) and
 // `desktop` run every spec. The help-screenshots spec reuses the same server.
+// This suite runs the server in code mode (the email-code login, as on staging). The no-login
+// production mode has its own server and config: playwright.open.config.ts (npm run e2e:open).
 const STORAGE = "test-results/.auth/owner.json";
 const PORT = Number(process.env.E2E_PORT ?? 8787); // E2E_PORT lets parallel worktrees each run the suite
 
@@ -31,7 +33,7 @@ export default defineConfig({
   },
   projects: [
     { name: "setup", testMatch: /auth\.setup\.ts/ },
-    { name: "phone", use: { ...devices["iPhone 13"], browserName: "chromium", storageState: STORAGE }, dependencies: ["setup"], testIgnore: /auth\.setup\.ts/ },
-    { name: "desktop", use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 820 }, storageState: STORAGE }, dependencies: ["setup"], testIgnore: /auth\.setup\.ts/ },
+    { name: "phone", use: { ...devices["iPhone 13"], browserName: "chromium", storageState: STORAGE }, dependencies: ["setup"], testIgnore: [/auth\.setup\.ts/, /open-mode\.spec\.ts/] },
+    { name: "desktop", use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 820 }, storageState: STORAGE }, dependencies: ["setup"], testIgnore: [/auth\.setup\.ts/, /open-mode\.spec\.ts/] },
   ],
 });

@@ -9,6 +9,8 @@ export interface Me {
   role: "owner" | "helper";
   appName: string;
   features: Features;
+  /** "open": no login on this deployment (no log-in guide, no log-out). "code": the email-code login. */
+  authMode: "open" | "code";
 }
 
 export interface Features {

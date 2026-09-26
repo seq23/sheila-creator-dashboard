@@ -11,6 +11,11 @@ export interface Env {
   AUDIENCE_TIMEZONE: string;
   /** "production" | "staging" | "dev" (wrangler.jsonc vars, .dev.vars). Missing reads as production. */
   ENV_NAME?: string;
+  /**
+   * "open": no login, every request is the owner (production, by the owner's choice).
+   * "code": the email one-time-code login (staging, dev, e2e). Anything else reads as "code".
+   */
+  AUTH_MODE?: string;
 
   // secrets
   SESSION_SECRET: string;
@@ -44,3 +49,6 @@ export const fakeServices = (env: Env): boolean => env.FAKE_SERVICES === "1";
 /** Which deployment this is; a job dispatch carries it so Actions picks the right Worker and secret. */
 export const envName = (env: Pick<Env, "ENV_NAME">): "production" | "staging" | "dev" =>
   env.ENV_NAME === "staging" ? "staging" : env.ENV_NAME === "dev" ? "dev" : "production";
+
+/** How people get in. Only the exact word "open" turns the login off; a typo or a missing var keeps it on. */
+export const authMode = (env: Pick<Env, "AUTH_MODE">): "open" | "code" => (env.AUTH_MODE === "open" ? "open" : "code");

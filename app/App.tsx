@@ -20,8 +20,9 @@ import { Help } from "./pages/Help";
 import { HelpGuide } from "./pages/HelpGuide";
 
 export function App() {
-  const { me, ready } = useApp();
+  const { me, ready, unreachable, refreshMe } = useApp();
   if (!ready) return null;
+  if (!me && unreachable) return <Unreachable onRetry={refreshMe} />;
   return (
     <Routes>
       <Route path="/kit/:slug" element={<MediaKit />} />
@@ -47,5 +48,22 @@ export function App() {
         </Route>
       )}
     </Routes>
+  );
+}
+
+/** /api/me failed for a reason other than "not logged in": say so and offer a retry. */
+function Unreachable({ onRetry }: { onRetry: () => Promise<void> }) {
+  return (
+    <div className="login-wrap">
+      <div className="login-card">
+        <div className="login-title">
+          <h1>Sheila Studio</h1>
+        </div>
+        <p className="section">We could not reach your dashboard just now. Check your connection, then try again.</p>
+        <button type="button" className="btn big block" data-primary onClick={() => void onRetry()}>
+          Try again
+        </button>
+      </div>
+    </div>
   );
 }

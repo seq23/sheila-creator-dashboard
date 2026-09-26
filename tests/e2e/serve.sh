@@ -19,4 +19,9 @@ rm -rf .wrangler/state/v3/d1 .wrangler/state/v3/r2
 npx wrangler d1 migrations apply sheila-creator-dashboard-db --local >/dev/null
 PORT="${E2E_PORT:-8787}"
 # Several worktrees run this suite side by side: each gets its own port and inspector port.
-exec npx wrangler dev --port "$PORT" --ip 127.0.0.1 --inspector-port "$((PORT + 1000))" --var FAKE_SERVICES:1
+# AUTH_MODE: "code" (the email-code login) unless the caller says "open" (playwright.open.config.ts
+# runs the no-login suite that way). wrangler.jsonc's top-level value is production's "open", so
+# the suite always states it.
+AUTH="${AUTH_MODE:-code}"
+case "$AUTH" in open|code) ;; *) echo "AUTH_MODE must be open or code (got $AUTH)"; exit 1 ;; esac
+exec npx wrangler dev --port "$PORT" --ip 127.0.0.1 --inspector-port "$((PORT + 1000))" --var FAKE_SERVICES:1 --var AUTH_MODE:"$AUTH"

@@ -6,11 +6,15 @@
 # Why the var override: wrangler.jsonc keeps FAKE_SERVICES=1 so `wrangler dev` and CI never
 # touch a real vendor. Production flips it here, in one place, and the deploy refuses to run
 # if the account id is missing (the 7403 trap, see ~/bin/land).
+#
+# The Worker is `sheilastudio` (wrangler.jsonc name) and runs with AUTH_MODE "open": no login,
+# every visitor is the owner, by her choice. The smoke below proves the app answers as the owner
+# with no cookie, so a deploy that silently kept the login fails here.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 export CLOUDFLARE_ACCOUNT_ID="${CLOUDFLARE_ACCOUNT_ID:-8d147e242033699dd37c6f5a451f48d2}"
-PUBLIC_BASE_URL="${PUBLIC_BASE_URL:-https://sheila-creator-dashboard.seq-taylor.workers.dev}"
+PUBLIC_BASE_URL="${PUBLIC_BASE_URL:-https://sheilastudio.seq-taylor.workers.dev}"
 
 echo "==> build client"
 npm run build
@@ -38,4 +42,7 @@ case "$body" in
   *'"fake":false'*'"env":"production"'*) ;;
   *) echo "healthz did not report {fake:false, env:production}"; exit 1 ;;
 esac
+# The login mode must be the one wrangler.jsonc states: "open" → /api/me answers with no cookie
+# and the login API is gone; "code" → /api/me needs a login and the login API answers.
+bash scripts/auth-mode-smoke.sh "$PUBLIC_BASE_URL" "$(node scripts/auth-mode.mjs production)"
 echo "deployed: $PUBLIC_BASE_URL"

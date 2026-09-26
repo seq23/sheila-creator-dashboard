@@ -14,7 +14,7 @@ and what only a person can check.
 | Job | Tool |
 | --- | --- |
 | App + API + crons | One Cloudflare Worker: React/Vite as static assets, Hono API under `/api`, three cron lanes |
-| Login | Email one-time code (Resend), no passwords; owner + optional helper |
+| Login | Production: none (`AUTH_MODE` "open", every visitor is the owner). Staging, local and e2e: email one-time code (Resend), no passwords; owner + optional helper |
 | Data | D1 (`migrations/`), R2 (`raw/`, `clips/`, `brain/`, `voice/`, `kit/`) |
 | Heavy jobs | GitHub Actions, started only by the Worker (`repository_dispatch`, signed), `jobs/*.py`; files in and out only through the Worker (signed), never with storage keys |
 | AI / search / posting / email | OpenRouter free models · Firecrawl · Buffer API · Resend |
@@ -33,13 +33,15 @@ npm run dev:app                     # optional: Vite HMR on :5173 proxying /api 
 ```
 
 Log in with the owner email from `wrangler.jsonc`; in local mode the 6-digit code is shown on
-the login screen.
+the login screen (`.dev.vars` sets `AUTH_MODE=code`; set it to `open` to run with no login, as
+production does).
 
 ## Check it
 
 ```bash
 npm run check      # typecheck + unit tests + validators + build   (the merge gate, < 5 min)
-npm run e2e        # Playwright, phone + desktop, against wrangler dev with fake services
+npm run e2e        # Playwright, phone + desktop, against wrangler dev with fake services (code mode)
+npm run e2e:open   # the same, open mode (no login, as production runs), its own server and port
 ```
 
 CI: `check.yml` on every PR (merge gate), `e2e.yml` post-merge on `main`, `job-*.yml` one per
@@ -53,6 +55,12 @@ npm run deploy:production        # what land runs: build → D1 migrations → w
 ```
 
 Never a bare `wrangler deploy` (stale client, fake services).
+
+**Production** is the Worker `sheilastudio`: https://sheilastudio.seq-taylor.workers.dev. It
+runs with no login (`AUTH_MODE` "open" in `wrangler.jsonc`): Sheila opens the URL and her
+dashboard is there. With open mode anyone who has the URL is the owner; that is by her choice; switching back is `AUTH_MODE: "code"` and a deploy. (`REQUIRED_AUTH_MODE` in
+`scripts/validators/envs-match.mjs` pins the mode, so change it there too.) Staging keeps the
+email-code login.
 
 **Staging** is the owner's fully real twin (own Worker, D1, R2; FAKE_SERVICES=0) for testing
 with throwaway accounts while Sheila's production stays untouched:

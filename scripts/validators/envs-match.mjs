@@ -2,7 +2,10 @@
 // the top-level (production) config in anything except:
 //   * name,
 //   * D1 database_name / database_id and R2 bucket_name,
-//   * the vars OWNER_EMAIL, PUBLIC_BASE_URL, ENV_NAME, FAKE_SERVICES.
+//   * the vars OWNER_EMAIL, PUBLIC_BASE_URL, ENV_NAME, FAKE_SERVICES, AUTH_MODE.
+// AUTH_MODE is pinned per deployment: production "open" (no login, the owner's choice, 26 Sep
+// 2026), staging "code" (the email-code login stays). While production is open, no screen in
+// app/ may link or navigate to /login (there is no login page to reach).
 // Wrangler does not inherit vars / d1_databases / r2_buckets into an env, so staging must
 // restate them; a var or binding production has and staging lacks is a difference too.
 // Then every job workflow that runs against a deployed Worker must map the dispatch payload's
@@ -52,7 +55,10 @@ export function parseJsonc(src) {
   return JSON.parse(out.replace(/,(\s*[}\]])/g, "$1"));
 }
 
-const ALLOWED_VAR_DIFFS = new Set(["OWNER_EMAIL", "PUBLIC_BASE_URL", "ENV_NAME", "FAKE_SERVICES"]);
+const ALLOWED_VAR_DIFFS = new Set(["OWNER_EMAIL", "PUBLIC_BASE_URL", "ENV_NAME", "FAKE_SERVICES", "AUTH_MODE"]);
+// The login mode each deployment must ship. Switching production back to the login is
+// "code" here and in wrangler.jsonc, then a deploy.
+export const REQUIRED_AUTH_MODE = { production: "open", staging: "code" };
 // Keys wrangler never inherits into an env: staging must restate each one.
 const NON_INHERITED = ["vars", "d1_databases", "r2_buckets"];
 // Keys that differ by design, compared field by field below.
@@ -75,6 +81,11 @@ export function compareEnvs(cfg) {
   if (stg.vars?.ENV_NAME !== "staging") problems.push(`env.staging vars.ENV_NAME must be "staging" (is ${JSON.stringify(stg.vars?.ENV_NAME)})`);
   if (stg.vars?.FAKE_SERVICES !== "0") problems.push("env.staging must be fully real: vars.FAKE_SERVICES \"0\"");
   items += 3;
+  if (prod.vars?.AUTH_MODE !== REQUIRED_AUTH_MODE.production)
+    problems.push(`top-level vars.AUTH_MODE must be "${REQUIRED_AUTH_MODE.production}" (is ${JSON.stringify(prod.vars?.AUTH_MODE)})`);
+  if (stg.vars?.AUTH_MODE !== REQUIRED_AUTH_MODE.staging)
+    problems.push(`env.staging vars.AUTH_MODE must be "${REQUIRED_AUTH_MODE.staging}" (is ${JSON.stringify(stg.vars?.AUTH_MODE)})`);
+  items += 2;
 
   for (const k of NON_INHERITED) if (prod[k] !== undefined && stg[k] === undefined) problems.push(`env.staging must restate "${k}" (wrangler does not inherit it)`);
 
@@ -123,6 +134,31 @@ export function compareEnvs(cfg) {
   return { items, problems };
 }
 
+// A link or navigation to /login: <Link to="/login">, href="/login", navigate("/login"),
+// <Navigate to="/login" />, window.location = "/login". Matches "/login" and "/login?…".
+const LOGIN_LINK = /(?:\bto|\bhref|navigate|\blocation(?:\.href)?)\s*[=(:]\s*\{?\s*["'`]\/login(?:[?#/"'`])/;
+
+/** Every file under app/ that links or navigates to /login. Only checked while production is open. */
+export function loginLinks(files) {
+  const problems = [];
+  for (const [name, src] of files) {
+    src.split("\n").forEach((line, i) => {
+      if (LOGIN_LINK.test(line)) problems.push(`${name}:${i + 1} links to /login, but production has no login (AUTH_MODE "open")`);
+    });
+  }
+  return problems;
+}
+
+async function appSources(dir, rel = "app") {
+  const out = [];
+  for (const e of await readdir(dir, { withFileTypes: true })) {
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) out.push(...(await appSources(p, `${rel}/${e.name}`)));
+    else if (/\.(tsx?|jsx?)$/.test(e.name)) out.push([`${rel}/${e.name}`, await readFile(p, "utf8")]);
+  }
+  return out;
+}
+
 export function checkWorkflow(name, yml, buckets) {
   const problems = [];
   if (!/repository_dispatch:/.test(yml)) return { skip: true, problems };
@@ -158,5 +194,11 @@ export default async function ({ root }) {
     problems.push(...r.problems);
   }
   if (workflows === 0) problems.push("no job workflow was checked (Rule 0)");
+  if (cfg.vars?.AUTH_MODE === "open") {
+    const files = await appSources(path.join(root, "app"));
+    if (files.length === 0) problems.push("no app/ source was checked for /login links (Rule 0)");
+    items += files.length;
+    problems.push(...loginLinks(files));
+  }
   return { items, problems };
 }
