@@ -16,12 +16,12 @@ Once your voice is saved, type what it should say and attach it to a clip.
 
 **Which voice** says whether the free built-in voice or your ElevenLabs premium voice is used, and why.
 
-## Voice overs on clips
+## Automatic voice overs
 
 ![Step 2](/help/screenshots/make-a-voice-over-2.png)
 <!-- target: .clips-switch -->
 
-This switch must be on to add voice overs to clips. Off keeps clips real footage.
+On: clips with no talking get a voice over in your voice automatically. Off: only the voice overs you make here. Either way you can make one yourself.
 
 ## Write the script
 

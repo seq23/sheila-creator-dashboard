@@ -16,13 +16,13 @@ Every feature starts switched on, so you can use anything you like. Turn off wha
 
 Open **Settings** and find **Features**. Each switch says what off and on mean.
 
-## Voice overs on clips
+## Automatic voice overs
 
 ![Step 2](/help/screenshots/settings-and-switches-2.png)
 <!-- route: /settings -->
-<!-- target: label.switch:has-text("Voice overs on clips") -->
+<!-- target: label.switch:has-text("Automatic voice overs") -->
 
-Off keeps your clips real footage with no voice over.
+On: clips with no talking get a voice over in your voice automatically, and you can remove it in Review. Off: only the voice overs you add yourself.
 
 ## Deeper web research
 
