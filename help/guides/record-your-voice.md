@@ -50,9 +50,17 @@ Tap **Stop** and play it back. Used your phone's Voice Memos app instead? Tap **
 
 Tick **This is my own voice and I consent**, then tap **Save my voice**. The built-in voice is ready in a few minutes.
 
-## Re-record any time
+## Voice overs on quiet clips, automatically
 
 ![Step 6](/help/screenshots/record-your-voice-6.png)
+<!-- route: /voice -->
+<!-- target: .clips-switch -->
+
+With your voice saved, **Automatic voice overs** gives clips where you don't talk a short voice over in your voice after each dump. See **Automatic voice overs on quiet clips**.
+
+## Re-record any time
+
+![Step 7](/help/screenshots/record-your-voice-7.png)
 <!-- route: /voice -->
 <!-- target: .voice-step[data-step="5"] -->
 

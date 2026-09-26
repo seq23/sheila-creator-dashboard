@@ -40,18 +40,33 @@ Not for you? Tap **Reject** and tap a reason. The reason teaches the cutter what
 ![Step 5](/help/screenshots/review-and-approve-clips-5.png)
 <!-- target: button:has-text("Approve all") -->
 
-Happy with everything? Tap **Approve all** at the top, or tick a few clips and use the bar at the bottom.
+Happy with everything? Tap **Approve all** at the top, or tick a few clips and use the bar at the bottom. With more than 12 waiting it says **Approve these 12**: only the ones on your screen, never clips you have not seen.
+
+## Add a voice over
+
+![Step 6](/help/screenshots/review-and-approve-clips-6.png)
+<!-- target: [data-clip-id="demo_new_1"] [aria-label="Voice over"] -->
+
+**Add voice over** puts a short voice over in your voice on just this clip. A clip that already has one shows **Remove voice over** and **Redo voice over**.
+
+## Edit the script
+
+![Step 7](/help/screenshots/review-and-approve-clips-7.png)
+<!-- click: [data-clip-id="demo_new_1"] >> role=button[name="Add voice over"] -->
+<!-- target: #v-script -->
+
+Change the words as you like; it fits the clip's length. It is labelled as AI audio when it posts.
 
 ## Changed your mind?
 
-![Step 6](/help/screenshots/review-and-approve-clips-6.png)
+![Step 8](/help/screenshots/review-and-approve-clips-8.png)
 <!-- target: .review-tab >> nth=2 -->
 
 Open **Rejected** to bring a clip back. Rejected clips are removed after 7 days.
 
 ## See the lower-scoring clips
 
-![Step 7](/help/screenshots/review-and-approve-clips-7.png)
+![Step 9](/help/screenshots/review-and-approve-clips-9.png)
 <!-- target: label.switch:has-text("Show hidden") -->
 
 Switch on **Show hidden** to see clips under the quality bar too.
