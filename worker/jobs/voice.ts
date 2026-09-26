@@ -1,4 +1,5 @@
-// Chatterbox narration (section 12). The job (jobs/voice.py) clones her voice from the consented
+// Chatterbox narration (section 12): the "built-in" engine (free). The premium engine
+// (ElevenLabs) never reaches this job; it runs in the Worker (worker/lib/premiumVoice.ts). The job (jobs/voice.py) clones her voice from the consented
 // sample on the Actions CPU runner, writes the narration to R2 and calls back. Every generated
 // file is logged in `events`. The fake writes a short tone WAV so the screen can be exercised.
 import type { JobHandler } from "./registry";
@@ -72,7 +73,8 @@ export const voiceJob: JobHandler = {
     if (!refId || !r.r2_key || !r.r2_key.startsWith(`voice/narrations/${refId}`)) throw new Error("voice result missing its file");
     const head = await env.FILES.head(r.r2_key);
     if (!head) throw new Error("voice file not in storage");
-    await env.DB.prepare("UPDATE narrations SET status = 'ready', r2_key = ? WHERE id = ?").bind(r.r2_key, refId).run();
+    const seconds = Number(r.duration_s);
+    await env.DB.prepare("UPDATE narrations SET status = 'ready', r2_key = ?, duration_s = ? WHERE id = ?").bind(r.r2_key, Number.isFinite(seconds) && seconds > 0 ? seconds : null, refId).run();
     if (r.model_key && r.model_key.startsWith("voice/model/")) await env.DB.prepare("UPDATE voice SET model_r2_key = ?, updated_at = ? WHERE id = 1").bind(r.model_key, nowIso()).run();
     await recordEvent(env.DB, "voice.narration.generated", refId, { job: jobId, bytes: head.size, seconds: Number(r.duration_s ?? 0) });
     await setHealth(env.DB, "Voice", "green", "Last narration generated", null);

@@ -7,8 +7,9 @@ import { disconnect, listConnections, saveConnection, type Service } from "../li
 import { recordEvent, setHealth } from "../lib/db";
 import { fail, readJson } from "../lib/http";
 import { log } from "../lib/log";
-import { checkBufferKey, checkFirecrawl, checkHunter, checkOpenRouter } from "../services/keychecks";
+import { checkBufferKey, checkElevenLabs, checkFirecrawl, checkHunter, checkOpenRouter } from "../services/keychecks";
 import type { KeyCheck } from "../services/keychecks";
+import { dropPremiumVoice, ensurePremiumVoice, planFromMeta, recheckElevenLabs, writeElevenLabsLight } from "../lib/premiumVoice";
 
 export const connections = new Hono<{ Bindings: Env; Variables: Vars }>();
 connections.use("*", requireUser);
@@ -20,6 +21,7 @@ const CHECKS: Partial<Record<Service, (env: Env, key: string) => Promise<KeyChec
   openrouter: checkOpenRouter,
   firecrawl: checkFirecrawl,
   hunter: checkHunter,
+  elevenlabs: checkElevenLabs,
 };
 
 /** Paste a key → live check → stored encrypted only if it works. */
@@ -36,10 +38,11 @@ connections.post("/:service/key", requireOwner, async (c) => {
     return fail(c, 422, r.error ?? "That key did not work.", `connect-${service}`);
   }
   await saveConnection(c.env, service, key, "ok", r.meta);
-  await writeServiceHealth(c.env, service, true, null);
+  await writeServiceHealth(c.env, service, true, null, r.meta);
   await recordEvent(c.env.DB, "connection.ok", service, {}, c.get("user").email);
   log.info("connection.ok", { service });
-  return c.json({ ok: true, meta: r.meta });
+  const note = (r as KeyCheck & { note?: string }).note ?? null;
+  return c.json({ ok: true, meta: r.meta, note });
 });
 
 /** Re-run the check with the stored key (the "Check again" button). */
@@ -50,6 +53,13 @@ connections.post("/:service/recheck", async (c) => {
   const { getConnectionSecret, markConnection } = await import("../lib/connections");
   const key = await getConnectionSecret(c.env, service);
   if (!key) return fail(c, 409, "Not connected yet.", `connect-${service}`);
+  if (service === "elevenlabs") {
+    // One code path with the daily lane: a slow answer is not a refused key, and the light and
+    // the connection come from the same read.
+    await recheckElevenLabs(c.env);
+    const row = (await listConnections(c.env)).find((x) => x.service === "elevenlabs");
+    return row?.status === "ok" ? c.json({ ok: true, meta: row.meta }) : fail(c, 422, row?.last_error ?? "ElevenLabs did not answer. Try again in a minute.", "reconnect-elevenlabs");
+  }
   const r = await check(c.env, key);
   await markConnection(c.env, service, r.ok ? "ok" : "error", r.error, r.meta);
   await writeServiceHealth(c.env, service, r.ok, r.error ?? null);
@@ -63,9 +73,17 @@ connections.post("/:service/recheck", async (c) => {
  * The bare `buffer` row is not written here: it read red for a missing platform and green for a
  * channel with a failed post, and Settings had to fold it away.
  */
-async function writeServiceHealth(env: Env, service: Service, ok: boolean, error: string | null) {
+async function writeServiceHealth(env: Env, service: Service, ok: boolean, error: string | null, meta: Record<string, unknown> = {}) {
   if (service === "buffer") {
     await (await import("../crons/buffer-sync")).recheckEverything(env);
+    return;
+  }
+  if (service === "elevenlabs") {
+    // The one "Voice · ElevenLabs" light (never a bare "elevenlabs" row beside it), then the
+    // premium clone from the sample she already saved, if her plan allows it.
+    const plan = planFromMeta(meta);
+    await writeElevenLabsLight(env, ok && plan ? { state: "ok", plan } : { state: "refused" });
+    if (ok) await ensurePremiumVoice(env);
     return;
   }
   await setHealth(env.DB, service, ok ? "green" : "red", ok ? "Connected" : (error ?? "Needs you"), ok ? null : `reconnect-${service}`);
@@ -73,17 +91,22 @@ async function writeServiceHealth(env: Env, service: Service, ok: boolean, error
 
 connections.post("/:service/disconnect", requireOwner, async (c) => {
   const service = c.req.param("service") as Service;
+  // The clone lives in her ElevenLabs account: delete it while the key still works.
+  if (service === "elevenlabs") await dropPremiumVoice(c.env, "disconnect");
   await disconnect(c.env, service);
-  await setHealth(c.env.DB, service, "grey", "Disconnected", `connect-${service}`);
+  if (service === "elevenlabs") await writeElevenLabsLight(c.env, { state: "not_connected" });
+  else await setHealth(c.env.DB, service, "grey", "Disconnected", `connect-${service}`);
   await recordEvent(c.env.DB, "connection.disconnected", service, {}, c.get("user").email);
   return c.json({ ok: true });
 });
 
 connections.post("/disconnect-all", requireOwner, async (c) => {
-  const all: Service[] = ["buffer", "openrouter", "firecrawl", "resend", "hunter", "meta", "google", "tiktok", "github"];
+  const all: Service[] = ["buffer", "openrouter", "firecrawl", "resend", "hunter", "meta", "google", "tiktok", "github", "elevenlabs"];
+  await dropPremiumVoice(c.env, "disconnect");
   for (const s of all) {
     await disconnect(c.env, s);
-    await setHealth(c.env.DB, s, "grey", "Disconnected", `connect-${s}`);
+    if (s === "elevenlabs") await writeElevenLabsLight(c.env, { state: "not_connected" });
+    else await setHealth(c.env.DB, s, "grey", "Disconnected", `connect-${s}`);
   }
   await recordEvent(c.env.DB, "connection.disconnected_all", null, {}, c.get("user").email);
   return c.json({ ok: true });

@@ -1,9 +1,11 @@
 // "Check key" for the paste-a-key services on the Connect screen: Firecrawl, Hunter,
-// Resend, OpenRouter, Buffer. Each returns ok + a plain sentence + meta for the card.
+// Resend, OpenRouter, Buffer, ElevenLabs. Each returns ok + a plain sentence + meta for the card.
 import type { Env } from "../env";
 import { fakeServices } from "../env";
 import { getBuffer } from "./buffer";
 import { getLlm } from "./openrouter";
+import { getElevenLabs } from "./elevenlabs";
+import { planMeta } from "../lib/premiumVoice";
 
 export interface KeyCheck {
   ok: boolean;
@@ -41,4 +43,19 @@ export async function checkBufferKey(env: Env, key: string): Promise<KeyCheck> {
   const buffer = await getBuffer(env, key);
   const r = await buffer.checkKey();
   return { ok: r.ok, error: r.error, meta: { channels: r.channels } };
+}
+
+/**
+ * ElevenLabs (premium voice): reads her plan. A key on a plan without cloning is accepted and
+ * says so plainly; the built-in voice is used. `note` is the sentence the card and toast show.
+ */
+export async function checkElevenLabs(env: Env, key: string): Promise<KeyCheck & { note?: string }> {
+  const client = await getElevenLabs(env, key);
+  const r = await client!.subscription();
+  if (!r.ok) {
+    if (r.failure === "auth") return { ok: false, error: "ElevenLabs says this key is not valid.", meta: {} };
+    return { ok: false, error: "ElevenLabs did not answer. Try Check key again in a minute.", meta: {} };
+  }
+  const note = r.plan.canClone ? "ElevenLabs connected. Your narrations will use the premium voice." : "Your ElevenLabs plan does not include voice cloning; the built-in voice will be used.";
+  return { ok: true, error: null, meta: planMeta(r.plan), note };
 }

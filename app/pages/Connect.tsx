@@ -1,6 +1,7 @@
 // Connect accounts (section 4b): Buffer (paste key → channels found), stats (Instagram and
 // Google sign-in via /api/oauth, TikTok export upload on Stats), AI (OpenRouter), web research (Firecrawl),
-// Hunter (optional). Every connection has Connect / Check again / Disconnect, plus
+// Hunter (optional), Voice · ElevenLabs (premium, optional: her own ElevenLabs account; without it
+// the free built-in voice is used). Every connection has Connect / Check again / Disconnect, plus
 // Disconnect everything. She always logs in on the platform's own page.
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
@@ -22,6 +23,15 @@ const KEY_SERVICES: { service: Service; title: string; name: string; why: string
   { service: "openrouter", title: "AI · OpenRouter", name: "OpenRouter", why: "Writes captions, hooks, your Research Brief and pitch drafts. Free models by default.", steps: ["Open openrouter.ai → Keys", "Create key, copy it", "Paste it here"], guide: "connect-openrouter" },
   { service: "firecrawl", title: "Web research · Firecrawl", name: "Firecrawl", why: "Searches the web for your Research Brief and brand finder. 1,000 free credits a month.", steps: ["Open firecrawl.dev → API Keys", "Copy your key", "Paste it here"], guide: "connect-firecrawl" },
   { service: "hunter", title: "Brand deals · Hunter.io", name: "Hunter.io", why: "Finds public partnership emails on brand websites. Free account: 50 lookups a month.", steps: ["Create a free Hunter account", "Open API → copy key", "Paste it here"], guide: "connect-hunter", optional: true },
+  {
+    service: "elevenlabs",
+    title: "Voice · ElevenLabs (premium)",
+    name: "ElevenLabs",
+    why: "Premium voice cloning: best quality, seconds per narration, uses your own ElevenLabs credits. Without it the free built-in voice is used, which is good quality and takes a few minutes.",
+    steps: ["Open elevenlabs.io → your profile → API keys", "Create API key, copy it", "Paste it here"],
+    guide: "connect-elevenlabs",
+    optional: true,
+  },
 ];
 
 export function Connect() {
@@ -104,6 +114,10 @@ export function Connect() {
             <KeyCard def={KEY_SERVICES[3]} conn={byService("hunter")} owner={owner} primary={primary === "hunter"} onChange={reload} />
           </Section>
 
+          <Section n={5} title="Voice · premium, optional">
+            <KeyCard def={KEY_SERVICES[4]} conn={byService("elevenlabs")} owner={owner} primary={false} onChange={reload} />
+          </Section>
+
           {owner ? (
             <section className="section connect-danger">
               <h2>Start over</h2>
@@ -170,8 +184,8 @@ function KeyCard({ def, conn, owner, primary, onChange }: { def: (typeof KEY_SER
   async function check() {
     setBusy(true);
     try {
-      await post(`/api/connections/${def.service}/key`, { key });
-      toast.ok(`${def.name} connected.`);
+      const r = await post<{ note?: string | null }>(`/api/connections/${def.service}/key`, { key });
+      toast.ok(r.note ?? `${def.name} connected.`);
       setKey("");
       onChange();
     } catch (e) {
@@ -209,6 +223,7 @@ function KeyCard({ def, conn, owner, primary, onChange }: { def: (typeof KEY_SER
         <StatusPill conn={conn} />
       </div>
       <p className="soft">{def.why}</p>
+      {def.service === "elevenlabs" ? <ElevenLabsPlan conn={conn} /> : null}
       {credits !== undefined ? (
         <div className="hint nums">
           {credits} of {(conn?.meta.credits_total as number | undefined) ?? "your"} credits left this month
@@ -256,6 +271,27 @@ function KeyCard({ def, conn, owner, primary, onChange }: { def: (typeof KEY_SER
         </div>
       )}
     </Card>
+  );
+}
+
+/** Her ElevenLabs plan as last checked: tier, characters used of the limit, and cloning. */
+function ElevenLabsPlan({ conn }: { conn: ConnectionView | null }) {
+  const m = conn?.meta ?? {};
+  if (conn?.status !== "ok" || typeof m.tier !== "string") return null;
+  const used = Number(m.characters_used ?? 0);
+  const limit = Number(m.characters_limit ?? 0);
+  const n = (x: number) => x.toLocaleString("en-US");
+  return (
+    <div className="eleven-plan" data-testid="elevenlabs-plan">
+      <div className="hint nums">
+        Plan: <strong>{m.tier}</strong> · {n(used)} of {n(limit)} characters used this month
+      </div>
+      {m.can_clone === true ? (
+        <Notice tone="ok">Voice cloning is on your plan: your narrations use the premium voice.</Notice>
+      ) : (
+        <Notice tone="warn">Your ElevenLabs plan does not include voice cloning; the built-in voice will be used.</Notice>
+      )}
+    </div>
   );
 }
 

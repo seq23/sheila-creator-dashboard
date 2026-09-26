@@ -1,5 +1,6 @@
 // Daily lane: supply monitor ("Time to dump" email), retention (raw originals after 7 days,
-// rejected clips after 7 days, clips 30 days after posting), storage light, health recheck.
+// rejected clips after 7 days, clips 30 days after posting), storage light, health recheck,
+// the Voice · ElevenLabs light.
 import type { Env } from "../env";
 import { runwayLow, runwayWeeks, weeklyNeed } from "../domain/runway";
 import { setHealth } from "../lib/db";
@@ -7,6 +8,7 @@ import { log } from "../lib/log";
 import { readSettings } from "../routes/settings";
 import { emailFrame, sendEmail } from "../services/email";
 import { serviceHealthRows } from "./buffer-sync";
+import { recheckElevenLabs } from "../lib/premiumVoice";
 import { CLIP_RETENTION_AFTER_POST_DAYS, RAW_RETENTION_DAYS, REJECTED_RETENTION_DAYS, TIME_TO_DUMP_REPEAT_DAYS } from "@shared/constants";
 
 export async function dailyMaintenance(env: Env): Promise<void> {
@@ -15,6 +17,9 @@ export async function dailyMaintenance(env: Env): Promise<void> {
   await storageLight(env);
   // Email + job runner + clip cutting lights exist from the first day, before any hourly run.
   await serviceHealthRows(env);
+  // Voice · ElevenLabs: grey not connected, green ok, yellow low credits (< 10% left) or no
+  // cloning on her plan, red key refused. One read of her plan a day.
+  await recheckElevenLabs(env);
 }
 
 async function supplyMonitor(env: Env) {
