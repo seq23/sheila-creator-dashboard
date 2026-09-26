@@ -76,13 +76,14 @@ async function voiceRow(env: Env): Promise<VoiceDb> {
 
 voice.get("/", async (c) => {
   const v = await voiceRow(c.env);
-  const { results } = await c.env.DB.prepare("SELECT id, script, status, clip_id, engine, duration_s, created_at FROM narrations ORDER BY created_at DESC LIMIT 30").all<{
+  const { results } = await c.env.DB.prepare("SELECT id, script, status, clip_id, engine, duration_s, mix_status, created_at FROM narrations ORDER BY created_at DESC LIMIT 30").all<{
     id: string;
     script: string;
     status: "queued" | "generating" | "ready" | "failed";
     clip_id: string | null;
     engine: "built-in" | "elevenlabs";
     duration_s: number | null;
+    mix_status: "mixing" | "ready" | "failed" | null;
     created_at: string;
   }>();
   const e = await currentEngine(c.env);
@@ -243,16 +244,28 @@ voice.patch("/narrations/:id", requireVoiceOn, async (c) => {
     const ok = await c.env.DB.prepare("SELECT id FROM clips WHERE id = ? AND status IN ('draft','approved')").bind(clipId).first();
     if (!ok) return fail(c, 422, "That clip is not available.", "record-your-voice");
   }
-  const r = await c.env.DB.prepare("UPDATE narrations SET clip_id = ? WHERE id = ? AND status = 'ready'").bind(clipId, c.req.param("id")).run();
-  if (!r.meta.changes) return fail(c, 404, "That voice over is not ready.");
-  await recordEvent(c.env.DB, clipId ? "voice.narration.attached" : "voice.narration.detached", c.req.param("id") ?? null, {}, c.get("user").email);
-  return c.json({ ok: true });
+  const id = c.req.param("id") ?? "";
+  const before = await c.env.DB.prepare("SELECT mixed_r2_key FROM narrations WHERE id = ? AND status = 'ready'").bind(id).first<{ mixed_r2_key: string | null }>();
+  if (!before) return fail(c, 404, "That voice over is not ready.");
+  // A new clip (or none) means the old mixed file is out of date: the clip's link goes back to the
+  // original at once, and the mix job makes the new one.
+  if (before.mixed_r2_key) await c.env.FILES.delete(before.mixed_r2_key);
+  await c.env.DB.prepare("UPDATE narrations SET clip_id = ?, mixed_r2_key = NULL, mix_status = ? WHERE id = ?").bind(clipId, clipId ? "mixing" : null, id).run();
+  await recordEvent(c.env.DB, clipId ? "voice.narration.attached" : "voice.narration.detached", id, {}, c.get("user").email);
+  if (!clipId) return c.json({ ok: true, mixing: false });
+  const job = await dispatchJob(c.env, "voice", id);
+  if (!job.dispatched) {
+    await c.env.DB.prepare("UPDATE narrations SET mix_status = 'failed' WHERE id = ?").bind(id).run();
+    return fail(c, 502, job.error ?? "The voice over could not be added to the clip.", "reconnect-github");
+  }
+  return c.json({ ok: true, mixing: true, jobId: job.jobId });
 });
 
 voice.delete("/narrations/:id", async (c) => {
-  const n = await c.env.DB.prepare("SELECT r2_key FROM narrations WHERE id = ?").bind(c.req.param("id")).first<{ r2_key: string | null }>();
+  const n = await c.env.DB.prepare("SELECT r2_key, mixed_r2_key FROM narrations WHERE id = ?").bind(c.req.param("id")).first<{ r2_key: string | null; mixed_r2_key: string | null }>();
   if (!n) return fail(c, 404, "That voice over is gone.");
   if (n.r2_key) await c.env.FILES.delete(n.r2_key);
+  if (n.mixed_r2_key) await c.env.FILES.delete(n.mixed_r2_key); // the clip's link goes back to the original
   await c.env.DB.prepare("DELETE FROM narrations WHERE id = ?").bind(c.req.param("id")).run();
   await recordEvent(c.env.DB, "voice.narration.deleted", c.req.param("id"), {}, c.get("user").email);
   return c.json({ ok: true });

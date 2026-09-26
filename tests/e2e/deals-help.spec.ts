@@ -243,6 +243,29 @@ test.describe("voice", () => {
     expect(audio.headers()["content-type"]).toContain("audio/wav");
     expect((await audio.body()).subarray(0, 4).toString()).toBe("RIFF");
 
+    // attach it to a clip: the voice job mixes it in, the clip plays with it in Review (and Buffer
+    // posts that same link)
+    await page.locator(`[data-narration="${id}"]`).getByRole("button", { name: "Attach to clip" }).click();
+    const [att] = await Promise.all([
+      page.waitForResponse((r) => r.url().endsWith(`/api/voice/narrations/${id}`) && r.request().method() === "PATCH"),
+      page.getByRole("dialog").getByRole("button", { name: "Set a brunch table in 60 seconds" }).click(),
+    ]);
+    const attached = (await att.json()) as { mixing: boolean; jobId: string };
+    expect(attached.mixing).toBe(true);
+    await expect(page.locator(".toast").last()).toContainText("Adding it to the clip.");
+    await expect(page.locator(`[data-narration="${id}"]`)).toContainText("Adding to your clip…");
+    expect((await page.request.post(`/api/jobs/${attached.jobId}/run-fake`, { data: {} })).ok()).toBe(true);
+    await page.reload();
+    await expect(page.locator(`[data-narration="${id}"]`)).toContainText("In your clip · plays in Review");
+    await page.goto("/review");
+    await page.getByRole("tab", { name: /Approved/ }).click();
+    const voiced = page.locator('[data-clip-id="demo_clip_1"]');
+    await expect(voiced.locator('[data-voice-over="ready"]')).toHaveText("With your voice over");
+    await expect(voiced.getByLabel("Play this clip")).toHaveAttribute("src", new RegExp(`\\?v=${id}$`));
+    const [demo] = sql<{ media_token: string }>("SELECT media_token FROM clips WHERE id = 'demo_clip_1'");
+    expect((await page.request.get(`/media/${demo.media_token}`)).status()).toBe(200);
+    await page.goto("/voice");
+
     await page.getByRole("button", { name: "Delete my voice" }).click();
     await page.getByRole("button", { name: "Yes, delete my voice" }).click();
     await expect(page.getByText(/Voice ready · saved/)).toHaveCount(0);

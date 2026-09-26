@@ -41,7 +41,7 @@ interface VoiceState {
     characters_left: number | null;
     characters_limit: number | null;
   };
-  narrations: { id: string; script: string; status: "queued" | "generating" | "ready" | "failed"; clip_id: string | null; engine: Engine; duration_s: number | null; created_at: string; audio_url: string | null }[];
+  narrations: { id: string; script: string; status: "queued" | "generating" | "ready" | "failed"; clip_id: string | null; engine: Engine; duration_s: number | null; mix_status: "mixing" | "ready" | "failed" | null; created_at: string; audio_url: string | null }[];
 }
 
 export const ENGINE_COPY: Record<Engine, { name: string; line: string; tag: string }> = {
@@ -51,7 +51,7 @@ export const ENGINE_COPY: Record<Engine, { name: string; line: string; tag: stri
 
 export function Voice() {
   const { data, loading, reload } = useLoad(() => get<VoiceState>("/api/voice"));
-  const busy = data?.narrations.some((n) => n.status === "queued" || n.status === "generating");
+  const busy = data?.narrations.some((n) => n.status === "queued" || n.status === "generating" || n.mix_status === "mixing");
   useEffect(() => {
     if (!busy) return;
     const t = setInterval(reload, 10_000);
@@ -636,7 +636,7 @@ function Narrations({ v, onChange }: { v: VoiceState; onChange: () => void }) {
                       {ENGINE_COPY[n.engine].tag}
                     </span>
                     <span>
-                      {fmtDate(n.created_at)} · {n.status === "ready" ? (n.clip_id ? "Attached to a clip" : "Ready") : n.status === "failed" ? "Did not finish" : "Generating…"}
+                      {fmtDate(n.created_at)} · {n.status === "ready" ? (n.clip_id ? (n.mix_status === "ready" ? "In your clip · plays in Review" : n.mix_status === "failed" ? "Not added to the clip · attach it again" : "Adding to your clip…") : "Ready") : n.status === "failed" ? "Did not finish" : "Generating…"}
                       {n.duration_s ? ` · ${mmss(n.duration_s)}` : ""}
                     </span>
                   </div>
@@ -685,7 +685,7 @@ function AttachModal({ narrationId, onClose, onDone }: { narrationId: string; on
   async function pick(clipId: string) {
     try {
       await patch(`/api/voice/narrations/${narrationId}`, { clip_id: clipId });
-      toast.ok("Attached. You’ll see it on the clip in Review.");
+      toast.ok("Adding it to the clip. In a minute or two the clip plays with your voice over in Review.");
       onClose();
       onDone();
     } catch (e) {
