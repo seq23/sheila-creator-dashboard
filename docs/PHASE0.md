@@ -19,15 +19,15 @@ and `docs/design/live/evidence.json` (ids, run ids, counts; never content).
 | 5 | Dump → cut on Actions → clips + "clips ready" email → playable in Review | PASS | owner video 245 s 320×568: run 36206701421, 28 clips at 1080×1920, email `01a0db40-…`; synthetic TEST clip: run 36208674291, 5 clips, email `01a0db58-…` | #20 (someone else's video) |
 | 5b | Another creator's TikTok is held off the calendar | FIXED | run 36208158574, asset `source_owner=other`, note on Dump, not in the pool; `05-dump-held.jpg` | #20 |
 | 6 | Review: approve, reject with a reason, caption, hook swap, untick a platform, #ad once | PASS | `06-review-*.jpg`; `#ad` exactly once after two saves | — |
-| 7 | Calendar: Fill (caps), move, take off; hourly lane → Buffer; REAL posts | FIXED | TikTok https://tiktok.com/@iamcindymercer/video/7689660837077847309 · Instagram https://www.instagram.com/reel/DdvCgMMFRhk/ · YouTube https://www.youtube.com/watch?v=lFDhkdWMj0w (Buffer `sent`); `07-*.jpg` | #23 (Instagram/YouTube metadata, error read-back), batch 5 (desktop week unreadable) |
+| 7 | Calendar: Fill (caps), move, take off; hourly lane → Buffer; REAL posts | FIXED | Fill 15 posts within caps, move + take off on screen; the hourly lane loaded Buffer; Buffer `sent` and the dashboard shows Posted with links after the next run: TikTok https://tiktok.com/@iamcindymercer/video/7689660837077847309 · Instagram https://www.instagram.com/reel/DdvCgMMFRhk/ · YouTube https://www.youtube.com/shorts/lFDhkdWMj0w ; `07-*.jpg` | #23 (Instagram/YouTube metadata, error read-back), batch 5 (desktop week unreadable) |
 | 8 | Health: broken Buffer key → red + one "Buffer needs you" email; reconnect → green; Check everything now | FIXED | email `01a0db0c-36cd-76c9-a918-20be142def33` (exactly 1); `08-buffer-red.jpg`, `08-health-green.jpg` | #16, #17 (sidebar said "All systems OK" beside a red light) |
 | 9 | Stats: Google sign-in + Sync; TikTok Studio export | PASS (Instagram not tested) | YouTube: metrics run 36210125799, channel 1 subscriber / 0 videos at sync time, light green; TikTok CSV: 5 videos (views 7,016 / 68 / 56 / 35 / 26), light green. Instagram sign-in not tested: being replaced (owner decision) | — |
-| 10 | Deals | see below | | |
-| 11 | Media kit | see below | | |
+| 10 | Deals | NOT RUN YET | runs after the Media kit + Deals overhaul lands (owner's sibling work in progress); the weekly lane's brand-finder job ran green live (run 36217061774) | — |
+| 11 | Media kit | NOT RUN YET | runs after the Media kit + Deals overhaul lands | — |
 | 12 | Voice (built-in) | FIXED | voice run 36213784217 (4.4 min), 9.1 s narration, audio 200 `audio/mpeg`, attached to a clip, Delete my voice clears sample + model; `12-voice-*.jpg` | #23 (Chatterbox TypeError: setuptools<81) |
 | 13 | Help: search, guide, feedback, tour; screenshot job PR | FIXED | `13-help-*.jpg`, feedback row stored; job PR #21 had no checks and pictured an empty Calendar | batch 5 |
-| 14 | Crons | see below | | |
-| 15 | Clean-up | see below | | |
+| 14 | Crons | PASS | Hourly lane green every hour live (`Last buffer-sync run` 01:00–04:01 UTC). Daily + weekly lanes run through the real `runCron` against staging's bindings and secrets (a `wrangler dev --remote --env staging` preview; a deployed cron cannot be fired from the CLI): `Last daily run` / `Last weekly run` green, emails `time_to_dump` `01a0dbe8-a41e-…` and `weekly_recap` `01a0dbe8-b670-…`, metrics run 36217061003 + brand-finder run 36217061774 done, `Weekly brief adjustment` green (brief v2 `adjusted_at` set), `Monthly brief refresh` "Next refresh on Oct 1". All three cron expressions registered on staging (deploy output). The deployed daily/weekly firing: first live run 13:30 UTC today / Mon 28 Sep 12:00 UTC | — |
+| 15 | Clean-up | NOT RUN YET | scripted (`tests/live/15-cleanup.spec.ts`); runs after items 10–11 so their pitches are removed too | — |
 
 ## Bugs found and fixed at source
 
