@@ -31,6 +31,7 @@ export const REGISTER = {
   "no-content-in-logs": "public repo: a console.* outside worker/lib/log.ts can leak her content into Actions logs (section 13)",
   "nothing-hidden": "the owner's rule: nothing hidden, nothing switched off; a screen behind a flag, or a feature defaulting off, is a thing she cannot find",
   "no-secrets": "a key in the repo is public the moment it is pushed",
+  "promote-on-green": "production moves only from a sha the full e2e passed, with nobody in the loop: e2e.yml never runs per merge (push / pull_request) and promote.yml deploys only on a green workflow_run of e2e (or a dispatch that names a sha with one), from that exact sha, through the repo's deploy script, recording the GitHub Deployment land --promote reads (26 Sep 2026: a person running land --promote after the nightly was a wait on the owner)",
   "routes-mounted": "a route file nothing mounts is code that exists but nothing invokes",
   "screens-registered": "every page file must be routed in App.tsx or it is unreachable",
   "seed-year-local-only": "the year of demo data must never reach staging or production and must be removable row by row",

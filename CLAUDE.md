@@ -68,13 +68,18 @@ assigned in the brief that adds it) · `package.json` deps (union merge only).
 
 `land <pr>` (from `~/bin`). Never bare `wrangler deploy`. Build first, test in batches: the
 merge gate is `check.yml` (typecheck, unit, validators, build, under 5 min); `land` merges on
-green, deploys **staging** from the merge sha, then deploys **production only if the `e2e`
-workflow (e2e, e2e-open, help-screenshots) has a green run on that exact sha** — otherwise it
-prints WAITING. `e2e.yml` runs nightly (08:00 UTC) and on `workflow_dispatch`, never per merge.
-`land --promote sheila-creator-dashboard` ships the newest e2e-green commit newer than production
-(`--run-e2e` dispatches the suite on main's head first and waits). Production's record is the
-GitHub Deployments API (environment `production`). `npm run deploy:production` by hand is the
-break-glass, not the route.
+green, deploys **staging** from the merge sha, and prints WAITING for production. `e2e.yml`
+(e2e, e2e-open, help-screenshots) runs nightly (08:00 UTC) and on `workflow_dispatch`, never per
+merge. **Production moves on its own, nobody in the loop:** `promote.yml` fires on every green
+`e2e` run of main and runs `scripts/deploy-production.sh` from exactly the sha that passed (repo
+secrets `CLOUDFLARE_API_TOKEN` = vault `cloudflare-claude-deploy`, `CLOUDFLARE_ACCOUNT_ID`),
+smokes `/healthz`, and records a GitHub Deployment (environment `production`) — the same record
+`land --promote sheila-creator-dashboard [--run-e2e]` writes and reads, so the by-hand path still
+works and the two agree (a sha production already runs is skipped, not redeployed). By hand
+without `land`: `gh workflow run e2e.yml --ref main`, or `gh workflow run promote.yml -f sha=<sha>`
+(refused unless a green `e2e` run exists on that sha). Validator `promote-on-green` pins this
+shape: `e2e.yml` never on push/pull_request, `promote.yml` only on `workflow_run` of e2e +
+dispatch. `npm run deploy:production` by hand is the break-glass, not the route.
 Production URL: https://sheilastudio.seq-taylor.workers.dev (Worker `sheilastudio`, until her
 domain). Production has no login (`AUTH_MODE` "open"): with open mode anyone who has the URL
 is the owner; that is by her choice; switching back is `AUTH_MODE: "code"` and a deploy
