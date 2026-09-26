@@ -61,7 +61,7 @@ const base = { punch_in: false, progress_bar: false, crossfade: false, grade: "n
 
 export const LOOKS = [
   { ...base, id: "clean", name: "Clean", description: "Full frame that follows your face, simple white captions at the bottom, your end card.", captions: "clean", caption_position: "bottom", hook: "none", layout: "fill" },
-  { ...base, id: "bold_hook", name: "Bold hook", description: "Big bold hook across the top for the first seconds, a little zoom on each new sentence.", captions: "clean", caption_position: "bottom", hook: "top_bold", layout: "fill", punch_in: true },
+  { ...base, id: "bold_hook", name: "Bold hook", description: "Big bold hook across the top for the first seconds, each word lights up as you say it, a little zoom on each new sentence.", captions: "karaoke", caption_position: "bottom", hook: "top_bold", layout: "fill", punch_in: true },
   { ...base, id: "karaoke", name: "Karaoke captions", description: "Captions in the middle of the screen, each word lights up as you say it, with a progress bar.", captions: "karaoke", caption_position: "center", hook: "top_bold", layout: "fill", punch_in: true, progress_bar: true },
   { ...base, id: "brand_card", name: "Brand card", description: "Captions on a box in your brand colour, a brand-coloured progress bar and your logo card at the end.", captions: "boxed", caption_position: "bottom", hook: "top_bold", layout: "fill", progress_bar: true },
   { ...base, id: "cinematic", name: "Cinematic", description: "The whole picture over a soft blurred copy, a warm film look, smooth fades between moments.", captions: "clean", caption_position: "bottom", hook: "none", layout: "blur_fill", crossfade: true, grade: "warm" },
@@ -259,4 +259,68 @@ export function defaultGridLayout(lookId: LookId, otherClipIds: readonly string[
   let z = 0;
   while (cells.length < n) cells.push({ kind: "zoom", zoom: ZOOMS[z++ % ZOOMS.length] });
   return { cells, voice: 0 };
+}
+
+// ---------------------------------------------------------------- stored shape
+
+/** What the `editing` settings row holds: the Looks she switched OFF, so a new Look is on. */
+export interface StoredEditing {
+  looks_off?: unknown;
+  captions?: unknown;
+  end_card?: unknown;
+  music?: unknown;
+  editors?: unknown;
+}
+
+export function editingFromStored(v: StoredEditing | null | undefined): EditingSettings {
+  const off = Array.isArray(v?.looks_off) ? (v!.looks_off as unknown[]) : [];
+  const looks = LOOK_IDS.filter((id) => !off.includes(id));
+  const bool = (x: unknown, d: boolean) => (typeof x === "boolean" ? x : d);
+  return {
+    looks: looks.length ? looks : [...LOOK_IDS],
+    captions: bool(v?.captions, DEFAULT_EDITING.captions),
+    end_card: bool(v?.end_card, DEFAULT_EDITING.end_card),
+    music: bool(v?.music, DEFAULT_EDITING.music),
+  };
+}
+
+export function editingToStored(e: EditingSettings, rest: StoredEditing = {}): StoredEditing {
+  return { ...rest, looks_off: LOOK_IDS.filter((id) => !e.looks.includes(id)), captions: e.captions, end_card: e.end_card, music: e.music };
+}
+
+// ---------------------------------------------------------------- branding for the end card
+
+export interface Branding {
+  colors: { primary: string; ink: string; paper: string; accent: string };
+  font: string | null;
+  handle: string | null;
+  cta: string | null;
+}
+
+/** Fonts the cut job can fetch for captions (jobs/looks.py FONT_URLS). */
+export const BRAND_FONTS = ["Montserrat", "Playfair Display", "Poppins", "Inter", "Lato", "Open Sans"] as const;
+
+/**
+ * Her branding for a render: the handle of her TikTok channel in Buffer (else any channel, else
+ * the first @handle in her Brand Profile); colours and font when her Brand Profile names them
+ * (the first two #rrggbb codes are her primary and accent colours), defaults otherwise; her first
+ * call to action for the end card.
+ */
+export function brandingFor(profile: Record<string, string> | null, channels: { platform?: string; handle?: string }[]): Branding {
+  const text = profile ? Object.values(profile).join("\n") : "";
+  const hexes = [...text.matchAll(/#([0-9a-fA-F]{6})\b/g)].map((m) => `#${m[1].toLowerCase()}`);
+  const font = BRAND_FONTS.find((f) => new RegExp(`\\b${f.replace(" ", "\\s+")}\\b`, "i").test(text)) ?? null;
+  const tiktok = channels.find((c) => c.platform === "tiktok" && c.handle)?.handle ?? channels.find((c) => c.handle)?.handle ?? null;
+  const fromProfile = /(^|\s)@([A-Za-z0-9._]{2,30})/.exec(profile?.who ?? text)?.[2] ?? null;
+  const raw = (tiktok ?? fromProfile ?? "").replace(/^@+/, "").replace(/[^A-Za-z0-9._]/g, "").slice(0, 30);
+  const cta = (profile?.ctas ?? "")
+    .split("\n")
+    .map((l) => l.replace(/^[\s\-•\t]+|[\s\-•\t]+$/g, ""))
+    .find(Boolean);
+  return {
+    colors: { primary: hexes[0] ?? DEFAULT_BRAND.primary, ink: DEFAULT_BRAND.ink, paper: DEFAULT_BRAND.paper, accent: hexes[1] ?? DEFAULT_BRAND.accent },
+    font,
+    handle: raw ? `@${raw}` : null,
+    cta: cta ? cta.slice(0, 60) : null,
+  };
 }

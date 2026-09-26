@@ -59,7 +59,7 @@ for (const g of guides) {
     await p.addInitScript(TOUR_OFF);
     let shots = 0;
     for (const [i, step] of g.parsed.steps.entries()) {
-      if (!step.image) continue;
+      if (!step.image || isLookPicture(step.image)) continue;
       const route = step.route ?? SCREEN_ROUTES[g.parsed.meta.screen ?? "home"] ?? "/";
       if (route === "external") continue;
       await p.goto(route);
@@ -82,10 +82,13 @@ for (const g of guides) {
     }
     if (loggedOut) await p.context().close();
     // Rule 0: a guide whose every step is skipped must say so, never pass silently.
-    const external = g.parsed.steps.filter((s) => s.route === "external").length;
+    // A step pictured by a Look's own image (public/looks/<id>.webp) needs no screenshot.
+    const external = g.parsed.steps.filter((s) => s.route === "external" || (s.image && isLookPicture(s.image))).length;
     expect(shots + external, `${g.slug}: no screenshot taken`).toBe(g.parsed.steps.filter((s) => s.image).length);
   });
 }
+
+const isLookPicture = (image: string) => /^\/looks\/[a-z_]+\.webp$/.test(image);
 
 /** Loading placeholders gone, fonts in: the screen as she would see it. */
 async function settled(p: Page) {

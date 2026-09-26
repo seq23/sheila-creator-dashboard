@@ -17,6 +17,7 @@ export const REGISTER = {
   "jobs-no-direct-storage": "a job holding storage keys needs an R2 token the owner cannot mint and a public repo can leak; jobs reach storage only through the Worker",
   "jobs-one-openrouter-client": "three hand-rolled OpenRouter clients in jobs each lost the end of a reasoning model's answer (live test 25 Sep 2026); one client in common.py asks again with more room",
   "jobs-registered": "every job type in the schema must have a handler or dispatch silently does nothing",
+  "looks": "a Look without a description, a preview picture or test coverage is an option she picks blind, or one nothing proves renders (owner, 25 Sep 2026: clips must vary)",
   "no-content-in-logs": "public repo: a console.* outside worker/lib/log.ts can leak her content into Actions logs (section 13)",
   "no-secrets": "a key in the repo is public the moment it is pushed",
   "routes-mounted": "a route file nothing mounts is code that exists but nothing invokes",

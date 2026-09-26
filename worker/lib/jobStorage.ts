@@ -4,6 +4,9 @@
 // keys a job of a given type may touch. Pure, unit-tested (tests/unit/job-storage.test.ts).
 import type { JobRow } from "@shared/types";
 
+/** A cut job's ref: a dump ("dmp_…") or one clip of it to re-render ("dmp_…/clp_…"). One rule for scope and handler. */
+export const CUT_REF = /^([A-Za-z0-9_]{1,64})(?:\/(clp_[a-z0-9]{8,32}))?$/;
+
 export interface StorageScope {
   read: string[];
   write: string[];
@@ -18,12 +21,19 @@ export function jobStorageScope(type: JobRow["type"], jobId: string, refId: stri
   const own = `jobs/${jobId}/`;
   const scope: StorageScope = { read: [own], write: [own] };
   switch (type) {
-    case "cut":
-      if (refId) {
-        scope.read.push(`raw/${refId}/`);
-        scope.write.push(`clips/${refId}/`);
+    case "cut": {
+      // A dump ("dmp_…") reads its own raw videos and her songs, and writes its clip folder. A
+      // single-clip re-render ("dmp_…/clp_…") may also read other clips' raw videos and files
+      // (grid cells she picked from her library); it still writes only its own dump's folder.
+      const m = CUT_REF.exec(refId ?? "");
+      if (m) {
+        const [, dumpId, clipId] = m;
+        scope.read.push(clipId ? "raw/" : `raw/${dumpId}/`, "music/");
+        if (clipId) scope.read.push("clips/");
+        scope.write.push(`clips/${dumpId}/`);
       }
       break;
+    }
     case "extract":
       scope.read.push("brain/");
       scope.write.push("brain/text/");

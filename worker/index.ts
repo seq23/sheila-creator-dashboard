@@ -23,6 +23,7 @@ import { mediakit } from "./routes/mediakit";
 import { help } from "./routes/help";
 import { media } from "./routes/media";
 import { oauth } from "./routes/oauth";
+import { editing } from "./routes/editing";
 import { publicRoutes } from "./routes/public";
 import { runCron } from "./crons/index";
 
@@ -60,6 +61,7 @@ app.route("/api/help", help);
 app.route("/api/public", publicRoutes);
 app.route("/media", media);
 app.route("/api/oauth", oauth);
+app.route("/api/editing", editing);
 
 app.notFound((c) => {
   if (c.req.path.startsWith("/api/")) return c.json({ error: "Not found." }, 404);

@@ -210,7 +210,7 @@ def build_ass(words: list[Word], hook: str, opts: dict[str, Any], b: Branding, d
     f = b.font
     styles = {
         "clean": f"Style: Sub,{f},{80 if centre else 74},{white},{white},{black},&H64000000,-1,0,0,0,100,100,0,0,1,4,2,{align},90,90,{margin},1",
-        "karaoke": f"Style: Sub,{f},92,{white},{white},{black},&H78000000,-1,0,0,0,100,100,0,0,1,5,3,5,80,80,0,1",
+        "karaoke": f"Style: Sub,{f},{92 if centre else 84},{white},{white},{black},&H78000000,-1,0,0,0,100,100,0,0,1,5,3,{align},80,80,{margin},1",
         "boxed": f"Style: Sub,{f},{72 if centre else 76},{ink},{ink},{prim},{prim},-1,0,0,0,100,100,0,0,3,14,0,{align},90,90,{margin},1",
     }
     lines = ["[Script Info]", "ScriptType: v4.00+", f"PlayResX: {OUT_W}", f"PlayResY: {OUT_H}", "WrapStyle: 0", "", "[V4+ Styles]", fmt]
@@ -542,10 +542,25 @@ def ahash(gray: bytes) -> int:
     return bits
 
 
+def dhash(gray: bytes, w: int = 55, h: int = 96) -> int:
+    """Difference hash over a (w x h) grayscale frame: one bit per horizontal neighbour pair, set
+    where the left pixel is brighter. Edges (text strokes, cell borders, zoom) flip bits; flat
+    colour does not. (w-1)*h bits."""
+    bits = 0
+    k = 0
+    for y in range(h):
+        row = y * w
+        for x in range(w - 1):
+            if gray[row + x] > gray[row + x + 1]:
+                bits |= 1 << k
+            k += 1
+    return bits
+
+
 def contact_sheet(mp4: Path, dest: Path, times: list[float]) -> None:
     """A 3-frame strip (the Look thumbnails in public/looks/, made once from the selftest footage)."""
     sel = "+".join(f"between(t,{t:.2f},{t + 0.04:.2f})" for t in times)
-    ffmpeg(["-i", str(mp4), "-vf", f"select='{sel}',scale=120:214:flags=area,tile=3x1:padding=4:color=0xF7F1E7", "-frames:v", "1", "-vsync", "vfr", "-quality", "62", "-compression_level", "6", str(dest)])
+    ffmpeg(["-i", str(mp4), "-vf", f"select='{sel}',scale=144:256:flags=area,tile=3x1:padding=4:color=0xF7F1E7", "-frames:v", "1", "-fps_mode", "vfr", "-c:v", "libwebp", "-quality", "70", str(dest)])
 
 
 if os.environ.get("LOOKS_SELFCHECK") == "1":  # pragma: no cover - quick syntax/data sanity

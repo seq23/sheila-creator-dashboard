@@ -14,7 +14,10 @@ import { ACCEPTED_DOC_TYPES, ACCEPTED_VIDEO_TYPES, UPLOAD_PART_SIZE } from "@sha
 export const uploads = new Hono<{ Bindings: Env; Variables: Vars }>();
 uploads.use("*", requireUser);
 
-type Kind = "video" | "brand_doc" | "research_upload" | "voice_sample" | "kit_photo";
+/** Her own songs for the music bed (Settings > Editing > My music). */
+export const MUSIC_MAX_BYTES = 25 * 1024 * 1024;
+
+type Kind = "video" | "brand_doc" | "research_upload" | "voice_sample" | "kit_photo" | "music";
 
 function keyFor(kind: Kind, parentId: string | null, id: string): string {
   switch (kind) {
@@ -28,6 +31,8 @@ function keyFor(kind: Kind, parentId: string | null, id: string): string {
       return `voice/sample/${id}`;
     case "kit_photo":
       return `kit/photo/${id}`;
+    case "music":
+      return `music/${id}`;
   }
 }
 
@@ -36,6 +41,7 @@ function acceptable(kind: Kind, mime: string): boolean {
   if (kind === "brand_doc" || kind === "research_upload") return ACCEPTED_DOC_TYPES.includes(mime) || mime.startsWith("text/");
   if (kind === "voice_sample") return mime.startsWith("audio/") || mime.startsWith("video/");
   if (kind === "kit_photo") return mime.startsWith("image/");
+  if (kind === "music") return mime.startsWith("audio/");
   return false;
 }
 
@@ -45,6 +51,7 @@ uploads.post("/start", async (c) => {
   if (!body?.kind || !body.fileName || !body.mimeType || typeof body.size !== "number") return fail(c, 400, "Missing file details.");
   if (!acceptable(body.kind, body.mimeType)) return fail(c, 422, "That file type is not supported here.", "clips-look-wrong");
   if (body.size <= 0) return fail(c, 422, "That file is empty.");
+  if (body.kind === "music" && body.size > MUSIC_MAX_BYTES) return fail(c, 413, "That song is over 25 MB. Export it as an MP3 or M4A and try again.", "looks-and-styles");
   const kind = body.kind;
   const id = newId(kind === "video" ? "ast" : kind === "brand_doc" ? "doc" : "upl");
   const parent = body.parentId ?? null;
@@ -76,7 +83,7 @@ uploads.post("/start", async (c) => {
   } else if (kind === "research_upload") {
     await c.env.DB.prepare("INSERT INTO research_uploads (id, file_name, r2_key) VALUES (?, ?, ?)").bind(id, body.fileName.slice(0, 200), key).run();
   }
-  // voice_sample and kit_photo rows are written by their own routes on complete.
+  // voice_sample, kit_photo and music rows are written by their own routes on complete.
 
   log.info("upload.start", { kind, parts: Math.ceil(body.size / UPLOAD_PART_SIZE) });
   return c.json({ id, key, uploadId: mp.uploadId, partSize: UPLOAD_PART_SIZE });

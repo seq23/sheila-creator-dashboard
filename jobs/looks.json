@@ -48,8 +48,8 @@
     {
       "id": "bold_hook",
       "name": "Bold hook",
-      "description": "Big bold hook across the top for the first seconds, a little zoom on each new sentence.",
-      "captions": "clean", "caption_position": "bottom", "hook": "top_bold", "layout": "fill", "grid": null,
+      "description": "Big bold hook across the top for the first seconds, each word lights up as you say it, a little zoom on each new sentence.",
+      "captions": "karaoke", "caption_position": "bottom", "hook": "top_bold", "layout": "fill", "grid": null,
       "punch_in": true, "progress_bar": false, "crossfade": false, "grade": "none", "end_card": true
     },
     {
