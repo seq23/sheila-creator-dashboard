@@ -1,5 +1,5 @@
 // Connect YouTube (full videos), phone and desktop, fake services. She taps one button on Connect
-// (the fake sign-in answers at once, as Google's Allow would); an approved full video on the
+// (the fake sign-in answers at once, as Google's Continue would); an approved full video on the
 // Calendar then uploads through the hourly lane and the ytupload job to the stand-in YouTube,
 // which answers YouTube's real bodies (shared/youtube-errors.json) for the scenario set in the
 // settings row `fake_youtube`. Review says where it stands; Home names every failure: the
@@ -68,7 +68,7 @@ async function homeNotice(page: Page, key: string) {
 async function connectYouTube(page: Page) {
   await page.goto("/settings/connections");
   const card = page.locator("[data-youtube-direct]");
-  await expect(card.getByText("Google may show “Google hasn't verified this app”")).toBeVisible();
+  await expect(card.getByText("Google then shows “Google hasn't verified this app”")).toBeVisible();
   await card.getByRole("link", { name: "Connect YouTube (full videos)" }).click();
   await expect(page.getByText("YouTube connected. Your full videos now upload straight to your channel")).toBeVisible();
   await expect(card.getByText(/Connected · Sheila Bruce/)).toBeVisible();

@@ -1,5 +1,5 @@
 // Full videos straight to her own YouTube channel (owner decision, 26 Sep 2026): Sheila taps
-// "Connect YouTube" once, signs in on Google's page and taps Allow; from then on every full video
+// "Connect YouTube" once, signs in on Google's page and taps Continue; from then on every full video
 // she approves uploads to her channel from a GitHub Actions job (resumable upload, videos.insert)
 // and is read back to prove it landed the way she asked. Buffer keeps posting the Shorts, TikTok
 // and Instagram clips. Pure rules, unit-tested (tests/unit/youtube-direct.test.ts); the Worker side

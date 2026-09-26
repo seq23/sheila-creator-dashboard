@@ -264,17 +264,22 @@ export const MOCKS: Record<string, Frame> = {
     { k: "row", v: "Advanced", action: "Go to Sheila Studio", hl: true },
   ]),
   // Connect YouTube (full videos): the same Google pages, with the upload permission she allows.
-  "youtube-unverified": apiPage("Google", "accounts.google.com", [], "", "Google hasn't verified this app", [
-    { k: "p", v: "Expected: Sheila Studio is your own dashboard. Tap Continue." },
-    { k: "btn", v: "Continue", hl: true },
-  ]),
-  "youtube-account": apiPage("Google", "accounts.google.com", [], "", "Choose an account to continue to Sheila Studio", [
+  "youtube-account": apiPage("Google", "accounts.google.com", [], "", "Choose an account to continue to seq-taylor.workers.dev", [
     { k: "row", v: "The Google account your YouTube channel is on", action: "Pick", hl: true },
   ]),
-  "youtube-allow": apiPage("Google", "accounts.google.com/consent", [], "", "Sheila Studio wants access to your Google Account", [
+  "youtube-unverified": apiPage("Google", "accounts.google.com", [], "", "Google hasn't verified this app", [
+    { k: "p", v: "The app is requesting access to sensitive info in your Google Account." },
+    { k: "btn", v: "BACK TO SAFETY", quiet: true },
+    { k: "row", v: "Advanced", action: "Tap", hl: true },
+  ]),
+  "youtube-unsafe": apiPage("Google", "accounts.google.com", [], "", "Google hasn't verified this app", [
+    { k: "p", v: "Continue only if you understand the risks and trust the developer." },
+    { k: "row", v: "Go to seq-taylor.workers.dev (unsafe)", action: "Tap", hl: true },
+  ]),
+  "youtube-allow": apiPage("Google", "accounts.google.com/consent", [], "", "seq-taylor.workers.dev wants access to your Google Account", [
     { k: "check", v: "Manage your YouTube videos", on: true },
     { k: "check", v: "View your YouTube account", on: true },
-    { k: "btn", v: "Allow", hl: true },
+    { k: "btn", v: "Continue", hl: true },
   ]),
   "youtube-channel": apiPage("YouTube", "youtube.com", ["Home", "Shorts", "You"], "You", "Your channel", [
     { k: "field", label: "Handle", value: "@yourchannel", hl: true },

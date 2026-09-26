@@ -226,6 +226,8 @@ async function readBackAndVerify(env: Env, clipId: string, token: string, publis
     return false;
   }
   const back = got.items[r.video_id] ?? null;
+  // What YouTube answered, exactly (status fields only, never content): the measurement behind the verdict.
+  await recordEvent(env.DB, "ytdirect.readback", clipId, { video_id: r.video_id, found: !!back, privacyStatus: back?.privacyStatus ?? null, publishAt: back?.publishAt ?? null, uploadStatus: back?.uploadStatus ?? null, failureReason: back?.failureReason ?? null, rejectionReason: back?.rejectionReason ?? null });
   const planned: Intent = { privacyStatus: r.privacy, publishAt: r.publish_at };
   if (published && back?.privacyStatus === "private" && back.publishAt && r.publish_at && Math.abs(Date.parse(back.publishAt) - Date.parse(r.publish_at)) < 1000) return false;
   const intent: Intent = published ? { privacyStatus: "public", publishAt: null } : planned;

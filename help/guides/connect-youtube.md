@@ -17,13 +17,13 @@ One tap on Connect, then Google's own page. The long version with pictures of Go
 
 On **Settings**, **Connect accounts**, the second box is **YouTube · full videos**. Tap **Connect YouTube (full videos)**.
 
-## Continue, then Allow
+## Advanced, Go to seq-taylor.workers.dev (unsafe), Continue
 
 ![Step 2](/help/screenshots/connect-youtube-2.png)
 <!-- route: /settings/connections -->
 <!-- target: [data-youtube-direct] [data-unverified-note] -->
 
-Google may say it hasn't verified the app: tap **Continue**. Pick your account and tap **Allow**.
+Pick your account. Google says it hasn't verified the app: tap the small **Advanced** link, then **Go to seq-taylor.workers.dev (unsafe)**, then **Continue**. The long guide has a picture of each page.
 
 ## Check the light
 

@@ -179,7 +179,7 @@ oauth.get("/:provider/callback", requireOwner, async (c) => {
     try {
       const { token, account, scope } = await exchangeGoogle(c.env, app, code);
       // Google's consent page lets her untick a box: without upload the videos cannot go up.
-      if (!scope.split(" ").includes(YT_UPLOAD_SCOPES[0])) throw new OAuthStop("no_upload", "Google didn't give permission to upload. Tap Connect YouTube again and leave every box ticked, then Allow.");
+      if (!scope.split(" ").includes(YT_UPLOAD_SCOPES[0])) throw new OAuthStop("no_upload", "Google didn't give permission to upload. Tap Connect YouTube again and leave every box ticked, then tap Continue.");
       await storeYouTube(c.env, token, account, scope, c.get("user").email);
       return c.redirect(back("connected=youtube"));
     } catch (e) {

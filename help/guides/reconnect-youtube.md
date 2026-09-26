@@ -17,21 +17,21 @@ Google stopped accepting the dashboard's sign-in (you removed its access, or Goo
 
 On **Settings**, **Connect accounts**, under **YouTube · full videos**, tap **Reconnect YouTube** (the light is red).
 
-## If Google says it hasn't verified the app, tap Continue
+## Tap Advanced, then Go to seq-taylor.workers.dev (unsafe)
 
 ![Step 2](/help/screenshots/reconnect-youtube-2.png)
-<!-- mock: youtube-unverified -->
+<!-- mock: youtube-unsafe -->
 <!-- shared -->
 
-That is expected: Sheila Studio is your own dashboard.
+Pick your account. On **Google hasn't verified this app**, tap the small **Advanced** link, then **Go to seq-taylor.workers.dev (unsafe)**. It's your own dashboard.
 
-## Pick your account and tap Allow
+## Tap Continue
 
 ![Step 3](/help/screenshots/reconnect-youtube-3.png)
 <!-- mock: youtube-allow -->
 <!-- shared -->
 
-Pick your account and tap **Allow**. The light turns green and waiting videos upload within the hour.
+Leave both boxes ticked and tap **Continue**. The light turns green and waiting videos upload within the hour.
 
 ## Did this work?
 

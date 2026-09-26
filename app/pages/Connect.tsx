@@ -395,7 +395,7 @@ const OAUTH_ERRORS: Record<string, string> = {
   denied: "the sign-in was cancelled, so nothing was connected.",
   expired: "the sign-in took too long. Press Connect again.",
   no_account: "that account has no Professional Instagram or YouTube channel to read.",
-  no_upload: "Google didn't give permission to upload. Tap Connect YouTube again, leave every box ticked, then tap Allow.",
+  no_upload: "Google didn't give permission to upload. Tap Connect YouTube again, leave every box ticked, then tap Continue.",
   failed: "the connection did not finish. Press Connect again.",
 };
 
@@ -491,7 +491,7 @@ function TikTokRow({ conn }: { conn: ConnectionView | null }) {
 
 /**
  * Connect YouTube (full videos): her own Google sign-in, once. The only thing she ever does is tap
- * the button, pick her Google account on Google's page and tap Allow (worker/routes/oauth.ts
+ * the button, pick her Google account, Advanced, Go to seq-taylor.workers.dev (unsafe), Continue (worker/routes/oauth.ts
  * /api/oauth/youtube/start). Red when Google refused the sign-in: Reconnect YouTube.
  */
 function YouTubeDirectCard({ conn, owner, onChange }: { conn: ConnectionView | null; owner: boolean; onChange: () => void }) {
@@ -542,7 +542,7 @@ function YouTubeDirectCard({ conn, owner, onChange }: { conn: ConnectionView | n
       </div>
       {status !== "ok" ? (
         <div className="hint" data-unverified-note>
-          You sign in on Google's own page. Google may show “Google hasn't verified this app”: that is expected, tap <strong>Continue</strong>, then <strong>Allow</strong>.
+          You sign in on Google's own page. Pick your account. Google then shows “Google hasn't verified this app”: that is expected (it's your own dashboard). Tap the small <strong>Advanced</strong> link, then <strong>Go to seq-taylor.workers.dev (unsafe)</strong>, then <strong>Continue</strong>.
         </div>
       ) : null}
     </Card>

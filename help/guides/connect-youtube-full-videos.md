@@ -17,28 +17,33 @@ Do this once. Your full videos then upload straight to your own YouTube channel 
 
 On **Settings**, **Connect accounts**, under **YouTube · full videos**, tap **Connect YouTube (full videos)**.
 
-## If Google says it hasn't verified the app, tap Continue
-
-![Step 2](/help/screenshots/connect-youtube-full-videos-2.png)
-<!-- mock: youtube-unverified -->
-<!-- shared -->
-
-Google may show **Google hasn't verified this app**. That is expected: Sheila Studio is your own dashboard. Tap **Continue** (on some phones: **Advanced**, then **Go to Sheila Studio**).
-
 ## Pick your Google account
 
-![Step 3](/help/screenshots/connect-youtube-full-videos-3.png)
+![Step 2](/help/screenshots/connect-youtube-full-videos-2.png)
 <!-- mock: youtube-account -->
 
 Pick the Google account your YouTube channel is on.
 
-## Tap Allow
+## Tap the small Advanced link
+
+![Step 3](/help/screenshots/connect-youtube-full-videos-3.png)
+<!-- mock: youtube-unverified -->
+
+Google shows **Google hasn't verified this app**. That is expected: it's your own dashboard, not an app Google has reviewed. Don't tap Back to safety; tap the small **Advanced** link.
+
+## Tap Go to seq-taylor.workers.dev (unsafe)
 
 ![Step 4](/help/screenshots/connect-youtube-full-videos-4.png)
-<!-- mock: youtube-allow -->
-<!-- shared -->
+<!-- mock: youtube-unsafe -->
 
-Leave both boxes ticked and tap **Allow**. You're back on Connect with a green light. That's all: nothing else to do, ever. Uploads that go public later wait on your channel as private until their time.
+Tap **Go to seq-taylor.workers.dev (unsafe)**. Google says "unsafe" only because it hasn't reviewed the app; seq-taylor.workers.dev is where your dashboard lives.
+
+## Tap Continue
+
+![Step 5](/help/screenshots/connect-youtube-full-videos-5.png)
+<!-- mock: youtube-allow -->
+
+Leave both boxes ticked and tap **Continue**. You're back on Connect with a green light. That's all: nothing else to do, ever.
 
 ## Did this work?
 

@@ -23,7 +23,7 @@ import { checkEditor, checkFirecrawl, checkHunter, checkOpenRouter, type KeyChec
 import { API_EDITORS } from "../domain/editors";
 import { writeEditorCheckLight } from "../lib/editorJobs";
 import { recheckElevenLabs } from "../lib/premiumVoice";
-import { directMode, writeLight as writeYouTubeLight, youtubeAccessToken } from "../lib/youtubeDirect";
+import { directMode, writeLight as writeYouTubeLight, youtubeAccessToken, youtubeDirectSync } from "../lib/youtubeDirect";
 import {
   bufferDueAt,
   channelHealth,
@@ -119,7 +119,7 @@ const CONNECTION_COPY: Record<string, { title: string; steps: string[]; guide: s
   [CHANNEL_HEALTH_NAME.instagram]: { title: "Instagram in Buffer", steps: ["Open Buffer and go to Channels.", "Next to Instagram press Reconnect.", "Log in to Instagram and press Allow."], guide: "reconnect-an-account" },
   [CHANNEL_HEALTH_NAME.youtube]: { title: "YouTube in Buffer", steps: ["Open Buffer and go to Channels.", "Next to YouTube press Reconnect.", "Log in to Google, pick your channel and press Allow."], guide: "reconnect-an-account" },
   meta: { title: "Instagram stats", steps: ["In your dashboard open Settings, Connect accounts.", "Under Instagram stats press Reconnect.", "Log in to Instagram and pick your account."], guide: "reconnect-meta" },
-  youtube: { title: "YouTube (full videos)", steps: ["In your dashboard open Settings, Connect accounts.", "Under YouTube · full videos tap Reconnect YouTube.", "Pick your Google account on Google's page and tap Allow. Until then your full videos wait on Home under Upload it yourself."], guide: "reconnect-youtube" },
+  youtube: { title: "YouTube (full videos)", steps: ["In your dashboard open Settings, Connect accounts.", "Under YouTube · full videos tap Reconnect YouTube.", "Pick your Google account, tap Advanced, then Go to seq-taylor.workers.dev (unsafe), then Continue. Until then your full videos wait on Home under Upload it yourself."], guide: "reconnect-youtube" },
   google: { title: "YouTube stats", steps: ["In your dashboard open Settings, Connect accounts.", "Under YouTube stats press Reconnect.", "Log in to Google and pick your channel."], guide: "reconnect-google" },
   tiktok: { title: "TikTok stats", steps: ["In your dashboard open Settings, Connect accounts.", "Under TikTok stats press Reconnect.", "Log in to TikTok and press Allow."], guide: "reconnect-tiktok" },
   openrouter: { title: "The AI (OpenRouter)", steps: ["Open OpenRouter and go to Keys.", "Create a new key and copy it.", "In your dashboard open Settings, Connect accounts, paste it under OpenRouter and press Check key."], guide: "reconnect-openrouter" },
@@ -398,8 +398,9 @@ export async function recheckEverything(env: Env): Promise<void> {
     await writeEditorCheckLight(env, editor, r.ok, r.error, r.meta);
   }
   await recheckElevenLabs(env); // the same code as the daily lane: one "Voice · ElevenLabs" light
-  // Connect YouTube (full videos): a refresh proves Google still accepts her sign-in (red if not).
-  if ((await directMode(env)) === "on") await youtubeAccessToken(env);
+  // Connect YouTube (full videos): a refresh proves Google still accepts her sign-in (red if not),
+  // then the same sync the hourly lane runs (uploads due, Calendar moves, read-backs), at once.
+  if ((await directMode(env)) === "on" && (await youtubeAccessToken(env))) await youtubeDirectSync(env);
   await writeYouTubeLight(env);
   const waiting = (await env.DB.prepare("SELECT COUNT(*) AS n FROM posts WHERE status = 'planned' AND scheduled_at < ?").bind(new Date(Date.now() + 7 * 86400_000).toISOString()).first<{ n: number }>())?.n ?? 0;
   await writeHealth(env, buf, buf.ok ? 0 : waiting);
