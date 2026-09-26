@@ -39,6 +39,7 @@ from typing import Any, Callable
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import WORK, Job, download_input, json_object_in, log, openrouter_content, run, upload_output  # noqa: E402
+import looks as L  # noqa: E402
 
 OUT_W, OUT_H = 1080, 1920
 FPS = 30
@@ -52,8 +53,6 @@ DEFAULT_RECIPES = {
 }
 OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "openrouter/free")
 ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789"
-GOLD_ASS = "&H006DB5D7"  # #d7b56d as ASS &HAABBGGRR
-ESPRESSO_ASS = "&H00131721"  # #211713
 
 
 class NoUsableMoments(Exception):
@@ -136,12 +135,14 @@ def _importable(mod: str) -> bool:
 
 # ---------------------------------------------------------------- media stages
 
-def normalize(src: Path, dst: Path) -> dict[str, Any]:
+def normalize(src: Path, dst: Path, window: tuple[float, float] | None = None) -> dict[str, Any]:
+    """Constant 30 fps, yuv420p, long side <= 1920, 48 kHz stereo. `window` (start, end) keeps only
+    that stretch (a single-clip re-render never re-encodes a whole long video)."""
     info = probe(src)
     if not info["has_video"] or info["duration"] <= 0:
         raise NoUsableMoments("no video stream")
     scale = "scale='if(gt(iw,ih),min(1920,iw),-2)':'if(gt(iw,ih),-2,min(1920,ih))'"
-    args = ["-i", str(src)]
+    args = ["-ss", f"{window[0]:.3f}", "-t", f"{window[1] - window[0]:.3f}", "-i", str(src)] if window else ["-i", str(src)]
     if not info["has_audio"]:
         args += ["-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo", "-shortest"]
     args += [
@@ -190,11 +191,7 @@ def speech_runs(wav: Path, duration: float, noise_db: int = -35, min_silence: fl
     return runs
 
 
-@dataclass
-class Word:
-    start: float
-    end: float
-    text: str
+Word = L.Word  # one word type for transcripts and captions (jobs/looks.py)
 
 
 @dataclass
@@ -590,76 +587,7 @@ def face_center(src: Path, s: float, e: float, available: bool) -> float | None:
         return None
 
 
-def crop_filter(width: int, height: int, bars: tuple[int, int, int, int] | None, cx: float | None) -> str:
-    bx, by, bw, bh = 0, 0, width, height
-    if bars:
-        w, h, x, y = bars
-        if w >= width * 0.5 and h >= height * 0.5:
-            bw, bh, bx, by = w, h, x, y
-    cw = min(bw, even(bh * 9 / 16))
-    ch = min(bh, even(cw * 16 / 9))
-    centre = cx if cx is not None else 0.5
-    x = int(min(max(0, bx + centre * bw - cw / 2), bx + bw - cw))
-    y = int(by + (bh - ch) / 2)
-    return f"crop={even(cw)}:{even(ch)}:{x}:{y},scale={OUT_W}:{OUT_H}:flags=lanczos,setsar=1"
-
-
-# ---------------------------------------------------------------- subtitles
-
-def ass_time(t: float) -> str:
-    t = max(0.0, t)
-    h = int(t // 3600)
-    m = int(t % 3600 // 60)
-    s = t % 60
-    return f"{h}:{m:02d}:{s:05.2f}"
-
-
-def ass_text(s: str) -> str:
-    return s.replace("\\", "/").replace("{", "(").replace("}", ")").replace("\n", " ")
-
-
-def build_ass(words: list[Word], hook: str, style: str, hook_until: float) -> str:
-    """Word-level captions: chunks of up to 3 words, the spoken word in gold. The hook sits at the
-    top for the first seconds. Door B uses a boxed style so a recycled video looks new."""
-    boxed = style == "recycle"
-    sub = (
-        f"Style: Sub,DejaVu Sans,{84 if boxed else 78},&H00FFFFFF,&H00FFFFFF,{ESPRESSO_ASS if boxed else '&H00000000'},{ESPRESSO_ASS if boxed else '&H64000000'},"
-        f"-1,0,0,0,100,100,0,0,{3 if boxed else 1},{12 if boxed else 6},0,{5 if boxed else 2},80,80,{0 if boxed else 430},1"
-    )
-    hook_style = f"Style: Hook,DejaVu Sans,86,{ESPRESSO_ASS},&H00FFFFFF,{GOLD_ASS},{GOLD_ASS},-1,0,0,0,100,100,0,0,3,18,0,8,70,70,240,1"
-    out = [
-        "[Script Info]", "ScriptType: v4.00+", f"PlayResX: {OUT_W}", f"PlayResY: {OUT_H}", "WrapStyle: 0", "",
-        "[V4+ Styles]",
-        "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-        sub, hook_style, "",
-        "[Events]", "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
-    ]
-    if hook:
-        out.append(f"Dialogue: 1,{ass_time(0)},{ass_time(hook_until)},Hook,,0,0,0,,{ass_text(hook)}")
-    chunks = [words[i : i + 3] for i in range(0, len(words), 3)]
-    for chunk in chunks:
-        for j, w in enumerate(chunk):
-            end = chunk[j + 1].start if j + 1 < len(chunk) else w.end
-            if end - w.start < 0.05:
-                end = w.start + 0.05
-            text = " ".join((f"{{\\c{GOLD_ASS}&}}{ass_text(x.text)}{{\\c&H00FFFFFF&}}" if k == j else ass_text(x.text)) for k, x in enumerate(chunk))
-            out.append(f"Dialogue: 0,{ass_time(w.start)},{ass_time(end)},Sub,,0,0,0,,{text}")
-    return "\n".join(out) + "\n"
-
-
-def build_srt(words: list[Word], hook: str, hook_until: float) -> str:
-    def ts(t: float) -> str:
-        ms = int(round(max(0.0, t) * 1000))
-        return f"{ms // 3600000:02d}:{ms // 60000 % 60:02d}:{ms // 1000 % 60:02d},{ms % 1000:03d}"
-
-    cues: list[tuple[float, float, str]] = []
-    if hook:
-        cues.append((0.0, hook_until, hook))
-    for i in range(0, len(words), 3):
-        ch = words[i : i + 3]
-        cues.append((ch[0].start, ch[-1].end, " ".join(w.text for w in ch)))
-    return "".join(f"{n}\n{ts(s)} --> {ts(e)}\n{t}\n\n" for n, (s, e, t) in enumerate(cues, 1))
-
+# ---------------------------------------------------------------- render (Looks, jobs/looks.py)
 
 def clip_words(transcript: Transcript, parts: list[tuple[float, float]]) -> list[Word]:
     """Source-time words mapped onto the clip timeline (parts are concatenated in order)."""
@@ -672,53 +600,100 @@ def clip_words(transcript: Transcript, parts: list[tuple[float, float]]) -> list
     return out
 
 
-# ---------------------------------------------------------------- render
+@dataclass
+class Source:
+    """A normalized video the renderer can cut from, with what it knows about it."""
 
-def render(src: Path, info: dict[str, Any], m: Moment, transcript: Transcript, crop: str, work: Path, clip_id: str) -> tuple[Path, Path, str]:
-    """Cut the parts, frame 9:16, burn subtitles, level loudness; then grab the cover frame."""
-    out = work / f"{clip_id}.mp4"
-    cover = work / f"{clip_id}.jpg"
-    words = clip_words(transcript, m.parts)
-    hook_until = min(3.0, sum(e - s for s, e in m.parts))
-    style = "recycle" if m.recipe == "recycle" else "default"
-    args: list[str] = []
-    for s, e in m.parts:
-        args += ["-ss", f"{s:.3f}", "-t", f"{e - s:.3f}", "-i", str(src.resolve())]
-    n = len(m.parts)
-    chains = [f"[{i}:v]{crop},fps={FPS}[v{i}];[{i}:a]aresample=48000,aformat=channel_layouts=stereo[a{i}]" for i in range(n)]
-    concat = "".join(f"[v{i}][a{i}]" for i in range(n)) + f"concat=n={n}:v=1:a=1[vc][ac]"
-    subs_mode = "none"
-    vlast = "[vc]"
-    extra_inputs: list[str] = []
-    maps_sub: list[str] = []
-    if ffmpeg_has_filter("subtitles"):
-        (work / f"{clip_id}.ass").write_text(build_ass(words, m.hook, style, hook_until), encoding="utf-8")
-        chains.append(concat)
-        chains.append(f"[vc]subtitles={clip_id}.ass[vs]")
-        vlast = "[vs]"
-        subs_mode = "burned" if words else "hook-only"
+    path: Path
+    info: dict[str, Any]
+    transcript: Transcript
+    runs: list[tuple[float, float]]
+    bars: tuple[int, int, int, int] | None = None
+    faces: dict[tuple[float, float], float | None] = field(default_factory=dict)
+
+    def seg(self, s: float, e: float, mediapipe: bool, zoom: float = 1.0) -> L.Seg:
+        key = (round(s, 1), round(e, 1))
+        if key not in self.faces:
+            self.faces[key] = face_center(self.path, s, e, mediapipe)
+        return L.Seg(self.path, round(s, 3), round(e, 3), self.info["width"], self.info["height"], self.bars, self.faces[key], zoom)
+
+    def window(self, s: float, length: float) -> tuple[float, float]:
+        """A stretch of `length` seconds starting near `s`, kept inside the video."""
+        d = self.info["duration"]
+        if length >= d:
+            return 0.0, d
+        s = min(max(0.0, s), d - length)
+        return s, s + length
+
+
+def words_on_timeline(src: Source, parts: list[tuple[float, float]], opts: dict[str, Any]) -> list[Word]:
+    segs = [L.Seg(src.path, s, e, 0, 0) for s, e in parts]
+    return L.timeline_words([src.transcript.words_in(s, e) for s, e in parts], segs, opts)
+
+
+def inset_for(src: Source, m: "Moment", mediapipe: bool) -> L.Seg:
+    """The reaction beat for a pip Look: the strongest short line inside the moment."""
+    line = best_line(src.runs, src.transcript, m.start, m.end, 3.0, skip_first=2.0)
+    if not line:
+        a = m.start + (m.end - m.start) * 0.6
+        line = (round(a, 2), round(min(m.end, a + 2.5), 2))
+    return src.seg(line[0], line[1], mediapipe)
+
+
+def grid_cells(k: int, m: "Moment", src: Source, others: list[tuple[str, "Moment", Source]], n: int, mediapipe: bool) -> tuple[list[L.Seg], dict[str, Any]]:
+    """Cells for a grid Look: this moment first, then the dump's other moments (clip k+1, k+2 …,
+    each a same-length stretch of its own video), then this moment closer (zooms) when the dump
+    has fewer moments than cells. The voice is the cell with the clearest speech."""
+    length = m.end - m.start
+    cells = [src.seg(m.start, m.end, mediapipe)]
+    layout: list[dict[str, Any]] = [{"kind": "self"}]
+    speech = [coverage(src.runs, m.start, m.end)]
+    for j in range(len(others)):
+        if len(cells) >= n:
+            break
+        cid, om, osrc = others[(k + j) % len(others)]
+        s, e = osrc.window(om.start, length)
+        cells.append(osrc.seg(s, e, mediapipe))
+        layout.append({"kind": "clip", "clip_id": cid})
+        speech.append(coverage(osrc.runs, s, e))
+    zooms = [1.35, 1.7, 2.1]
+    z = 0
+    while len(cells) < n:
+        cells.append(src.seg(m.start, m.end, mediapipe, zooms[z % len(zooms)]))
+        layout.append({"kind": "zoom", "zoom": zooms[z % len(zooms)]})
+        speech.append(speech[0] * 0.99)  # the same sound as cell 0: never preferred over it
+        z += 1
+    voice = max(range(len(speech)), key=lambda i: (speech[i], -i))
+    return cells, {"cells": layout, "voice": voice}
+
+
+def music_for(spec: dict[str, Any], k: int, work: Path, download: "Downloader", cache: dict[str, Path]) -> Path | None:
+    """Her own uploaded songs only (Settings > Editing > My music), one per clip in turn."""
+    tracks = [t for t in (spec.get("music") or []) if isinstance(t, dict) and str(t.get("r2_key", "")).startswith("music/")]
+    if not tracks:
+        return None
+    key = str(tracks[k % len(tracks)]["r2_key"])
+    if key not in cache:
+        try:
+            cache[key] = download(key, work / f"music_{len(cache)}")
+        except Exception:  # noqa: BLE001
+            log("cut.music.unavailable")
+            return None
+    return cache[key]
+
+
+def render_moment(m: "Moment", src: Source, opts: dict[str, Any], brand: L.Branding, work: Path, clip_id: str, mediapipe: bool, *, cells: list[L.Seg] | None = None, voice: int = 0, voice_src: Source | None = None, music: Path | None = None) -> L.Rendered:
+    parts = [src.seg(s, e, mediapipe) for s, e in m.parts]
+    if cells:
+        vs = voice_src or src
+        c = cells[voice]
+        words = [Word(round(w.start - c.start, 3), round(w.end - c.start, 3), w.text) for w in vs.transcript.words_in(c.start, c.end)]
     else:
-        chains.append(concat)
-        (work / f"{clip_id}.srt").write_text(build_srt(words, m.hook, hook_until), encoding="utf-8")
-        extra_inputs = ["-i", f"{clip_id}.srt"]
-        maps_sub = ["-map", f"{n}:s", "-c:s", "mov_text"]
-        subs_mode = "soft"
-    chains.append("[ac]loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000[ao]")
-    ffmpeg(
-        [
-            *args,
-            *extra_inputs,
-            "-filter_complex", ";".join(chains),
-            "-map", vlast, "-map", "[ao]", *maps_sub,
-            "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv420p", "-r", str(FPS),
-            "-c:a", "aac", "-b:a", "128k", "-ar", "48000",
-            "-movflags", "+faststart", out.name,
-        ],
-        cwd=work,
-    )
-    dur = probe(out)["duration"]
-    ffmpeg(["-ss", f"{min(1.0, dur / 3):.2f}", "-i", out.name, "-frames:v", "1", "-q:v", "3", cover.name], cwd=work)
-    return out, cover, subs_mode
+        words = words_on_timeline(src, m.parts, opts)
+    inset = inset_for(src, m, mediapipe) if opts["layout"] == "pip" else None
+    return L.render_look(opts, parts, words, m.hook, brand, work, clip_id, cells=cells, voice=voice, inset=inset, music=music if opts.get("music") else None)
+
+
 
 
 def score_moment(m: Moment, transcript: Transcript, runs: list[tuple[float, float]], recipes: dict[str, Any]) -> float:
@@ -745,7 +720,22 @@ def score_moment(m: Moment, transcript: Transcript, runs: list[tuple[float, floa
 # any platform watermark and the @handles near it; the Worker decides with her own handles
 # (worker/domain/sourceCheck.ts). Without tesseract the check is skipped and says so in the log.
 HANDLE_RE = re.compile(r"@([A-Za-z0-9][A-Za-z0-9._]{1,29})")
-WATERMARK_SAMPLES = (0.08, 0.3, 0.5, 0.7, 0.92)
+# Eight frames, two OCR passes each. Staging, 25 Sep 2026: the plain pass read "TikTok" on a
+# downloaded TikTok but no @handle (the white handle text sits on busy footage), so the note could
+# not name whose video it was, and her own recycled TikToks would be held too. The second pass reads
+# a preprocessed copy: doubled, grayscale, near-white text turned black on white.
+WATERMARK_SAMPLES = (0.06, 0.18, 0.3, 0.42, 0.54, 0.66, 0.78, 0.92)
+OCR_PREPROCESS = "scale=iw*2:ih*2,format=gray,lutyuv=y='if(gt(val,215),0,255)'"
+
+
+# The handle sits right above or below the "TikTok" mark (the watermark moves between corners).
+# tesseract often reads its "@" as "@ " or "©", or drops it (staging, 25 Sep 2026:
+# "TikTok\n\n@ evahfourevah", "© evahfourevah", "TikTok\n\nevahfourevah"), and a low-resolution
+# video gives misspellings ("trenasqirdenfairys" for texasgardenfairyx) and 2-letter noise. So: a
+# line that is only "@ handle" counts, a bare word next to the mark counts from 4 characters, and
+# every candidate is counted across the sampled frames: the watermark repeats, noise does not.
+AT_LINE_RE = re.compile(r"^[@©®]\s*([A-Za-z0-9][A-Za-z0-9._]{2,29})\.?$")
+NEXT_TO_MARK_RE = re.compile(r"^[@©®]?\s*([A-Za-z0-9][A-Za-z0-9._]{3,29})\.?$")
 
 
 def parse_marks(texts: list[str]) -> dict[str, Any] | None:
@@ -753,41 +743,72 @@ def parse_marks(texts: list[str]) -> dict[str, Any] | None:
 
     TikTok stamps "TikTok" and "@handle" on every download. Instagram has no fixed watermark, so
     it counts only when "Instagram" and an @handle are on the same line (never a caption that
-    just mentions Instagram)."""
+    just mentions Instagram). Handles come most-seen first; when one was read on two or more
+    frames, the ones read only once (misreads, @mentions in captions) are dropped."""
     platform = None
-    handles: list[str] = []
+    counts: dict[str, int] = {}
+    order: list[str] = []
+
+    def add(h: str) -> None:
+        h = h.rstrip("._")
+        if not h or h.lower() in ("tiktok", "instagram"):
+            return
+        if h not in counts:
+            order.append(h)
+        counts[h] = counts.get(h, 0) + 1
+
     for text in texts:
-        for line in text.splitlines():
+        lines = [l.strip() for l in text.splitlines() if l.strip()]
+        seen: set[str] = set()
+        for i, line in enumerate(lines):
             low = line.lower()
             found = HANDLE_RE.findall(line)
+            at = AT_LINE_RE.match(line)
+            if at and not found:
+                found = [at.group(1)]
             if "tiktok" in low.replace(" ", ""):
                 platform = "tiktok"
+                for j in (i - 1, i + 1):
+                    near = NEXT_TO_MARK_RE.match(lines[j]) if 0 <= j < len(lines) and "tiktok" not in lines[j].lower() else None
+                    if near and near.group(1) not in seen:
+                        seen.add(near.group(1))
+                        add(near.group(1))
             elif "instagram" in low and found and platform is None:
                 platform = "instagram"
             for h in found:
-                h = h.rstrip("._")
-                if h and h not in handles:
-                    handles.append(h)
+                if h.rstrip("._") not in seen:
+                    seen.add(h.rstrip("._"))
+                    add(h)
     if not platform:
         return None
-    return {"platform": platform, "handles": handles[:10]}
+    ranked = sorted(order, key=lambda h: (-counts[h], order.index(h)))
+    if ranked and counts[ranked[0]] >= 2:
+        ranked = [h for h in ranked if counts[h] >= 2]
+    return {"platform": platform, "handles": ranked[:10]}
+
+
+def ocr_frames(norm: Path, duration: float, work: Path, tag: str) -> list[str]:
+    """OCR text of the sampled frames: per frame the plain picture, then the preprocessed one."""
+    texts: list[str] = []
+    for k, f in enumerate(WATERMARK_SAMPLES):
+        for variant, vf in (("plain", "scale=1080:-2"), ("ink", f"scale=1080:-2,{OCR_PREPROCESS}")):
+            png = work / f"wm_{tag}_{k}_{variant}.png"
+            try:
+                subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{max(0.0, duration * f):.2f}", "-i", str(norm), "-frames:v", "1", "-vf", vf, str(png)], check=True, timeout=60)
+                out = subprocess.run(["tesseract", str(png), "stdout", "--psm", "11"], capture_output=True, text=True, timeout=60)
+                texts.append(out.stdout)
+            except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+                continue
+            finally:
+                png.unlink(missing_ok=True)
+    return texts
 
 
 def source_marks(norm: Path, duration: float, work: Path, asset_id: str) -> dict[str, Any] | None:
     if not shutil.which("tesseract"):
         log("cut.source_check.skipped", reason="no_tesseract")
         return None
-    texts: list[str] = []
-    for k, f in enumerate(WATERMARK_SAMPLES):
-        png = work / f"wm_{asset_id}_{k}.png"
-        try:
-            subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{max(0.0, duration * f):.2f}", "-i", str(norm), "-frames:v", "1", "-vf", "scale=1080:-2", str(png)], check=True, timeout=60)
-            out = subprocess.run(["tesseract", str(png), "stdout", "--psm", "11"], capture_output=True, text=True, timeout=60)
-            texts.append(out.stdout)
-        except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
-            continue
-        finally:
-            png.unlink(missing_ok=True)
+    texts = ocr_frames(norm, duration, work, asset_id)
     mark = parse_marks(texts)
     log("cut.source_check", frames=len(texts), watermark=bool(mark), handles=len(mark["handles"]) if mark else 0)
     return {"asset_id": asset_id, **mark} if mark else None
@@ -795,6 +816,15 @@ def source_marks(norm: Path, duration: float, work: Path, asset_id: str) -> dict
 Uploader = Callable[[Path, str, str], None]
 Downloader = Callable[[str, Path], Path]
 Progress = Callable[[str, int, int], None]
+
+
+def rotation_of(spec: dict[str, Any]) -> tuple[list[str], dict[str, dict[str, Any]]]:
+    """The Worker sends the rotation (worker/domain/looks.ts rotationFor: her enabled Looks,
+    shuffled per dump, singles and grids two to one) and each Look resolved with her Settings >
+    Editing switches. A spec without them (older Worker) rotates every Look in file order."""
+    rot = [r for r in (spec.get("rotation") or []) if r in L.LOOKS] or list(L.LOOK_IDS)
+    sent = spec.get("looks") or {}
+    return rot, {lid: L.look_options(lid, sent.get(lid)) for lid in set(rot)}
 
 
 def cut_dump(spec: dict[str, Any], work: Path, download: Downloader, upload: Uploader, progress: Progress, heavy: dict[str, bool]) -> dict[str, Any]:
@@ -807,6 +837,9 @@ def cut_dump(spec: dict[str, Any], work: Path, download: Downloader, upload: Upl
     prefix = spec["output_prefix"]
     target = int((spec.get("target_clips") or {}).get("max") or 20)
     engine = {"transcript": "none", "picker": "fallback", "crop": "center", "subtitles": "none"}
+    mediapipe = heavy.get("mediapipe", False)
+    brand = L.branding_from(spec.get("branding"), work)
+    rotation, look_opts = rotation_of(spec)
 
     # 1-2. download + normalize (+ whose video it is)
     prepared = []
@@ -826,7 +859,7 @@ def cut_dump(spec: dict[str, Any], work: Path, download: Downloader, upload: Upl
     log("cut.prepared", assets=len(prepared))
 
     total_dur = sum(p[2]["duration"] for p in prepared) or 1.0
-    moments: list[tuple[Moment, Path, dict[str, Any], Transcript, list[tuple[float, float]]]] = []
+    moments: list[tuple[Moment, Source]] = []
     for i, (a, norm, info, wav) in enumerate(prepared):
         # 3. transcribe
         progress("Listening", i, len(prepared))
@@ -834,6 +867,7 @@ def cut_dump(spec: dict[str, Any], work: Path, download: Downloader, upload: Upl
         if tr.engine != "none":
             engine["transcript"] = tr.engine
         runs = speech_runs(wav, info["duration"])
+        src = Source(norm, info, tr, runs, detect_bars(norm, info["duration"]))
         # 4. pick
         progress("Finding the best moments", i, len(prepared))
         quota = 2 if door == "recycle" else max(1, round(target * info["duration"] / total_dur))
@@ -844,30 +878,40 @@ def cut_dump(spec: dict[str, Any], work: Path, download: Downloader, upload: Upl
             picked = fallback_moments(a, info["duration"], runs, tr, recipes, quota, door)
         for j, m in enumerate(picked):
             fill_copy(m, tr, spec, j)
-            moments.append((m, norm, info, tr, runs))
+            moments.append((m, src))
     if not moments:
         raise NoUsableMoments("no moments")
     log("cut.picked", moments=len(moments))
 
-    # 5-7. render
-    bars_cache: dict[str, Any] = {}
+    # 5-7. render: clip k takes rotation[k], so a dump's clips never all look alike
+    ids = [new_clip_id() for _ in moments]
+    music_cache: dict[str, Path] = {}
     clips: list[dict[str, Any]] = []
-    for k, (m, norm, info, tr, runs) in enumerate(moments):
+    looks_used: dict[str, int] = {}
+    for k, (m, src) in enumerate(moments):
         progress("Cutting clips", k, len(moments))
-        key = str(norm)
-        if key not in bars_cache:
-            bars_cache[key] = detect_bars(norm, info["duration"])
-        cx = face_center(norm, m.start, m.end, heavy.get("mediapipe", False))
-        if cx is not None:
-            engine["crop"] = "face"
-        crop = crop_filter(info["width"], info["height"], bars_cache[key], cx)
-        clip_id = new_clip_id()
+        look_id = rotation[k % len(rotation)]
+        opts = look_opts[look_id]
+        clip_id = ids[k]
+        layout = None
+        cells = None
+        voice = 0
+        voice_src = src
         try:
-            mp4, jpg, subs = render(norm, info, m, tr, crop, work, clip_id)
+            if opts["layout"] == "grid":
+                others = [(ids[x], om, osrc) for x, (om, osrc) in enumerate(moments) if x != k]
+                cells, layout = grid_cells(k, m, src, others, len(L.cells_of(opts)), mediapipe)
+                voice = layout["voice"]
+                if voice > 0 and layout["cells"][voice]["kind"] == "clip":
+                    voice_src = next(osrc for cid, _om, osrc in others if cid == layout["cells"][voice]["clip_id"])
+            r = render_moment(m, src, opts, brand, work, clip_id, mediapipe, cells=cells, voice=voice, voice_src=voice_src, music=music_for(spec, k, work, download, music_cache))
         except subprocess.CalledProcessError:
-            log("cut.render.failed", n=k)
+            log("cut.render.failed", n=k, look=look_id)
             continue
-        engine["subtitles"] = subs if engine["subtitles"] in ("none", "hook-only") else engine["subtitles"]
+        if any(s.cx is not None for s in (cells or [src.seg(m.parts[0][0], m.parts[0][1], mediapipe)])):
+            engine["crop"] = "face"
+        engine["subtitles"] = r.subtitles if engine["subtitles"] in ("none", "hook-only") else engine["subtitles"]
+        looks_used[look_id] = looks_used.get(look_id, 0) + 1
         allowed = next((a.get("allowed_platforms") for a in assets if a["id"] == m.asset_id), None) or ["tiktok", "instagram", "youtube"]
         clips.append(
             {
@@ -881,10 +925,13 @@ def cut_dump(spec: dict[str, Any], work: Path, download: Downloader, upload: Upl
                 "caption": m.caption[:2200],
                 "hashtags": m.hashtags,
                 "platforms": allowed,
-                "score": score_moment(m, tr, runs, recipes),
+                "score": score_moment(m, src.transcript, src.runs, recipes),
                 "r2_key": f"{prefix}{clip_id}.mp4",
                 "cover_r2_key": f"{prefix}{clip_id}.jpg",
-                "_files": (mp4, jpg),
+                "look": look_id,
+                "parts": [[round(s, 2), round(e, 2)] for s, e in m.parts],
+                "layout": layout,
+                "_files": (r.mp4, r.cover),
             }
         )
     if not clips:
@@ -897,7 +944,7 @@ def cut_dump(spec: dict[str, Any], work: Path, download: Downloader, upload: Upl
         upload(mp4, c["r2_key"], "video/mp4")
         upload(jpg, c["cover_r2_key"], "image/jpeg")
     progress("Saving clips", len(clips), len(clips))
-    log("cut.done", clips=len(clips), transcript=engine["transcript"], picker=engine["picker"], crop=engine["crop"], subtitles=engine["subtitles"])
+    log("cut.done", clips=len(clips), looks=len(looks_used), transcript=engine["transcript"], picker=engine["picker"], crop=engine["crop"], subtitles=engine["subtitles"])
     return {
         "clips": clips,
         "engine": engine,
@@ -907,12 +954,85 @@ def cut_dump(spec: dict[str, Any], work: Path, download: Downloader, upload: Upl
     }
 
 
+# ---------------------------------------------------------------- one clip, a new Look
+
+def rerender_clip(spec: dict[str, Any], work: Path, download: Downloader, upload: Uploader, progress: Progress, heavy: dict[str, bool]) -> dict[str, Any]:
+    """Re-render one clip in the Look she picked in Review (and, for a grid, the cells she picked).
+    The Worker sends every source stretch; each source video is normalized only around the
+    stretches it needs. The old file stays live until the Worker swaps in this one."""
+    work.mkdir(parents=True, exist_ok=True)
+    mediapipe = heavy.get("mediapipe", False)
+    brand = L.branding_from(spec.get("branding"), work)
+    look_id = str(spec.get("look_id") or "clean")
+    opts = L.look_options(look_id, spec.get("look"))
+    wanted: dict[str, list[tuple[float, float]]] = {}
+    stretches = [*(spec.get("parts") or []), *(spec.get("cells") or []), *([spec["inset"]] if spec.get("inset") else [])]
+    for p in stretches:
+        wanted.setdefault(str(p["src"]), []).append((float(p["start"]), float(p["end"])))
+    if not wanted:
+        raise NoUsableMoments("nothing to render")
+    sources: dict[str, tuple[Source, float]] = {}
+    for i, (key, spans) in enumerate(wanted.items()):
+        progress("Getting your videos", i, len(wanted))
+        raw = download(key, work / f"src_{i}")
+        lo = max(0.0, min(s for s, _e in spans) - 0.5)
+        hi = max(e for _s, e in spans) + 0.5
+        norm = work / f"norm_{i}.mp4"
+        info = normalize(raw, norm, (lo, hi))
+        raw.unlink(missing_ok=True)
+        wav = work / f"audio_{i}.wav"
+        extract_wav(norm, wav)
+        progress("Listening", i, len(wanted))
+        tr = transcribe(wav, heavy.get("whisper", False))
+        sources[key] = (Source(norm, info, tr, speech_runs(wav, info["duration"]), detect_bars(norm, info["duration"])), lo)
+
+    def seg(p: dict[str, Any]) -> tuple[L.Seg, Source]:
+        src, lo = sources[str(p["src"])]
+        s, e = float(p["start"]) - lo, float(p["end"]) - lo
+        return src.seg(max(0.0, s), min(src.info["duration"], e), mediapipe, float(p.get("zoom") or 1.0)), src
+
+    main_src, lo = sources[str(spec["parts"][0]["src"])]
+    parts = [(float(p["start"]) - lo, float(p["end"]) - lo) for p in spec["parts"]]
+    m = Moment(str(spec.get("asset_id") or ""), str(spec.get("recipe") or "talking_head"), parts[0][0], parts[-1][1], parts, hook=str(spec.get("hook_text") or ""))
+    cells = None
+    voice = int(spec.get("voice") or 0)
+    voice_src = main_src
+    if opts["layout"] == "grid":
+        n = len(L.cells_of(opts))
+        got = [seg(c) for c in (spec.get("cells") or [])][:n]
+        if len(got) != n:
+            raise NoUsableMoments("grid cells missing")
+        cells = [g[0] for g in got]
+        voice = min(max(0, voice), n - 1)
+        voice_src = got[voice][1]
+    progress("Cutting clips", 0, 1)
+    r = render_moment(m, main_src, opts, brand, work, str(spec["clip_id"]), mediapipe, cells=cells, voice=voice, voice_src=voice_src, music=music_for(spec, 0, work, download, {}))
+    progress("Saving clips", 0, 1)
+    upload(r.mp4, str(spec["output_key"]), "video/mp4")
+    upload(r.cover, str(spec["output_cover_key"]), "image/jpeg")
+    progress("Saving clips", 1, 1)
+    log("cut.rerender.done", look=look_id, subtitles=r.subtitles)
+    return {
+        "rerender": {
+            "clip_id": spec["clip_id"],
+            "look": look_id,
+            "r2_key": spec["output_key"],
+            "cover_r2_key": spec["output_cover_key"],
+            "duration_s": round(r.duration, 2),
+            "voice": voice if cells else None,
+        },
+        "engine": {"subtitles": r.subtitles},
+    }
+
+
 def main(job: Job, spec: dict[str, Any]) -> dict[str, Any]:
     work = WORK / job.id
     heavy = ensure_heavy()
-    log("cut.tools", whisper=heavy["whisper"], mediapipe=heavy["mediapipe"], libass=ffmpeg_has_filter("subtitles"))
+    log("cut.tools", whisper=heavy["whisper"], mediapipe=heavy["mediapipe"], libass=ffmpeg_has_filter("subtitles"), mode=spec.get("mode") or "dump")
     try:
         # NoUsableMoments reaches the Worker by its class name; plainFailure() words it for her.
+        if spec.get("mode") == "rerender":
+            return rerender_clip(spec, work, download_input, upload_output, job.progress, heavy)
         return cut_dump(spec, work, download_input, upload_output, job.progress, heavy)
     finally:
         shutil.rmtree(work, ignore_errors=True)
