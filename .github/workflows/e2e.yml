@@ -1,14 +1,21 @@
-# Post-merge on main: Playwright drives the dashboard at phone and desktop sizes against a
-# local Worker with fake services. A third job re-takes every Help picture (section 12c) and
-# proves each step still has its own picture of that step (validator help-pictures).
-# Two jobs, one per login mode, so both are proven on every merge: `e2e` runs code mode (the
-# email-code login staging keeps), `e2e-open` runs open mode (no login, as production runs).
+# The full browser suite on main: Playwright drives the dashboard at phone and desktop sizes
+# against a local Worker with fake services. A third job re-takes every Help picture (section
+# 12c) and proves each step still has its own picture of that step (validator help-pictures).
+# Two jobs, one per login mode: `e2e` runs code mode (the email-code login staging keeps),
+# `e2e-open` runs open mode (no login, as production runs).
+#
+# BUILD FIRST, TEST IN BATCHES (26 Sep 2026). This suite runs NIGHTLY and on dispatch, never per
+# merge: the merge gate is check.yml (under 5 minutes), and `land <pr>` deploys STAGING on every
+# merge. Production deploys only from a commit this workflow has passed on: `land` holds it
+# ("WAITING") and `land --promote sheila-creator-dashboard` ships the newest green commit —
+# `--run-e2e` dispatches this workflow on main's head first. A red nightly blocks the next
+# production deploy and is fixed first (bisect between the last green and the red sha).
 # timeout-minutes is a fault detector (~4× normal), never a budget.
 name: e2e
 
 on:
-  push:
-    branches: [main]
+  schedule:
+    - cron: "0 8 * * *" # nightly 08:00 UTC (03:00 CT), on main
   workflow_dispatch:
 
 concurrency:
