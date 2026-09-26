@@ -63,14 +63,17 @@
     // scripts/validators/envs-match.mjs (which enforces both modes), then a deploy.
     "AUTH_MODE": "open"
   },
-  // STAGING: the owner's own fully real copy (FAKE_SERVICES=0) for testing with throwaway
-  // accounts while Sheila's production stays untouched. Deploy with `npm run deploy:staging`.
-  // scripts/validators/envs-match.mjs fails the build if staging differs from production in
-  // anything except the name, the D1/R2 ids and names, and the vars OWNER_EMAIL,
-  // PUBLIC_BASE_URL, ENV_NAME, FAKE_SERVICES and AUTH_MODE.
+  // STAGING = THE PUBLIC SAMPLE (owner, 26 Sep 2026): the staging Worker is the no-login demo at
+  // https://samplestudio.seq-taylor.workers.dev, filled with a year of demo data (scripts/seed-year.mjs
+  // --remote-sample). FAKE_SERVICES "1": every vendor is a stand-in, nothing can post or spend.
+  // Same code as production (`land` deploys it from every merge sha), its own D1 and R2 (the
+  // staging ones, unchanged), Sheila's production never touched. Deploy with `npm run deploy:staging`.
+  // scripts/validators/envs-match.mjs pins name, URL, ENV_NAME "sample", FAKE_SERVICES "1" and
+  // AUTH_MODE "open" here, and fails the build if staging differs from production in anything else
+  // except the D1/R2 ids and names and the var OWNER_EMAIL.
   "env": {
     "staging": {
-      "name": "sheila-creator-dashboard-staging",
+      "name": "samplestudio",
       "assets": {
         "directory": "./dist/client",
         "binding": "ASSETS",
@@ -93,15 +96,20 @@
       },
       "vars": {
         "APP_NAME": "Sheila Studio",
-        // The West Peek Resend key delivers only to its account owner's address, so staging logs in there.
+        // The sample's owner identity (every visitor is this owner in open mode). Emails are
+        // recorded, never sent (fake Resend), so no mailbox is involved.
         "OWNER_EMAIL": "sequoia@westpeek.ventures",
-        "FAKE_SERVICES": "0",
-        "PUBLIC_BASE_URL": "https://sheila-creator-dashboard-staging.seq-taylor.workers.dev",
+        // The sample runs on fakes: Buffer, OpenRouter, Firecrawl, Resend, Hunter, GitHub, Meta,
+        // Google, YouTube, ElevenLabs and the editors are all stand-ins. Nothing real can post or spend.
+        "FAKE_SERVICES": "1",
+        "PUBLIC_BASE_URL": "https://samplestudio.seq-taylor.workers.dev",
         "GITHUB_REPO": "seq23/sheila-creator-dashboard",
         "AUDIENCE_TIMEZONE": "America/New_York",
-        "ENV_NAME": "staging",
-        // Staging keeps the email-code login (the owner's instruction, 26 Sep 2026).
-        "AUTH_MODE": "code"
+        // "sample": /healthz says so; worker/env.ts envName() reads it. Job dispatch (never fired
+        // with fakes) would carry env "staging", because the sample runs on staging's secrets.
+        "ENV_NAME": "sample",
+        // No login on the sample (owner, 26 Sep 2026): anyone with the URL is the demo owner.
+        "AUTH_MODE": "open"
       }
     }
   }

@@ -2,9 +2,11 @@
 // A realistic YEAR of demo data: day 358 of Sheila using the dashboard (owner, 26 Sep 2026:
 // "think about day 358 of using this"). Demo data only, never her real content, never production:
 // every row id starts with `yr_` (versions 9101+ for briefs, the profile and kit versions), the
-// CLI writes only to the LOCAL D1 (`--local`; anything else is refused), and nothing in worker/ or
-// app/ imports it (validator `seed-year-local-only`). Deterministic: the same `now` gives the same
-// rows, so the e2e suite, the unit tests and the day-358 screenshots all see the same year.
+// CLI writes only to the LOCAL D1 (`--local`) or, with `--remote-sample`, ONLY to the public
+// sample (wrangler.jsonc env.staging, which must be Worker `samplestudio` on a `-staging` D1 with
+// FAKE_SERVICES "1"; anything else is refused), and nothing in worker/ or app/ imports it
+// (validator `seed-year-local-only`). Deterministic: the same `now` gives the same rows, so the
+// e2e suite, the unit tests and the day-358 screenshots all see the same year.
 //
 //   ~50 dumps (failed, held as someone else's, an abandoned upload, full videos for YouTube),
 //   ~600 clips across every status and Look, ~300 posts (posted / failed / taken off), voice overs
@@ -16,14 +18,40 @@
 //   node scripts/seed-year.mjs --clear          remove it again
 //   node scripts/seed-year.mjs --out file.sql   write the SQL (for a look)
 //   --before  leaves out the columns migration 0016 added (the "before" screenshots)
+//   node scripts/seed-year.mjs --remote-sample --apply
+//             reset the PUBLIC SAMPLE's D1 (staging = samplestudio) to the year: wipes every row
+//             the sample holds (its connections, lights, posts, sessions), loads the year with
+//             smaller file sizes (storage sits green) and the sample's own lights, then uploads
+//             the demo media (scripts/sample-media.mjs) under the keys the rows point at.
+//             `--remote-sample --media-only` uploads just the media; `--remote-sample --clear`
+//             removes the year from the sample.
 import { execFileSync } from "node:child_process";
-import { writeFileSync, mkdtempSync } from "node:fs";
+import { writeFileSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
 export const YEAR_PREFIX = "yr_";
+/** The only remote deployment this script may write: the public sample (wrangler.jsonc env.staging). */
+export const SAMPLE_WORKER = "samplestudio";
 const DAY = 86400_000;
 const MB = 1024 ** 2;
+
+/**
+ * Where `--remote-sample` may write. Reads wrangler.jsonc env.staging and refuses unless it is the
+ * sample: Worker `samplestudio`, a D1 whose name ends in `-staging`, FAKE_SERVICES "1". Production
+ * (the top-level config) is never a target; validator `seed-year-local-only` proves the refusal.
+ */
+export function remoteSampleTarget(cfg) {
+  const stg = cfg?.env?.staging;
+  const name = stg?.name;
+  const db = stg?.d1_databases?.[0]?.database_name;
+  if (name !== SAMPLE_WORKER) throw new Error(`seed-year --remote-sample refuses: env.staging is Worker ${JSON.stringify(name)}, not ${SAMPLE_WORKER}`);
+  if (typeof db !== "string" || !db.endsWith("-staging")) throw new Error(`seed-year --remote-sample refuses: env.staging D1 ${JSON.stringify(db)} is not a -staging database`);
+  if (stg.vars?.FAKE_SERVICES !== "1") throw new Error("seed-year --remote-sample refuses: the sample must run on fakes (FAKE_SERVICES \"1\")");
+  const bucket = stg.r2_buckets?.[0]?.bucket_name;
+  if (typeof bucket !== "string" || !bucket.endsWith("-staging")) throw new Error(`seed-year --remote-sample refuses: env.staging R2 ${JSON.stringify(bucket)} is not a -staging bucket`);
+  return { name, db, bucket, wranglerArgs: ["--remote", "--env", "staging"] };
+}
 
 function rng(seed) {
   let a = seed >>> 0;
@@ -102,6 +130,28 @@ function kitContent(showcase, version) {
   });
 }
 
+/**
+ * The sample's clean slate (sample mode only): every row the public sample holds goes, whatever
+ * made it (a visitor, a fake cron, the days it was the owner's real twin), so the sample is demo
+ * data only. Children before parents; the singleton rows (media_kit 1, voice 1) are reset in place;
+ * settings go back to the migrations' defaults.
+ */
+export function sampleResetSql() {
+  return [
+    "DELETE FROM posts;", "DELETE FROM platform_videos;", "DELETE FROM metrics;", "DELETE FROM narrations;", "DELETE FROM youtube_uploads;", "DELETE FROM editor_jobs;",
+    "DELETE FROM clips;", "DELETE FROM assets;", "DELETE FROM jobs;", "DELETE FROM dumps;",
+    "DELETE FROM deal_emails;", "DELETE FROM deal_offers;", "DELETE FROM pitches;", "DELETE FROM deals;", "DELETE FROM brand_contacts;", "DELETE FROM brands;",
+    "DELETE FROM research_uploads;", "DELETE FROM research_briefs;", "DELETE FROM brand_docs;", "DELETE FROM brand_profile;",
+    "DELETE FROM kit_views;", "DELETE FROM media_kit_versions;", "DELETE FROM kit_slugs WHERE slug != 'sheila';",
+    "DELETE FROM account_stats;", "DELETE FROM emails_sent;", "DELETE FROM events;", "DELETE FROM music_tracks;", "DELETE FROM dismissals;", "DELETE FROM help_feedback;",
+    "DELETE FROM connections;", "DELETE FROM health;", "DELETE FROM sessions;", "DELETE FROM login_codes;",
+    "DELETE FROM settings WHERE key NOT IN ('weekly_caps', 'hard_cap_per_channel', 'runway_threshold_weeks', 'notify_emails', 'posting_slots_source', 'recycle_cooldown_days', 'helper_email', 'voice_engine_preference', 'editing', 'marketplaces_joined', 'tidy');",
+    `INSERT OR REPLACE INTO settings (key, value) VALUES ('features', '{"voice":true,"deeper_research":true,"weekly_recap":true,"help_ask":true}');`,
+    "UPDATE media_kit SET bio = '', photo_r2_key = NULL, featured_clip_ids = '[]', past_partners = '[]', rates = NULL, public_slug = 'sheila', contact_email = NULL, updated_at = NULL, draft = NULL, draft_saved_at = NULL WHERE id = 1;",
+    "UPDATE voice SET sample_r2_key = NULL, consent_at = NULL, consent_text = NULL, model_r2_key = NULL, elevenlabs_voice_id = NULL, enabled = 0, updated_at = NULL WHERE id = 1;",
+  ].join("\n");
+}
+
 /** The clean-up block: everything the year adds, removed (run before inserting and by --clear). */
 export function clearYearSql({ before = false } = {}) {
   return [
@@ -137,16 +187,25 @@ export function clearYearSql({ before = false } = {}) {
 
 /**
  * The year as SQL. `now` is "today" (day 358). `before` leaves out the columns migration 0016
- * added (clips/narrations file sizes), so the same year can be loaded on the old schema.
+ * added (clips/narrations file sizes), so the same year can be loaded on the old schema. `sample`
+ * (the public demo): the clean slate first, file sizes at 40% so the Storage light sits green, the
+ * sample's own health board, a saved voice, and `media` = every R2 key a row points at with what it
+ * shows (scripts/sample-media.mjs uploads them).
  */
-export function yearSql(now = new Date(), { before = false } = {}) {
+export function yearSql(now = new Date(), { before = false, sample = false } = {}) {
   const r = rng(358);
+  const MBs = sample ? Math.round(MB * 0.4) : MB;
+  const media = [];
+  const file = (key, kind, look = null) => {
+    if (sample) media.push({ key, kind, look });
+    return key;
+  };
   const pick = (xs) => xs[Math.floor(r() * xs.length)];
   const between = (a, b) => a + Math.floor(r() * (b - a + 1));
   const iso = (t) => new Date(t).toISOString();
   const T = now.getTime();
   const day0 = T - 358 * DAY;
-  const out = [clearYearSql({ before })];
+  const out = [...(sample ? [sampleResetSql()] : []), clearYearSql({ before })];
   const stats = { dumps: 0, clips: 0, posts: 0, narrations: 0, deals: 0, bytes: 0 };
   let tok = 0;
   const token = () => `yr${String(++tok).padStart(6, "0")}${"x".repeat(32)}`;
@@ -175,6 +234,7 @@ export function yearSql(now = new Date(), { before = false } = {}) {
   const LEFT_OPEN = new Set([8, 13, 19, 24, 29, 33, 40, 43]); // she skipped some clips: old visible drafts stay in Review
   const approvedPool = [];
   const postedClips = [];
+  const clipLook = new Map();
   let pv = 0;
   for (let i = 0; i < 50; i++) {
     const id = `yr_dump_${String(i).padStart(2, "0")}`;
@@ -196,7 +256,7 @@ export function yearSql(now = new Date(), { before = false } = {}) {
     const assets = [];
     for (let a = 0; a < nAssets; a++) {
       const aid = `${id}_a${a}`;
-      const size = full ? between(1400, 2600) * MB : between(120, 480) * MB;
+      const size = full ? between(1400, 2600) * MBs : between(120, 480) * MBs;
       const rawGone = status !== "uploading" && T - ready > 7 * DAY;
       const upload = status === "uploading" ? "uploading" : "uploaded";
       assets.push(aid);
@@ -207,15 +267,15 @@ export function yearSql(now = new Date(), { before = false } = {}) {
 
     if (full) {
       const cid = `${id}_full`;
-      const size = between(1400, 2600) * MB;
+      const size = between(1400, 2600) * MBs;
       const title = `${topic}: the whole thing, start to finish`;
       const age = T - ready;
       const unapproved = i === 48;
       const posted = !unapproved;
       const postedAt = ready + 5 * DAY;
       const fileGone = posted && T - postedAt > 7 * DAY;
-      const details = { title, description: `Everything for a ${topic.toLowerCase()}.`, chapters: [{ t: 0, title: "Intro" }, { t: 60, title: "The table" }, { t: 240, title: "Finishing touches" }], tags: ["tablescape", "hosting"], thumbnails: [{ key: `full/${id}/t1.jpg`, t: 20 }, { key: `full/${id}/t2.jpg`, t: 50 }, { key: `full/${id}/t3.jpg`, t: 80 }], thumb_pick: 0, privacy: "public", width: 1920, height: 1080, duration_s: 900, size_bytes: size, studio_done_at: posted && i !== 46 ? iso(postedAt + DAY) : null, handoff: false };
-      out.push(row("clips", { id: cid, asset_id: assets[0], dump_id: id, start_s: 0, end_s: 900, recipe: "story", hook_text: title, caption: details.description, hashtags: "#tablescape", platforms: '["youtube"]', score: 0.9, r2_key: `full/${id}/video.mp4`, cover_r2_key: null, media_token: fileGone ? null : token(), status: unapproved ? "draft" : "approved", reviewed_at: unapproved ? null : iso(ready + DAY), created_at: iso(ready), full_video: 1, youtube: JSON.stringify(details), file_deleted_at: fileGone ? iso(postedAt + 7 * DAY) : null, ...(before ? {} : { file_bytes: fileGone ? 0 : size }) }));
+      const details = { title, description: `Everything for a ${topic.toLowerCase()}.`, chapters: [{ t: 0, title: "Intro" }, { t: 60, title: "The table" }, { t: 240, title: "Finishing touches" }], tags: ["tablescape", "hosting"], thumbnails: [{ key: file(`full/${id}/t1.jpg`, "thumb", LOOKS[i % LOOKS.length]), t: 20 }, { key: file(`full/${id}/t2.jpg`, "thumb", LOOKS[(i + 1) % LOOKS.length]), t: 50 }, { key: file(`full/${id}/t3.jpg`, "thumb", LOOKS[(i + 2) % LOOKS.length]), t: 80 }], thumb_pick: 0, privacy: "public", width: 1920, height: 1080, duration_s: 900, size_bytes: size, studio_done_at: posted && i !== 46 ? iso(postedAt + DAY) : null, handoff: false };
+      out.push(row("clips", { id: cid, asset_id: assets[0], dump_id: id, start_s: 0, end_s: 900, recipe: "story", hook_text: title, caption: details.description, hashtags: "#tablescape", platforms: '["youtube"]', score: 0.9, r2_key: fileGone ? `full/${id}/video.mp4` : file(`full/${id}/video.mp4`, "full", LOOKS[i % LOOKS.length]), cover_r2_key: null, media_token: fileGone ? null : token(), status: unapproved ? "draft" : "approved", reviewed_at: unapproved ? null : iso(ready + DAY), created_at: iso(ready), full_video: 1, youtube: JSON.stringify(details), file_deleted_at: fileGone ? iso(postedAt + 7 * DAY) : null, ...(before ? {} : { file_bytes: fileGone ? 0 : size }) }));
       stats.clips++;
       if (!fileGone) stats.bytes += size;
       if (posted) {
@@ -249,11 +309,11 @@ export function yearSql(now = new Date(), { before = false } = {}) {
       if (st === "rejected" && T - reviewedAt > 7 * DAY) st = "deleted";
       const look = LOOKS[(i * 7 + k) % LOOKS.length];
       const hook = pick(HOOKS).replace("{t}", topic.toLowerCase());
-      const bytes = st === "deleted" ? 0 : between(9, 16) * MB + between(150, 400) * 1024;
+      const bytes = st === "deleted" ? 0 : between(9, 16) * MBs + between(150, 400) * 1024;
       const c = {
         id: cid, asset_id: assets[k % assets.length], dump_id: id, start_s: k * 30, end_s: k * 30 + between(15, 45), recipe: door === "recycle" ? "recycle" : pick(RECIPES),
         hook_text: hook, caption: `${hook}. Save this for your next gathering.`, hashtags: "#tablescape #hosting", platforms: '["tiktok","instagram","youtube"]', score,
-        r2_key: `clips/${id}/${cid}.mp4`, cover_r2_key: `clips/${id}/${cid}.jpg`, media_token: st === "deleted" ? null : token(), status: st,
+        r2_key: st === "deleted" ? `clips/${id}/${cid}.mp4` : file(`clips/${id}/${cid}.mp4`, "clip", look), cover_r2_key: st === "deleted" ? `clips/${id}/${cid}.jpg` : file(`clips/${id}/${cid}.jpg`, "cover", look), media_token: st === "deleted" ? null : token(), status: st,
         reject_reason: st === "rejected" || (st === "deleted" && x < 0.82) ? pick(["Boring start", "Bad framing", "Off-brand", "Too long", null]) : null,
         hidden, reviewed_at: reviewedAt ? iso(reviewedAt) : null, created_at: iso(created), look, parts: `[[${k * 30},${k * 30 + 25}]]`,
         speech: r() < 0.3 ? 0.05 : 0.7,
@@ -264,6 +324,7 @@ export function yearSql(now = new Date(), { before = false } = {}) {
       made++;
       if (st !== "deleted") stats.bytes += bytes;
       if (st === "approved") approvedPool.push({ id: cid, at: reviewedAt, age, bytes });
+      clipLook.set(cid, look);
       event(st === "draft" ? "clip.made" : `clip.${st === "deleted" ? "rejected" : st}`, cid, reviewedAt ?? created, { recipe: c.recipe, score });
     }
     out.push(`UPDATE dumps SET clips_made = ${made} WHERE id = '${id}';`);
@@ -304,15 +365,15 @@ export function yearSql(now = new Date(), { before = false } = {}) {
     const auto = j < 30 ? 1 : 0;
     const failed = j % 13 === 12;
     const nid = `yr_narr_${++nv}`;
-    const bytes = failed ? 0 : between(120, 400) * 1024 + (auto || j % 2 ? between(14, 26) * MB : 0);
-    out.push(row("narrations", { id: nid, script: `Three things make a table feel special, part ${nv}.`, r2_key: failed ? null : `narrations/${nid}.mp3`, clip_id: failed ? null : c.id, status: failed ? "failed" : "ready", engine: j % 5 === 0 ? "elevenlabs" : "built-in", duration_s: failed ? null : 8 + (j % 9), mixed_r2_key: failed ? null : `narrations/${nid}-mix.mp4`, mix_status: failed ? "failed" : "ready", auto, ai_generated: 1, batch: auto ? `auto/b${Math.floor(j / 3)}` : null, created_at: iso(c.at + DAY), ...(before ? {} : { file_bytes: bytes }) }));
+    const bytes = failed ? 0 : between(120, 400) * 1024 + (auto || j % 2 ? between(14, 26) * MBs : 0);
+    out.push(row("narrations", { id: nid, script: `Three things make a table feel special, part ${nv}.`, r2_key: failed ? null : file(`narrations/${nid}.mp3`, "narration"), clip_id: failed ? null : c.id, status: failed ? "failed" : "ready", engine: j % 5 === 0 ? "elevenlabs" : "built-in", duration_s: failed ? null : 8 + (j % 9), mixed_r2_key: failed ? null : file(`narrations/${nid}-mix.mp4`, "mix", clipLook.get(c.id) ?? LOOKS[0]), mix_status: failed ? "failed" : "ready", auto, ai_generated: 1, batch: auto ? `auto/b${Math.floor(j / 3)}` : null, created_at: iso(c.at + DAY), ...(before ? {} : { file_bytes: bytes }) }));
     stats.narrations++;
     stats.bytes += bytes;
   }
   for (let j = 0; j < 6; j++) {
     const nid = `yr_narr_${++nv}`;
     const at = day0 + between(20, 350) * DAY;
-    out.push(row("narrations", { id: nid, script: `A voice over I never used, number ${j + 1}.`, r2_key: j === 5 ? null : `narrations/${nid}.mp3`, clip_id: null, status: j === 5 ? "failed" : "ready", engine: "built-in", duration_s: j === 5 ? null : 7, auto: 0, ai_generated: 1, created_at: iso(at), ...(before ? {} : { file_bytes: j === 5 ? 0 : 240 * 1024 }) }));
+    out.push(row("narrations", { id: nid, script: `A voice over I never used, number ${j + 1}.`, r2_key: j === 5 ? null : file(`narrations/${nid}.mp3`, "narration"), clip_id: null, status: j === 5 ? "failed" : "ready", engine: "built-in", duration_s: j === 5 ? null : 7, auto: 0, ai_generated: 1, created_at: iso(at), ...(before ? {} : { file_bytes: j === 5 ? 0 : 240 * 1024 }) }));
     stats.narrations++;
   }
 
@@ -357,8 +418,12 @@ export function yearSql(now = new Date(), { before = false } = {}) {
     if (w % 13 === 7) email("connection_needs_you", "Buffer needs you", at + 14 * 3600_000);
     event("health.recheck", null, at, {});
   }
-  for (let t = 0; t < 5; t++) out.push(row("music_tracks", { id: `yr_track_${t}`, file_name: `my-song-${t + 1}.mp3`, r2_key: `music/yr_track_${t}.mp3`, mime_type: "audio/mpeg", size_bytes: between(3, 8) * MB, created_at: iso(day0 + t * 60 * DAY) }));
-  out.push(row("brand_docs", { id: "yr_doc_1", file_name: "brand-guide.pdf", mime_type: "application/pdf", size_bytes: 2 * MB, r2_key: "docs/yr_doc_1.pdf", extract_status: "done", char_count: 6400, uploaded_at: iso(day0 + DAY) }));
+  for (let t = 0; t < 5; t++) out.push(row("music_tracks", { id: `yr_track_${t}`, file_name: `my-song-${t + 1}.mp3`, r2_key: file(`music/yr_track_${t}.mp3`, "music"), mime_type: "audio/mpeg", size_bytes: between(3, 8) * MBs, created_at: iso(day0 + t * 60 * DAY) }));
+  out.push(row("brand_docs", { id: "yr_doc_1", file_name: "brand-guide.pdf", mime_type: "application/pdf", size_bytes: 2 * MBs, r2_key: file("docs/yr_doc_1.pdf", "doc"), extract_status: "done", char_count: 6400, uploaded_at: iso(day0 + DAY) }));
+  if (sample) {
+    // Her saved voice (consent given), so the Voice screen and the automatic voice overs read as ready.
+    out.push(`UPDATE voice SET sample_r2_key = ${q(file("voice/yr_sample.mp3", "voice"))}, consent_at = ${q(iso(day0 + 4 * DAY))}, consent_text = 'This is my own voice and I consent to it being cloned for my narration', model_r2_key = 'voice/yr_model.pt', enabled = 1, updated_at = ${q(iso(day0 + 4 * DAY))} WHERE id = 1;`);
+  }
 
   // The health board on day 358 (the daily lane rewrites Storage and Runway on its next run).
   const lights = [
@@ -372,38 +437,71 @@ export function yearSql(now = new Date(), { before = false } = {}) {
     ["Voice", "green", "Your built-in voice is ready", null],
     ["Last daily run", "green", `OK · ${new Date(T - 3600_000).toUTCString()}`, null],
     ["Last buffer-sync run", "green", `OK · ${new Date(T - 1800_000).toUTCString()}`, null],
+    // The sample's full board (the local e2e server leaves these to the lanes; on the sample the
+    // fake lanes keep them green from here on).
+    ...(sample
+      ? [
+          ["Last weekly run", "green", `OK · ${new Date(T - 5 * DAY).toUTCString()}`, null],
+          ["Storage", "green", `${(stats.bytes / 1024 ** 3).toFixed(1)} GB of 10 GB used · ${(10 - stats.bytes / 1024 ** 3).toFixed(1)} GB free`, null],
+          ["Runway", "green", "4.5 weeks of approved clips", null],
+          ["TikTok stats", "green", "Imported · 5 videos from your TikTok export", null],
+          ["YouTube stats", "green", "Public numbers, no sign-in", null],
+          ["Instagram stats", "green", "Your numbers · 8,120 followers", null],
+          ["Brand finder", "green", "Last run found 4 new, refreshed 11", null],
+          ["Daily brand refresh", "green", "Ran this morning: 8 searches, 1 new brand", null],
+          ["Monthly brief refresh", "green", "Next refresh on the 1st.", null],
+          ["Weekly brief adjustment", "green", "Updated your numbers from 9 videos in the last 7 days.", null],
+        ]
+      : []),
   ];
   for (const [name, light, note, fix] of lights) out.push(`INSERT OR REPLACE INTO health (name, light, note, fix_guide, checked_at) VALUES (${q(name)}, ${q(light)}, ${q(note)}, ${q(fix)}, ${q(iso(T - 3600_000))});`);
 
-  return { sql: out.join("\n"), stats };
+  return { sql: out.join("\n"), stats, media };
 }
 
-// ---------------------------------------------------------------- CLI (local only)
+// ---------------------------------------------------------------- CLI (local, or the sample only)
 const isMain = import.meta.url === `file://${process.argv[1]}` || process.argv[1]?.endsWith("seed-year.mjs");
 if (isMain) {
   const args = process.argv.slice(2);
+  const remoteSample = args.includes("--remote-sample");
   if (args.some((a) => a === "--remote" || a.startsWith("--env"))) {
-    process.stderr.write("seed-year: demo data goes only into the local database (never staging or production).\n");
+    process.stderr.write("seed-year: demo data goes only into the local database, or the public sample with --remote-sample (never production).\n");
     process.exit(2);
+  }
+  const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
+  // The allow-list: env.staging must be the sample, or this exits before any SQL is built.
+  let target = { db: "sheila-creator-dashboard-db", wranglerArgs: ["--local"] };
+  if (remoteSample) {
+    const { parseJsonc } = await import("./validators/envs-match.mjs");
+    try {
+      target = remoteSampleTarget(parseJsonc(readFileSync(path.join(root, "wrangler.jsonc"), "utf8")));
+    } catch (e) {
+      process.stderr.write(`${e.message}\n`);
+      process.exit(2);
+    }
   }
   const before = args.includes("--before");
   const outIdx = args.indexOf("--out");
-  const { sql, stats } = args.includes("--clear") ? { sql: clearYearSql(), stats: null } : yearSql(new Date(), { before });
+  const { sql, stats, media } = args.includes("--clear") ? { sql: clearYearSql(), stats: null, media: [] } : yearSql(new Date(), { before, sample: remoteSample });
   if (outIdx >= 0) writeFileSync(args[outIdx + 1], sql);
-  if (args.includes("--apply") || args.includes("--clear")) {
+  if ((args.includes("--apply") || args.includes("--clear")) && !args.includes("--media-only")) {
     const dir = mkdtempSync(path.join(tmpdir(), "seed-year-"));
     const file = path.join(dir, "year.sql");
     writeFileSync(file, sql);
     // The local D1 can answer "internal error" while a just-started wrangler dev opens it: try again.
     for (let attempt = 1; ; attempt++) {
       try {
-        execFileSync("npx", ["wrangler", "d1", "execute", "sheila-creator-dashboard-db", "--local", "--file", file], { stdio: "pipe", env: { ...process.env, CI: "1" } });
+        execFileSync("npx", ["wrangler", "d1", "execute", target.db, ...target.wranglerArgs, "--file", file], { stdio: remoteSample ? "inherit" : "pipe", env: { ...process.env, CI: "1" } });
         break;
       } catch (e) {
-        if (attempt >= 4) throw e;
+        if (attempt >= 4 || remoteSample) throw e;
         execFileSync("sleep", [String(attempt * 2)]);
       }
     }
   }
-  if (stats) process.stdout.write(`${JSON.stringify(stats)}\n`);
+  if (remoteSample && (args.includes("--apply") || args.includes("--media-only"))) {
+    const { uploadSampleMedia } = await import("./sample-media.mjs");
+    await uploadSampleMedia(media, { root, bucket: target.bucket, wranglerArgs: target.wranglerArgs });
+  }
+  if (stats) process.stdout.write(`${JSON.stringify({ ...stats, media: media.length })}\n`);
 }

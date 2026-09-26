@@ -1,7 +1,7 @@
 // Heavy jobs run in GitHub Actions, started only from here with a signed payload
 // (section 13). The job then fetches its spec from the Worker and calls back when done.
 import type { Env } from "../env";
-import { envName, fakeServices } from "../env";
+import { dispatchEnv, fakeServices } from "../env";
 import { newId, nowIso } from "../lib/ids";
 import { log, safeError } from "../lib/log";
 import { signJobMessage } from "../lib/crypto";
@@ -21,7 +21,7 @@ export interface DispatchResult {
  * Pure, unit-tested.
  */
 export function dispatchBody(env: Pick<Env, "ENV_NAME" | "PUBLIC_BASE_URL">, type: JobType, p: { jobId: string; nonce: string; ts: number | string; sig: string }) {
-  return { event_type: type, client_payload: { job_id: p.jobId, nonce: p.nonce, ts: p.ts, sig: p.sig, worker_url: env.PUBLIC_BASE_URL, env: envName(env) === "staging" ? "staging" : "production" } };
+  return { event_type: type, client_payload: { job_id: p.jobId, nonce: p.nonce, ts: p.ts, sig: p.sig, worker_url: env.PUBLIC_BASE_URL, env: dispatchEnv(env) } };
 }
 
 /**

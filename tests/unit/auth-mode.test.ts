@@ -134,26 +134,26 @@ describe("envs-match pins the modes", () => {
   const root = path.resolve(__dirname, "../..");
   const cfg = () => parseJsonc(readFileSync(path.join(root, "wrangler.jsonc"), "utf8"));
 
-  it("the committed config is production open, staging code", () => {
+  it("the committed config is production open (sheilastudio) and the sample open (samplestudio)", () => {
     const c = cfg();
-    expect(REQUIRED_AUTH_MODE).toEqual({ production: "open", staging: "code" });
+    expect(REQUIRED_AUTH_MODE).toEqual({ production: "open", staging: "open" });
     expect(c.vars.AUTH_MODE).toBe("open");
-    expect(c.env.staging.vars.AUTH_MODE).toBe("code");
+    expect(c.env.staging.vars.AUTH_MODE).toBe("open");
     expect(c.name).toBe("sheilastudio");
-    expect(c.env.staging.name).toBe("sheila-creator-dashboard-staging");
+    expect(c.env.staging.name).toBe("samplestudio");
   });
 
-  it("fails when production keeps the login or staging loses it", () => {
+  it("fails when production or the sample gets a login back, or loses the var", () => {
     const c = cfg();
     c.vars.AUTH_MODE = "code";
-    c.env.staging.vars.AUTH_MODE = "open";
+    c.env.staging.vars.AUTH_MODE = "code";
     expect(compareEnvs(c).problems).toEqual(
-      expect.arrayContaining(['top-level vars.AUTH_MODE must be "open" (is "code")', 'env.staging vars.AUTH_MODE must be "code" (is "open")']),
+      expect.arrayContaining(['top-level vars.AUTH_MODE must be "open" (is "code")', 'env.staging vars.AUTH_MODE must be "open" (is "code")']),
     );
     const d = cfg();
     delete d.vars.AUTH_MODE;
     delete d.env.staging.vars.AUTH_MODE;
-    expect(compareEnvs(d).problems).toEqual(expect.arrayContaining(["top-level vars.AUTH_MODE must be \"open\" (is undefined)", "env.staging vars.AUTH_MODE must be \"code\" (is undefined)"]));
+    expect(compareEnvs(d).problems).toEqual(expect.arrayContaining(["top-level vars.AUTH_MODE must be \"open\" (is undefined)", "env.staging vars.AUTH_MODE must be \"open\" (is undefined)"]));
   });
 
   it("finds every kind of link to /login and ignores look-alikes", () => {

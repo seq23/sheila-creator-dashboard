@@ -14,7 +14,7 @@ and what only a person can check.
 | Job | Tool |
 | --- | --- |
 | App + API + crons | One Cloudflare Worker: React/Vite as static assets, Hono API under `/api`, three cron lanes |
-| Login | Production: none (`AUTH_MODE` "open", every visitor is the owner). Staging, local and e2e: email one-time code (Resend), no passwords; owner + optional helper |
+| Login | Production and the public sample: none (`AUTH_MODE` "open", every visitor is the owner). Local and e2e: email one-time code (Resend), no passwords; owner + optional helper |
 | Data | D1 (`migrations/`), R2 (`raw/`, `clips/`, `brain/`, `voice/`, `kit/`) |
 | Heavy jobs | GitHub Actions, started only by the Worker (`repository_dispatch`, signed), `jobs/*.py`; files in and out only through the Worker (signed), never with storage keys |
 | AI / search / posting / email | OpenRouter free models · Firecrawl · Buffer API · Resend |
@@ -59,14 +59,15 @@ Never a bare `wrangler deploy` (stale client, fake services).
 **Production** is the Worker `sheilastudio`: https://sheilastudio.seq-taylor.workers.dev. It
 runs with no login (`AUTH_MODE` "open" in `wrangler.jsonc`): Sheila opens the URL and her
 dashboard is there. With open mode anyone who has the URL is the owner; that is by her choice; switching back is `AUTH_MODE: "code"` and a deploy. (`REQUIRED_AUTH_MODE` in
-`scripts/validators/envs-match.mjs` pins the mode, so change it there too.) Staging keeps the
-email-code login.
+`scripts/validators/envs-match.mjs` pins the mode, so change it there too.) Local dev and the
+e2e suite keep the email-code login.
 
-**Staging** is the owner's fully real twin (own Worker, D1, R2; FAKE_SERVICES=0) for testing
-with throwaway accounts while Sheila's production stays untouched:
-`npm run deploy:staging` → https://sheila-creator-dashboard-staging.seq-taylor.workers.dev.
-`npm run validate:envs` keeps it production's twin. RUNBOOK "Staging" has what is real, the
-named stops (none) and the Phase 0 live checklist.
+**Staging is the public sample** (owner, 26 Sep 2026): the same code, no login, fake services
+(nothing can post, email or spend), a year of demo data, at
+https://samplestudio.seq-taylor.workers.dev (Worker `samplestudio`, its own D1 and R2). Anyone
+with the link gets a real feel for the product as its owner. `npm run deploy:staging` ships it
+(`land` does on every merge); `npm run validate:envs` pins it. RUNBOOK "Sample" has how the demo
+data is loaded and reset, and the named stops (none). Sheila's production is untouched by it.
 
 ## Phase ledger
 

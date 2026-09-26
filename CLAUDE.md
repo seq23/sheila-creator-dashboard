@@ -58,7 +58,7 @@ assigned in the brief that adds it) · `package.json` deps (union merge only).
 - **Nothing waits on the owner.** A finding becomes an action with a measurement and an
   automatic fallback, never a question or a "waiting on the owner" stop. Only a secret or an
   account she alone holds may stop, and it stops as a NAMED stop (a health light + fix guide, or
-  a line under "Staging: named stops" in RUNBOOK). Example: the monthly brief refresh makes a
+  a line under "Sample: named stops" in RUNBOOK). Example: the monthly brief refresh makes a
   new draft and emails her; it never pauses for approval, the approved brief stays live.
   `tests/unit/staging-env.test.ts` reads this line.
 - Tests: strengthen, never weaken. A stub that "does nothing" is a stop the UI names, not a
@@ -83,11 +83,14 @@ dispatch. `npm run deploy:production` by hand is the break-glass, not the route.
 Production URL: https://sheilastudio.seq-taylor.workers.dev (Worker `sheilastudio`, until her
 domain). Production has no login (`AUTH_MODE` "open"): with open mode anyone who has the URL
 is the owner; that is by her choice; switching back is `AUTH_MODE: "code"` and a deploy
-(`REQUIRED_AUTH_MODE` in `scripts/validators/envs-match.mjs` pins it). Staging, local and e2e
-keep the email code; `npm run e2e` proves code mode, `npm run e2e:open` open mode.
+(`REQUIRED_AUTH_MODE` in `scripts/validators/envs-match.mjs` pins it). Local and e2e keep the
+email code; `npm run e2e` proves code mode, `npm run e2e:open` open mode.
 
-Staging (the owner's real twin, her throwaway accounts): `npm run deploy:staging`, URL
-https://sheila-creator-dashboard-staging.seq-taylor.workers.dev. It is `env.staging` in
-`wrangler.jsonc`; `npm run validate:envs` fails if it drifts from production beyond its name,
-its D1/R2 and the vars OWNER_EMAIL, PUBLIC_BASE_URL, ENV_NAME, FAKE_SERVICES, AUTH_MODE. `land`
-deploys it on every merge, so staging is always main and production is the last e2e-green main.
+Staging is the **public sample** (owner, 26 Sep 2026): https://samplestudio.seq-taylor.workers.dev
+(Worker `samplestudio`), no login, `FAKE_SERVICES` "1" so nothing real can post or spend,
+`ENV_NAME` "sample", filled with a year of demo data (`node scripts/seed-year.mjs --remote-sample
+--apply`; re-run it to reset what visitors changed). It is `env.staging` in `wrangler.jsonc` with
+the staging D1/R2; `npm run validate:envs` pins its name, URL, mode and fakes and fails if it drifts
+from production in anything else but its D1/R2 and OWNER_EMAIL. `land` deploys it on every merge,
+so the sample is always main and production is the last e2e-green main. Sheila's production is
+never touched by it.

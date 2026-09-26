@@ -1,11 +1,14 @@
-// Staging must be production's twin. Parses wrangler.jsonc and fails if env.staging differs from
-// the top-level (production) config in anything except:
-//   * name,
-//   * D1 database_name / database_id and R2 bucket_name,
-//   * the vars OWNER_EMAIL, PUBLIC_BASE_URL, ENV_NAME, FAKE_SERVICES, AUTH_MODE.
-// AUTH_MODE is pinned per deployment: production "open" (no login, the owner's choice, 26 Sep
-// 2026), staging "code" (the email-code login stays). While production is open, no screen in
-// app/ may link or navigate to /login (there is no login page to reach).
+// Staging must be production's twin in code, and each deployment is pinned to what the owner
+// decided (26 Sep 2026):
+//   * production: Worker `sheilastudio`, AUTH_MODE "open", REAL services (wrangler.jsonc keeps
+//     FAKE_SERVICES "1" for `wrangler dev`; scripts/deploy-production.sh ships `--var FAKE_SERVICES:0`,
+//     and that line is read here);
+//   * staging = the public SAMPLE: Worker `samplestudio` at https://samplestudio.seq-taylor.workers.dev,
+//     AUTH_MODE "open", FAKE_SERVICES "1" (nothing real can post or spend), ENV_NAME "sample".
+// Parses wrangler.jsonc and fails if env.staging differs from the top-level (production) config in
+// anything except: name, D1 database_name / database_id and R2 bucket_name, and the vars
+// OWNER_EMAIL, PUBLIC_BASE_URL, ENV_NAME, FAKE_SERVICES, AUTH_MODE (each pinned to the values above).
+// While production is open, no screen in app/ may link or navigate to /login (there is no login page).
 // Wrangler does not inherit vars / d1_databases / r2_buckets into an env, so staging must
 // restate them; a var or binding production has and staging lacks is a difference too.
 // Then every job workflow that runs against a deployed Worker must map the dispatch payload's
@@ -56,9 +59,15 @@ export function parseJsonc(src) {
 }
 
 const ALLOWED_VAR_DIFFS = new Set(["OWNER_EMAIL", "PUBLIC_BASE_URL", "ENV_NAME", "FAKE_SERVICES", "AUTH_MODE"]);
-// The login mode each deployment must ship. Switching production back to the login is
+// The login mode each deployment must ship. Switching a deployment back to the login is
 // "code" here and in wrangler.jsonc, then a deploy.
-export const REQUIRED_AUTH_MODE = { production: "open", staging: "code" };
+export const REQUIRED_AUTH_MODE = { production: "open", staging: "open" };
+// What each deployment IS (owner, 26 Sep 2026). Production stays Sheila's real dashboard; staging
+// is the public sample on fakes. Any drift here fails the build.
+export const REQUIRED_DEPLOYMENTS = {
+  production: { name: "sheilastudio", ENV_NAME: "production", AUTH_MODE: REQUIRED_AUTH_MODE.production, deployFakeServices: "0" },
+  staging: { name: "samplestudio", ENV_NAME: "sample", AUTH_MODE: REQUIRED_AUTH_MODE.staging, FAKE_SERVICES: "1", PUBLIC_BASE_URL: "https://samplestudio.seq-taylor.workers.dev" },
+};
 // Keys wrangler never inherits into an env: staging must restate each one.
 const NON_INHERITED = ["vars", "d1_databases", "r2_buckets"];
 // Keys that differ by design, compared field by field below.
@@ -75,12 +84,16 @@ export function compareEnvs(cfg) {
   const stg = cfg.env?.staging;
   if (!stg) return { items: 0, problems: ["wrangler.jsonc has no env.staging"] };
 
-  if (!stg.name || stg.name === prod.name) problems.push("env.staging.name must be its own Worker name");
-  items++;
-  if (prod.vars?.ENV_NAME !== "production") problems.push(`top-level vars.ENV_NAME must be "production" (is ${JSON.stringify(prod.vars?.ENV_NAME)})`);
-  if (stg.vars?.ENV_NAME !== "staging") problems.push(`env.staging vars.ENV_NAME must be "staging" (is ${JSON.stringify(stg.vars?.ENV_NAME)})`);
-  if (stg.vars?.FAKE_SERVICES !== "0") problems.push("env.staging must be fully real: vars.FAKE_SERVICES \"0\"");
-  items += 3;
+  const P = REQUIRED_DEPLOYMENTS.production;
+  const S = REQUIRED_DEPLOYMENTS.staging;
+  if (prod.name !== P.name) problems.push(`top-level name must be "${P.name}" (is ${JSON.stringify(prod.name)})`);
+  if (stg.name !== S.name) problems.push(`env.staging.name must be "${S.name}", the public sample (is ${JSON.stringify(stg.name)})`);
+  items += 2;
+  if (prod.vars?.ENV_NAME !== P.ENV_NAME) problems.push(`top-level vars.ENV_NAME must be "${P.ENV_NAME}" (is ${JSON.stringify(prod.vars?.ENV_NAME)})`);
+  if (stg.vars?.ENV_NAME !== S.ENV_NAME) problems.push(`env.staging vars.ENV_NAME must be "${S.ENV_NAME}" (is ${JSON.stringify(stg.vars?.ENV_NAME)})`);
+  if (stg.vars?.FAKE_SERVICES !== S.FAKE_SERVICES) problems.push(`env.staging is the public sample and must run on fakes: vars.FAKE_SERVICES "${S.FAKE_SERVICES}" (is ${JSON.stringify(stg.vars?.FAKE_SERVICES)})`);
+  if (stg.vars?.PUBLIC_BASE_URL !== S.PUBLIC_BASE_URL) problems.push(`env.staging vars.PUBLIC_BASE_URL must be "${S.PUBLIC_BASE_URL}" (is ${JSON.stringify(stg.vars?.PUBLIC_BASE_URL)})`);
+  items += 4;
   if (prod.vars?.AUTH_MODE !== REQUIRED_AUTH_MODE.production)
     problems.push(`top-level vars.AUTH_MODE must be "${REQUIRED_AUTH_MODE.production}" (is ${JSON.stringify(prod.vars?.AUTH_MODE)})`);
   if (stg.vars?.AUTH_MODE !== REQUIRED_AUTH_MODE.staging)
@@ -178,10 +191,26 @@ export function checkWorkflow(name, yml, buckets) {
   return { skip: false, problems };
 }
 
+/**
+ * Production ships REAL services: wrangler.jsonc keeps FAKE_SERVICES "1" (so `wrangler dev` and CI
+ * never touch a vendor) and scripts/deploy-production.sh overrides it on the deploy line. This reads
+ * that line, so the pin follows the script that actually ships. The staging deploy must never carry
+ * that override (the sample stays on fakes).
+ */
+export function checkDeployScripts({ production, staging }) {
+  const problems = [];
+  const want = REQUIRED_DEPLOYMENTS.production.deployFakeServices;
+  if (!new RegExp(`wr deploy\\b[^\\n]*--var FAKE_SERVICES:${want}\\b`).test(production)) problems.push(`scripts/deploy-production.sh must deploy with --var FAKE_SERVICES:${want} (production is Sheila's real dashboard)`);
+  if (!/wr deploy --env staging\s*$/m.test(staging) || /--var FAKE_SERVICES/.test(staging)) problems.push("scripts/deploy-staging.sh must run `wr deploy --env staging` with no --var override (the sample stays on fakes)");
+  return problems;
+}
+
 export default async function ({ root }) {
   const cfg = parseJsonc(await readFile(path.join(root, "wrangler.jsonc"), "utf8"));
   const { items: cfgItems, problems } = compareEnvs(cfg);
   let items = cfgItems;
+  items += 2;
+  problems.push(...checkDeployScripts({ production: await readFile(path.join(root, "scripts", "deploy-production.sh"), "utf8"), staging: await readFile(path.join(root, "scripts", "deploy-staging.sh"), "utf8") }));
   const buckets = { production: cfg.r2_buckets?.[0]?.bucket_name, staging: cfg.env?.staging?.r2_buckets?.[0]?.bucket_name };
   const dir = path.join(root, ".github", "workflows");
   const files = (await readdir(dir)).filter((f) => /^job-.*\.ya?ml$/.test(f)).sort();

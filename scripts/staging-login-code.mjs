@@ -1,7 +1,10 @@
 #!/usr/bin/env node
-// Read a staging login code without a mailbox (RUNBOOK "Staging: reading a login code without a
-// mailbox"). Staging's OWNER_EMAIL is the West Peek Resend account owner's address; Resend keeps
-// every sent email, so the code is read back from Resend's API instead of an inbox.
+// Read a staging login code without a mailbox (RUNBOOK "Sample: reading a login code without a
+// mailbox"). Since 26 Sep 2026 staging is the public SAMPLE and runs with no login (AUTH_MODE
+// "open" in wrangler.jsonc env.staging), so there is no code to read: this prints one line and
+// exits 0. The code-mode path below stays for the day staging goes back to the email code
+// (AUTH_MODE "code"): staging's OWNER_EMAIL is the West Peek Resend account owner's address;
+// Resend keeps every sent email, so the code is read back from Resend's API instead of an inbox.
 //
 //   node scripts/staging-login-code.mjs            # newest login_code email on staging
 //   node scripts/staging-login-code.mjs --request  # ask staging for a fresh code first
@@ -9,9 +12,18 @@
 // Prints one JSON line: {email_id, last_event, code}. The Resend key comes from RESEND_API_KEY
 // or, on the owner's Mac, from the vault (resend-app-18f24eb6) through its Keychain adapter, never echoed.
 import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { parseJsonc } from "./validators/envs-match.mjs";
 
-const BASE = "https://sheila-creator-dashboard-staging.seq-taylor.workers.dev";
-const OWNER = "sequoia@westpeek.ventures";
+const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
+const staging = parseJsonc(readFileSync(path.join(root, "wrangler.jsonc"), "utf8")).env?.staging ?? {};
+const BASE = staging.vars?.PUBLIC_BASE_URL ?? "https://samplestudio.seq-taylor.workers.dev";
+const OWNER = staging.vars?.OWNER_EMAIL ?? "sequoia@westpeek.ventures";
+if (staging.vars?.AUTH_MODE === "open") {
+  console.log(`the sample is open, no code: ${BASE} logs everyone in as the owner`);
+  process.exit(0);
+}
 const VAULT_ITEM = "repo-operator-credential-resend-app-18f24eb6";
 
 // Read through the vault's own Keychain adapter (no-prompt mode): a bare `security` call can raise
