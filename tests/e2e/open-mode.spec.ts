@@ -63,7 +63,7 @@ test.describe("open mode: no login at all", () => {
   test("Dump works: pick a door, upload a small file", async ({ page }) => {
     await page.goto("/dump");
     await expect(page.getByRole("heading", { name: "Dump videos" })).toBeVisible();
-    await page.getByRole("button", { name: /Recycle old videos/ }).click();
+    await page.getByRole("radio", { name: /Old posts to reuse/ }).click();
     const bytes = Buffer.alloc(200_000);
     for (let i = 0; i < bytes.length; i += 4) bytes.writeUInt32LE((Math.random() * 0xffffffff) >>> 0, i);
     await page.locator('input[type="file"]').setInputFiles({ name: "open-mode.mp4", mimeType: "video/mp4", buffer: bytes });

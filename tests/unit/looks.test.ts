@@ -265,7 +265,9 @@ describe("re-rendering one clip", () => {
     expect(k).toEqual({ mp4: "clips/dmp_abcd1234/clp_aaaaaaaaaaaa-v2.mp4", jpg: "clips/dmp_abcd1234/clp_aaaaaaaaaaaa-v2.jpg" });
     const expect_ = { clipId: "clp_aaaaaaaaaaaa", look: "karaoke", ...k };
     const ok = { rerender: { clip_id: "clp_aaaaaaaaaaaa", look: "karaoke", r2_key: k.mp4, cover_r2_key: k.jpg, duration_s: 12.5, voice: null } };
-    expect(parseRerender(ok, expect_)).toEqual({ duration_s: 12.5, voice: null });
+    expect(parseRerender(ok, expect_)).toEqual({ duration_s: 12.5, voice: null, music: null });
+    expect(parseRerender({ rerender: { ...ok.rerender, music: "music/upl_song0001" } }, expect_).music).toBe("music/upl_song0001");
+    expect(parseRerender({ rerender: { ...ok.rerender, music: "raw/elsewhere" } }, expect_).music).toBeNull();
     expect(() => parseRerender({ rerender: { ...ok.rerender, r2_key: "clips/dmp_other/x.mp4" } }, expect_)).toThrow(CutResultError);
     expect(() => parseRerender({ rerender: { ...ok.rerender, look: "clean" } }, expect_)).toThrow(CutResultError);
     expect(() => parseRerender({ clips: [] }, expect_)).toThrow(CutResultError);
@@ -288,6 +290,9 @@ describe("re-rendering one clip", () => {
     // the same grid with different cells is a real change
     expect(lookChangeRefusal({ ...ok, look: "grid_four" }, "grid_four", false)).toBeNull();
     expect(lookChangeRefusal({ ...ok, look: "grid_four" }, "grid_four", true)?.status).toBe(409);
+    // Change music keeps the look on purpose
+    expect(lookChangeRefusal(ok, "clean", false, true)).toBeNull();
+    expect(lookChangeRefusal({ ...ok, pending_look: "clean" }, "clean", false, true)?.status).toBe(409);
   });
 });
 

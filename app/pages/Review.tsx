@@ -30,6 +30,8 @@ export interface ReviewClip extends ClipRow {
   edited_with: string | null;
   edited_with_name: string | null;
   editing_note: string | null;
+  music_id: string | null;
+  pending_music: string | null;
   /** Her voice over on this clip: being added, in it (the video plays with it), or it did not work. */
   voice_over: "mixing" | "ready" | "failed" | null;
 }
@@ -65,6 +67,7 @@ export function Review() {
   const [deleting, setDeleting] = useState<ReviewClip | null>(null);
   const [restyling, setRestyling] = useState<ReviewClip | null>(null);
   const [handoff, setHandoff] = useState<ReviewClip | null>(null);
+  const [musicFor, setMusicFor] = useState<ReviewClip | null>(null);
   const [busy, setBusy] = useState(false);
 
   const query = useMemo(() => {
@@ -225,7 +228,7 @@ export function Review() {
       {list.data?.groups.map((g) => (
         <section key={g.dump.id} className="review-group" data-dump-id={g.dump.id} aria-label={`Dump from ${fmtDate(g.dump.created_at)}`}>
           <h2 className="review-group-head">
-            Dump: {fmtDate(g.dump.created_at)} · Door {g.dump.door === "new" ? "A" : "B"} <span className="hint">· {plural(g.clips.length, "clip")} · best first</span>
+            Dump: {fmtDate(g.dump.created_at)} · {g.dump.door === "new" ? "New videos" : "Old posts"} <span className="hint">· {plural(g.clips.length, "clip")} · best first</span>
           </h2>
           {g.dump.held_note ? <HeldNotice dumpId={g.dump.id} note={g.dump.held_note} onDone={list.reload} /> : null}
           <div className="review-grid">
@@ -243,6 +246,13 @@ export function Review() {
                 onEdit={() => setEditing(c)}
                 onRestyle={() => setRestyling(c)}
                 onHandoff={() => setHandoff(c)}
+                onMusic={() => setMusicFor(c)}
+                onAnother={() =>
+                  run(async () => {
+                    const r = await post<{ clip: ReviewClip | null }>(`/api/clips/${c.id}/another`);
+                    if (r.clip) replaceClip(r.clip);
+                  }, "Trying another version, about a minute. The current one stays until it's ready.")
+                }
                 onDelete={() => setDeleting(c)}
                 onPlatform={(p) => togglePlatform(c, p)}
               />
@@ -317,6 +327,18 @@ export function Review() {
           }}
         />
       ) : null}
+      {musicFor ? (
+        <MusicModal
+          clip={musicFor}
+          onClose={() => setMusicFor(null)}
+          onQueued={(updated) => {
+            if (updated) replaceClip(updated);
+            setMusicFor(null);
+            toast.ok("Changing the music, about a minute. The current version stays until it's ready.");
+            list.reload();
+          }}
+        />
+      ) : null}
       {handoff ? (
         <HandoffModal
           clip={handoff}
@@ -357,6 +379,8 @@ function ClipCard(props: {
   onEdit: () => void;
   onRestyle: () => void;
   onHandoff: () => void;
+  onMusic: () => void;
+  onAnother: () => void;
   onDelete: () => void;
   onPlatform: (p: Platform) => void;
 }) {
@@ -460,6 +484,16 @@ function ClipCard(props: {
           {tab !== "rejected" ? (
             <button className="link-btn" onClick={props.onRestyle} disabled={!!c.pending_look || !!c.editing_note}>
               Change look
+            </button>
+          ) : null}
+          {tab !== "rejected" ? (
+            <button className="link-btn" onClick={props.onAnother} disabled={busy || !!c.pending_look || !!c.editing_note || !c.source_available}>
+              Try another version
+            </button>
+          ) : null}
+          {tab !== "rejected" ? (
+            <button className="link-btn" onClick={props.onMusic} disabled={!!c.pending_look || !!c.editing_note || !c.source_available}>
+              Change music
             </button>
           ) : null}
           {tab !== "rejected" ? (
@@ -575,6 +609,47 @@ function EditModal({ clip, onSaved, onClose }: { clip: ReviewClip; onSaved: (upd
         </button>
         <button className="btn quiet" onClick={onClose}>
           Cancel
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+/** Change music: no music, or one of her songs; the clip keeps its look. */
+function MusicModal({ clip, onClose, onQueued }: { clip: ReviewClip; onClose: () => void; onQueued: (updated: ReviewClip | null) => void }) {
+  const toast = useToast();
+  const songs = useLoad(() => get<{ music: { id: string; file_name: string }[] }>("/api/editing"));
+  const [busy, setBusy] = useState(false);
+  async function pick(music: string) {
+    setBusy(true);
+    try {
+      const r = await post<{ clip: ReviewClip | null }>(`/api/clips/${clip.id}/music`, { music });
+      onQueued(r.clip);
+    } catch (e) {
+      toast.bad(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+  const list = songs.data?.music ?? [];
+  return (
+    <Modal title="Change music" onClose={onClose}>
+      <p className="hint">Just this clip is made again with the music you pick, in about a minute. Only songs you added under Settings → Editing → My music are used.</p>
+      <div className="reason-list">
+        <button className="btn quiet block" disabled={busy} aria-pressed={!clip.music_id} onClick={() => pick("none")}>
+          No music{!clip.music_id ? " (now)" : ""}
+        </button>
+        {list.map((t) => (
+          <button key={t.id} className="btn quiet block" disabled={busy} aria-pressed={clip.music_id === t.id} onClick={() => pick(t.id)}>
+            {t.file_name}
+            {clip.music_id === t.id ? " (now)" : ""}
+          </button>
+        ))}
+      </div>
+      {!songs.loading && !list.length ? <p className="hint">No songs yet. Add one under Settings → Editing → My music.</p> : null}
+      <div className="btn-row">
+        <button className="btn quiet" onClick={onClose}>
+          Keep it as it is
         </button>
       </div>
     </Modal>

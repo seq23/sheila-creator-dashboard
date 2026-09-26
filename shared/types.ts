@@ -1,5 +1,6 @@
 // API shapes shared by the React app and the Worker. Keep these plain (JSON-safe).
 import type { BrandProfileKey, DealStage, Platform, Recipe } from "./constants";
+import type { NotFollowed, SteerControls, Understood } from "./steer";
 
 export type Light = "green" | "yellow" | "red" | "grey";
 
@@ -54,6 +55,13 @@ export interface DumpSummary {
   progress: { step: string; done: number; total: number } | null;
   /** "Looks like someone else's video: …" when a video's watermark is another creator's. */
   held_note: string | null;
+  /** The chips she tapped (empty = Surprise me), and what her note was read as. */
+  steer: SteerControls;
+  understood: Understood | null;
+  /** After the cut: what could not be done as asked, and why (never silently dropped). */
+  not_followed: NotFollowed[];
+  /** "What we tried: …" (one line, Surprise me). */
+  tried: string | null;
 }
 
 export interface AssetRow {
@@ -64,6 +72,8 @@ export interface AssetRow {
   size_bytes: number;
   upload_status: "uploading" | "uploaded" | "failed" | "aborted";
   file_note: string | null;
+  /** What this video's own note was read as (it steers this video's clips). */
+  understood: Understood | null;
   original_platform: string | null;
   original_posted_at: string | null;
   original_views: number | null;

@@ -349,6 +349,7 @@ class Rendered:
     cover: Path
     subtitles: str  # burned | soft | hook-only | none
     duration: float
+    music_used: bool = False  # a song from her uploads is mixed under the voice
 
 
 def render_look(
@@ -489,7 +490,8 @@ def render_look(
         subs = "soft"
     # Audio: her voice, a music bed from her own songs ducked under it, then -14 LUFS.
     a = "ac"
-    if music is not None and music.exists():
+    music_used = music is not None and music.exists()
+    if music_used:
         mi = add(["-stream_loop", "-1", "-i", str(music.resolve())])
         chains.append(
             f"[{mi}:a]aresample=48000,aformat=channel_layouts=stereo,atrim=duration={dur:.3f},volume=0.22,"
@@ -513,7 +515,7 @@ def render_look(
         cwd=work,
     )
     ffmpeg(["-ss", f"{min(1.0, dur / 3):.2f}", "-i", out.name, "-frames:v", "1", "-q:v", "3", cover.name], cwd=work)
-    return Rendered(out, cover, subs, dur)
+    return Rendered(out, cover, subs, dur, music_used)
 
 
 def frame_gray(path: Path, t: float, w: int = 54, h: int = 96) -> bytes:

@@ -43,7 +43,7 @@ import looks as L  # noqa: E402
 from common import log  # noqa: E402
 
 FIXTURE = HERE.parent / "tests" / "unit" / "fixtures" / "cut-result.sample.json"
-CLIP_KEYS = {"id", "asset_id", "start_s", "end_s", "recipe", "hook_text", "hook_alt", "caption", "hashtags", "platforms", "score", "r2_key", "cover_r2_key", "look", "parts", "layout"}
+CLIP_KEYS = {"id", "asset_id", "start_s", "end_s", "recipe", "hook_text", "hook_alt", "caption", "hashtags", "platforms", "score", "r2_key", "cover_r2_key", "look", "parts", "layout", "music"}
 STAGES = {"Getting your videos", "Listening", "Finding the best moments", "Cutting clips", "Saving clips"}
 
 
@@ -459,6 +459,68 @@ def check_import(tmp: Path, problems: list[str]) -> None:
     log("selftest.import", replaced=bool(rep), clips=len(clips))
 
 
+# ---------------------------------------------------------------- her steering is honored (worker/domain/steer.ts)
+
+def check_steer(tmp: Path, problems: list[str], heavy: dict) -> None:
+    """What her chips and notes ask for is what the job makes: the note "2x4 grid, no music, fast"
+    gives only 2x4 grids with punch-in and no song (even with songs uploaded); "Upbeat song, 2
+    short clips" gives exactly 2 clips under 21 s with that song; leave-out / must-include are
+    applied to the transcript, and what cannot be found is reported, never skipped silently."""
+    work = tmp / "steer"
+    work.mkdir(parents=True, exist_ok=True)
+    src = work / "src"
+    src.mkdir()
+    make_sample(src / "wide.mp4", 40, "1280x720", None)
+    cut.ffmpeg(["-f", "lavfi", "-i", "sine=frequency=660:duration=30:sample_rate=48000", str(src / "song.wav")])
+    out = work / "r2"
+
+    def download(key: str, dest: Path) -> Path:
+        shutil.copy(src / ("song.wav" if key.startswith("music/") else key), dest)
+        return dest
+
+    def upload(path: Path, key: str, _ct: str) -> None:
+        dst = out / key
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy(path, dst)
+
+    song = {"r2_key": "music/upl_selftestsong"}
+    base = spec_for("new", "dmp_steer1", [{"id": "ast_steer", "r2_key": "wide.mp4", "allowed_platforms": ["tiktok", "instagram", "youtube"], "file_note": None}])
+    grid = {**base, "rotation": ["grid_eight"], "looks": {"grid_eight": {"punch_in": True, "music": False}}, "music": [song], "target_clips": {"min": 3, "max": 3},
+            "steer": {"rotation": ["grid_eight"], "count": None, "include": [], "avoid": [], "allowed_recipes": list(cut.RECIPE_ORDER)}}
+    r = cut.cut_dump(grid, work / "w1", download, upload, FakeJob().progress, heavy)
+    for c in r["clips"]:
+        if c["look"] != "grid_eight" or not c["layout"] or len(c["layout"]["cells"]) != 8:
+            problems.append("steer: a clip was not the 2x4 grid she asked for")
+        if c["music"] is not None:
+            problems.append("steer: music under a clip after \"no music\"")
+    short = {k: {"minS": 8, "maxS": min(v["maxS"], 20)} for k, v in cut.DEFAULT_RECIPES.items()}
+    tune = {**base, "dump_id": "dmp_steer2", "output_prefix": "clips/dmp_steer2/", "rotation": ["clean"], "looks": {"clean": {"music": True}}, "music": [song], "recipes": short,
+            "target_clips": {"min": 2, "max": 2}, "steer": {"rotation": ["clean"], "count": 2, "include": [], "avoid": [], "allowed_recipes": list(cut.RECIPE_ORDER)}}
+    r = cut.cut_dump(tune, work / "w2", download, upload, FakeJob().progress, heavy)
+    if len(r["clips"]) != 2:
+        problems.append(f"steer: asked for 2 clips, made {len(r['clips'])}")
+    for c in r["clips"]:
+        if c["music"] != song["r2_key"]:
+            problems.append("steer: the song she picked is not under the clip")
+        if cut.probe(out / c["r2_key"])["duration"] > 21.5:
+            problems.append("steer: a clip is longer than the short length she picked")
+    # must include / leave out, on a known transcript (no whisper needed)
+    words = [cut.Word(round(0.5 + i * 0.5, 2), round(0.9 + i * 0.5, 2), w) for i, w in enumerate(SPEECH.replace(".", "").split())]
+    tr = cut.Transcript(words=words, segments=[(0.0, 60.0, "x")], engine="synthetic")
+    end_at = next(w.start for w in words if w.text == "tomorrow")
+    ms = [cut.Moment("ast_x", "talking_head", 0.0, 10.0, [(0.0, 10.0)]), cut.Moment("ast_x", "talking_head", end_at - 6, end_at + 3, [(end_at - 6, end_at + 3)])]
+    st = {"avoid": ["try it tomorrow"], "include": ["three goals", "unicorn"], "allowed_recipes": ["talking_head"]}
+    tight = {**cut.DEFAULT_RECIPES, "talking_head": {"minS": 8, "maxS": 12}}
+    kept, told = cut.apply_steer(ms, {"id": "ast_x"}, tr, st, tight, 60.0)
+    if any("tomorrow" in cut.moment_words(tr, m) for m in kept):
+        problems.append("steer: a moment she asked to leave out was kept")
+    if not any(getattr(m, "included", None) == "three goals" or "goals" in cut.moment_words(tr, m) for m in kept):
+        problems.append("steer: a moment she asked to include is missing")
+    if [x["what"] for x in told] != ['"unicorn"']:
+        problems.append("steer: something she asked for that was never said was not reported")
+    log("selftest.steer", grid_clips=len([1 for _ in r["clips"]]), reported=len(told))
+
+
 def main() -> int:
     write_fixture = "--write-fixture" in sys.argv
     tmp = Path(tempfile.mkdtemp(prefix="cut-selftest-"))
@@ -521,6 +583,7 @@ def main() -> int:
             check_looks(tmp, problems, write_thumbs)
         if "--looks-only" not in sys.argv:
             check_import(tmp, problems)
+            check_steer(tmp, problems, heavy)
         all_platforms = ["tiktok", "instagram", "youtube"]
         runs = [] if "--looks-only" in sys.argv else [
             spec_for("new", "dmp_selftestnew", [{"id": "ast_selftestwide", "r2_key": "wide.mp4", "allowed_platforms": all_platforms, "file_note": None}]),
