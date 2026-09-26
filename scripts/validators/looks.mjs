@@ -24,6 +24,9 @@ export default async function ({ root }) {
   const seen = new Set();
   if (!unit) problems.push("tests/unit/looks.test.ts is missing");
   if (!/for lid in L\.LOOK_IDS:/.test(selftest)) problems.push("jobs/selftest_cut.py no longer renders every Look (for lid in L.LOOK_IDS)");
+  // CI renders the singles and the grids in two parallel jobs: both halves must be there.
+  const workflow = await readFile(path.join(root, ".github", "workflows", "job-cut.yml"), "utf8");
+  if (!/kind: \[single, grid\]/.test(workflow) || !/--looks-only --looks-kind \$\{\{ matrix\.kind \}\}/.test(workflow)) problems.push(".github/workflows/job-cut.yml no longer renders both halves of the Looks (selftest-looks, kind: [single, grid])");
   for (const l of looks) {
     const id = String(l.id ?? "");
     if (!/^[a-z_]{3,30}$/.test(id)) {

@@ -5,6 +5,8 @@
     python3 jobs/selftest_cut.py --keep <dir>     # keep the rendered clips and covers to look at
     python3 jobs/selftest_cut.py --require-heavy  # CI: fail unless whisper, libass and a spoken sample are present
     python3 jobs/selftest_cut.py --looks-only     # just the Looks (every Look rendered and checked)
+    python3 jobs/selftest_cut.py --looks-only --looks-kind single|grid   # CI: one half each, in parallel
+    python3 jobs/selftest_cut.py --skip-looks     # CI's heavy job: the dump runs without the Looks
     python3 jobs/selftest_cut.py --write-thumbs   # also refresh public/looks/<id>.webp (needs libass + libwebp)
 
 Two synthetic videos (ffmpeg testsrc2 + tone bursts with pauses, so silence detection has
@@ -275,22 +277,31 @@ def rgb_at(frame: bytes, x: int, y: int) -> tuple[int, int, int]:
     return frame[i], frame[i + 1], frame[i + 2]
 
 
+def gutter_is_paper(frame: bytes, points: list[tuple[int, int]]) -> bool:
+    """A gutter is paper-coloured at most of its points (the median): one pixel next to a sharp
+    edge can carry the encoder's ringing (CI's x264, 26 Sep 2026)."""
+    hits = sorted(near_paper(rgb_at(frame, x, y), tol=20) for x, y in points)
+    return hits[len(hits) // 2]
+
+
 def grid_problems(opts: dict, frame: bytes) -> list[str]:
-    """Cell geometry from the pixels: the gutter between neighbouring cells is paper-coloured and
-    the middle of every cell is footage, exactly where looks.json puts them."""
+    """Cell geometry from the pixels: the gutter between neighbouring cells is paper-coloured
+    (sampled at five points along it) and the middle of every cell is footage, exactly where
+    looks.json puts them."""
     out = []
     cells = L.cells_of(opts)
     gutter = L.FRAME["gutter"]
+    along = (0.2, 0.35, 0.5, 0.65, 0.8)
     for x, y, w, h in cells:
         if near_paper(rgb_at(frame, x + w // 2, y + h // 2)) and near_paper(rgb_at(frame, x + w // 3, y + h // 3)):
             out.append(f"{opts['id']}: cell at {x},{y} shows no footage")
         right = x + w + gutter // 2
         if right < L.OUT_W and any(cx == x + w + gutter for cx, cy, _w, _h in cells if cy == y):
-            if not near_paper(rgb_at(frame, right, y + h // 2)):
+            if not gutter_is_paper(frame, [(right, y + int(h * f)) for f in along]):
                 out.append(f"{opts['id']}: no gutter right of cell {x},{y}")
         below = y + h + gutter // 2
         if below < L.OUT_H and any(cy == y + h + gutter for cx, cy, _w, _h in cells if cx == x):
-            if not near_paper(rgb_at(frame, x + w // 2, below)):
+            if not gutter_is_paper(frame, [(x + int(w * f), below) for f in along]):
                 out.append(f"{opts['id']}: no gutter under cell {x},{y}")
     return out
 
@@ -310,8 +321,13 @@ def check_looks(tmp: Path, problems: list[str], write_thumbs: bool) -> None:
     others = [(f"clp_look{i:08d}", cut.Moment("ast_look", "talking_head", 4.0 * i, 4.0 * i + 8.0, [(4.0 * i, 4.0 * i + 8.0)]), src) for i in range(1, 8)]
     libass = cut.ffmpeg_has_filter("subtitles")
     hashes: dict[str, list[int]] = {}
+    kind = sys.argv[sys.argv.index("--looks-kind") + 1] if "--looks-kind" in sys.argv else "all"
     for lid in L.LOOK_IDS:
         opts = L.look_options(lid)
+        # CI renders singles and grids in two parallel jobs (--looks-kind single|grid); a single and a
+        # grid always differ (the grid's gutters are checked from the pixels), so each job compares its own.
+        if kind != "all" and (opts["layout"] == "grid") != (kind == "grid"):
+            continue
         cells, voice = None, 0
         if opts["layout"] == "grid":
             cells, lay = cut.grid_cells(0, m, src, others, len(L.cells_of(opts)), False)
@@ -371,7 +387,8 @@ def check_looks(tmp: Path, problems: list[str], write_thumbs: bool) -> None:
         if dist < LOOK_MIN_DISTANCE:
             problems.append(f"looks {a} and {b} look alike ({dist:.3f})")
     log("selftest.looks", looks=len(hashes), libass=libass, **{f"closest_{k + 1}": f"{a}/{b}={d:.3f}" for k, (d, a, b) in enumerate(pairs[:4])})
-    if len(hashes) != len(L.LOOK_IDS):
+    wanted = [lid for lid in L.LOOK_IDS if kind == "all" or (L.LOOKS[lid]["layout"] == "grid") == (kind == "grid")]
+    if not wanted or len(hashes) != len(wanted):
         problems.append("not every look rendered")
 
 
@@ -433,10 +450,11 @@ def main() -> int:
             except OSError:
                 log("selftest.face.sample_unreachable")
         write_thumbs = "--write-thumbs" in sys.argv
-        if "--require-heavy" in sys.argv or write_thumbs:
+        if "--require-heavy" in sys.argv or "--require-libass" in sys.argv or write_thumbs:
             if not cut.ffmpeg_has_filter("subtitles"):
                 problems.append("looks need libass to prove burned captions")
-        check_looks(tmp, problems, write_thumbs)
+        if "--skip-looks" not in sys.argv:
+            check_looks(tmp, problems, write_thumbs)
         all_platforms = ["tiktok", "instagram", "youtube"]
         runs = [] if "--looks-only" in sys.argv else [
             spec_for("new", "dmp_selftestnew", [{"id": "ast_selftestwide", "r2_key": "wide.mp4", "allowed_platforms": all_platforms, "file_note": None}]),

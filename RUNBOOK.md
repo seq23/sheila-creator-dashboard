@@ -185,7 +185,8 @@ service. Every clip is rendered in a **Look**, a named preset of the built-in ed
   accent colours; a font it names from `BRAND_FONTS` is fetched from Google Fonts' repo at render
   time (default DejaVu Sans when absent or unreachable).
 - **Proof:** `python3 jobs/selftest_cut.py` renders every Look on synthetic footage (the
-  `selftest` job on every PR touching the pipeline) and checks 1080x1920, duration, captions and
+  `selftest-looks` job on every PR touching the pipeline, singles and grids in two parallel halves;
+  the heavy `selftest` job runs the dumps with `--skip-looks`) and checks 1080x1920, duration, captions and
   hook burned where the Look says (pixel diff against the same render with text off), the end
   card, grid gutters and cells from sampled pixels, and that every two Looks differ by difference
   hash (floor 0.02 of the bits in some frame). `--looks-only` runs just that; `--write-thumbs`
