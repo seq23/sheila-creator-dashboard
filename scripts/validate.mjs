@@ -21,6 +21,8 @@ export const REGISTER = {
   "no-secrets": "a key in the repo is public the moment it is pushed",
   "routes-mounted": "a route file nothing mounts is code that exists but nothing invokes",
   "screens-registered": "every page file must be routed in App.tsx or it is unreachable",
+  "voice-engines": "a narration row without its engine, or an ElevenLabs call that drops a 401 / 402 / 429, shows her the wrong voice tag or a failure with no fallback",
+  "voice-script": "the read-aloud script must stay about 3 minutes with a question and a number, and the Voice screen must show it, or her sample makes a thin voice",
   "workflows-dispatchable": "every job type must have an Actions workflow listening for its repository_dispatch event",
 };
 

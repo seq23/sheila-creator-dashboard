@@ -7,7 +7,10 @@ target: ".rec-btn"
 ---
 
 Voice narration adds a spoken voice-over in your own voice. It is off until you turn it on,
-and your clips stay real footage either way. Only your own login can record your voice.
+your clips stay real footage either way, and only your own login can record your voice.
+The built-in voice is free: good quality, a few minutes per narration. With your ElevenLabs
+account connected you get the premium voice: best quality, seconds per narration, paid from
+your ElevenLabs credits.
 
 ## Turn on Voice narration
 
@@ -17,48 +20,65 @@ and your clips stay real footage either way. Only your own login can record your
 
 Open **Settings** and switch on **Voice narration**. A **Voice** item appears in the menu.
 
-## Record in a quiet room
+## Step 1: find a quiet spot
 
 ![Step 2](/help/screenshots/record-your-voice-2.png)
 <!-- route: /voice -->
-<!-- target: .rec-btn -->
+<!-- target: .voice-step[data-step="1"] -->
 
-Open **Voice**. Tap the red button and read the line on the screen out loud, then keep talking
-for 10 to 30 seconds. Tap it again to stop. You can also tap **Upload a clip** instead.
+Open **Voice**. Find a quiet spot. Hold your phone like a call, about a hand's width from your
+mouth.
 
-## Say yes to the consent line
+## Step 2: record while you read
 
 ![Step 3](/help/screenshots/record-your-voice-3.png)
 <!-- route: /voice -->
-<!-- target: .consent -->
+<!-- target: .rec-btn -->
 
-Tick **This is my own voice and I consent**. Then tap **Save my voice**.
+Tap the red **Record** button (or open your phone's **Voice Memos** app) and read the script on
+the screen out loud. It is about 3 minutes; **Bigger text** makes it easier to read. Mistakes
+are fine, keep going. You need at least 1 minute.
 
-## Write or draft a script
+## Step 3: stop and listen back
 
 ![Step 4](/help/screenshots/record-your-voice-4.png)
 <!-- route: /voice -->
-<!-- target: role=button[name="Draft with AI"] -->
+<!-- target: .voice-step[data-step="3"] -->
 
-Type what the voice-over should say, or tap **Draft with AI** for a starter in your words.
+Tap **Stop**, then play it back for a few seconds to check it's clear. Used Voice Memos? Tap
+**•••** on the memo, **Save to Files**, then tap **Upload a recording** here and pick it.
 
-## Tap Generate and listen
+## Step 4: say yes and save
 
 ![Step 5](/help/screenshots/record-your-voice-5.png)
 <!-- route: /voice -->
-<!-- target: role=button[name="Generate"] -->
+<!-- target: .consent -->
 
-Tap **Generate**. In a few minutes it appears under **Recent narrations**: play it,
-**Download** it, or **Attach to clip**.
+Tick **This is my own voice and I consent**, then tap **Save my voice**. The built-in voice is
+ready in a few minutes; with ElevenLabs connected the premium voice is ready in about a minute.
 
-## Delete your voice any time
+## Step 5: re-record any time
 
 ![Step 6](/help/screenshots/record-your-voice-6.png)
 <!-- route: /voice -->
-<!-- target: role=button[name="Delete my voice"] -->
+<!-- target: .voice-step[data-step="5"] -->
 
-**Delete my voice** removes your sample and your voice model for good, with one tap.
+Come back any time to re-record; the newest recording replaces the old one. Once your voice is
+saved, tap **Record again** to see these steps. **Delete my voice** removes it for good, and
+the premium voice in ElevenLabs too.
+
+## Make a narration
+
+![Step 7](/help/screenshots/record-your-voice-7.png)
+<!-- route: /voice -->
+<!-- target: role=button[name="Draft with AI"] -->
+
+Under **Make a narration**, type what the voice-over should say or tap **Draft with AI**, then
+tap **Generate**. Each narration shows **Premium** or **Built-in**. **Which voice** at the top
+says which one is in use and why; switch off **Use premium voice when connected** to always use
+the built-in voice.
 
 ## Did this work?
 
-If the microphone does not start, allow it when your browser asks, or use **Upload a clip**.
+If the microphone does not start, allow it when your browser asks, or use Voice Memos and
+**Upload a recording**.

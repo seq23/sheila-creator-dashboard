@@ -48,7 +48,11 @@ export function memoryR2() {
       size: s.bytes.byteLength,
       httpEtag: `"etag-${key.length}-${s.bytes.byteLength}"`,
       range,
+      httpMetadata: { contentType: s.contentType },
       body: new Response(bytes).body,
+      async arrayBuffer() {
+        return bytes.slice().buffer;
+      },
       writeHttpMetadata(h: Headers) {
         if (s.contentType) h.set("content-type", s.contentType);
       },
@@ -63,7 +67,7 @@ export function memoryR2() {
     },
     async head(key: string) {
       const s = objects.get(key);
-      return s ? { key, size: s.bytes.byteLength } : null;
+      return s ? { key, size: s.bytes.byteLength, httpMetadata: { contentType: s.contentType } } : null;
     },
     async put(key: string, body: ReadableStream | ArrayBuffer | Uint8Array | string, opts?: { httpMetadata?: { contentType?: string } }) {
       objects.set(key, { bytes: await readAll(body), contentType: opts?.httpMetadata?.contentType });
@@ -97,6 +101,9 @@ export function memoryR2() {
           uploads.delete(uploadId);
         },
       };
+    },
+    async delete(key: string | string[]) {
+      for (const k of Array.isArray(key) ? key : [key]) objects.delete(k);
     },
   };
   return { FILES: bucket as unknown as R2Bucket, objects, uploads };

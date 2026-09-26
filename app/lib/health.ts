@@ -16,6 +16,7 @@ export const SERVICE_NAMES: Record<string, { label: string; supersededBy?: strin
   meta: { label: "Instagram stats" },
   google: { label: "YouTube stats" },
   tiktok: { label: "TikTok stats" },
+  elevenlabs: { label: "Voice · ElevenLabs", supersededBy: "Voice · ElevenLabs" },
 };
 
 export const LIGHT_ORDER: Record<HealthItem["light"], number> = { red: 0, yellow: 1, grey: 2, green: 3 };

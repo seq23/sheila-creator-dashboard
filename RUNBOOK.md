@@ -46,8 +46,8 @@ signed with the job secret, 10 MB parts, each job type limited to its own folder
 `worker/lib/jobStorage.ts`). `npm run validate` fails if a job or workflow mentions an S3
 client, an R2 credential or an S3 endpoint (`jobs-no-direct-storage`).
 
-Per-user keys (Buffer, OpenRouter, Firecrawl, Hunter) are pasted on Settings → Connections and
-stored AES-GCM encrypted in D1 `connections.secret_enc`.
+Per-user keys (Buffer, OpenRouter, Firecrawl, Hunter, ElevenLabs) are pasted on Settings →
+Connections and stored AES-GCM encrypted in D1 `connections.secret_enc`.
 
 ## Common tasks
 
@@ -70,7 +70,7 @@ curl -X POST http://localhost:8787/api/jobs/<job_id>/run-fake -H 'Cookie: ss_ses
 | Cron (UTC) | Lane | Does |
 | --- | --- | --- |
 | `0 * * * *` | buffer-sync | loads the next 7 days into Buffer, reads back status, retries failures twice |
-| `30 13 * * *` | daily | runway email, retention (raw 7 d, rejected 7 d, clip links 30 d after posting), storage light |
+| `30 13 * * *` | daily | runway email, retention (raw 7 d, rejected 7 d, clip links 30 d after posting), storage light, `Voice · ElevenLabs` light (one read of her plan) |
 | `0 * * * *` (same run) | brief draft notice | emails "New brief draft ready" once, when a draft newer than the approved brief lands |
 | `30 13 * * *` (same run) | monthly brief refresh | on the 1st (retries the 2nd, 3rd) starts the research job for a new draft; the approved brief stays live, nothing waits for approval |
 | `0 12 * * 1` | weekly | recap email, metrics + brand-finder jobs |
@@ -79,6 +79,53 @@ curl -X POST http://localhost:8787/api/jobs/<job_id>/run-fake -H 'Cookie: ss_ses
 Each lane writes a health row `Last <lane> run`; red = the lane threw, note has the safe error.
 The brief steps also write `Monthly brief refresh` / `Weekly brief adjustment` (why it ran or
 did not). No fourth cron expression: the monthly refresh is a daily check that acts on the 1st.
+
+## Voice: built-in (free) and ElevenLabs (premium)
+
+Two engines, named the same on every screen, in `narrations.engine` and in the code
+(`worker/domain/voiceEngine.ts`):
+
+| Engine | What she sees | Where it runs | Cost |
+| --- | --- | --- | --- |
+| `built-in` | "Built-in voice (free): good quality, takes a few minutes per narration." | Chatterbox job on the GitHub runner (`jobs/voice.py`) | $0 |
+| `elevenlabs` | "ElevenLabs premium voice: best quality, seconds per narration, uses your ElevenLabs credits." | The Worker (`worker/services/elevenlabs.ts`, `worker/lib/premiumVoice.ts`): Instant Voice Clone + text to speech (`eleven_multilingual_v2`, `mp3_44100_128`) | Her own ElevenLabs credits |
+
+**The free voice always works without ElevenLabs.** Her consented sample always feeds the
+built-in voice; the premium clone is extra.
+
+**How Sheila connects ElevenLabs** (guide `connect-elevenlabs`): elevenlabs.io → log in → her
+profile (bottom left) → **API keys** → Create API key → copy → dashboard **Settings →
+Connections → Voice · premium** → paste → **Check key**. The card then shows her plan tier,
+characters used of this month's limit, and whether instant voice cloning is on her plan
+(Starter and above include it). A plan without cloning is accepted and says so plainly; the
+built-in voice is used.
+
+**What premium costs her:** her own ElevenLabs credits, about one credit per character of
+script (a 30-second narration is roughly 400 to 500 characters). Connect shows used / limit
+after each Check key and the daily lane re-reads it; the `Voice · ElevenLabs` light turns yellow
+under 10% left.
+
+Rules (unit-tested, `tests/unit/voice-engine.test.ts`):
+
+- **Premium only when all hold:** "Use premium voice when connected" is on (setting
+  `voice_engine_preference`, default `premium_when_available`), ElevenLabs is connected and
+  answering, her plan allows cloning, and the clone (`voice.elevenlabs_voice_id`) exists.
+  Anything else is built-in, and the Voice screen says why in one sentence.
+- **Clone:** made when she saves her sample, when she connects ElevenLabs with a sample already
+  saved, or before a narration if it is missing. Deleted from her ElevenLabs account on Delete
+  my voice, on a new sample and on Disconnect (best effort, logged).
+- **Fallback, never a stop:** 401 → connection marked broken, light red (fix
+  `reconnect-elevenlabs`); 402 or `detail.status` quota_exceeded (ElevenLabs sends that as a 401)
+  → light yellow "credits used up"; 429 / anything else → logged. In every case the narration is
+  made by the built-in voice and the toast says so in plain words.
+- The light (daily lane and Check everything now): grey not connected, green ok, yellow low
+  credits (< 10% left) or no cloning on her plan, red key refused.
+- Guards: validator `voice-engines` (every narration row has an engine; every ElevenLabs call
+  goes through one classified `elevenFetch`); validator `voice-script` (the ~3-minute read-aloud
+  script in `app/content/voice-script.md`, 400 to 520 words, a question and a number).
+- Fakes (`FAKE_SERVICES=1`): keys `good-…` work (creator, cloning), `good-nocloning-…` (no
+  cloning), `good-quota-…` (every character used; text to speech answers quota_exceeded);
+  anything else is refused.
 
 ## Staging
 
