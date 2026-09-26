@@ -1,10 +1,10 @@
 {
   "1-login": {
-    "resend_email_id": "01a0db53-ab36-7557-bfd8-623e85968807",
+    "resend_email_id": "01a0dc07-87cb-75dc-b312-72fac05fcc4e",
     "last_event": "delivered",
-    "at": "2026-09-26T01:28:10.423Z",
+    "at": "2026-09-26T04:44:41.624Z",
     "screenshot": "docs/design/live/01-home.jpg",
-    "last_login_provider_id": "01a0db08-e234-70ee-9146-bf6a04b17117",
+    "last_login_provider_id": "01a0dc07-87cb-75dc-b312-72fac05fcc4e",
     "role": "owner"
   },
   "8-health": {
@@ -241,5 +241,185 @@
     "at": "2026-09-26T03:12:23.298Z",
     "deleted": true,
     "deleted_screenshot": "docs/design/live/12-voice-deleted.jpg"
+  },
+  "11-mediakit": {
+    "slug": "sheila",
+    "versions": 2,
+    "public_url_path": "/kit/sheila",
+    "qr": true,
+    "pdf_pages": 1,
+    "edit_screenshot": "docs/design/live/11-kit-editor.jpg",
+    "public_screenshot": "docs/design/live/11-kit-public.jpg",
+    "at": "2026-09-26T05:18:07.256Z"
+  },
+  "16-looks": {
+    "dump_id": "dmp_hnhy6oar2004",
+    "clips": 28,
+    "looks": [
+      "clean",
+      "brand_card",
+      "side_by_side",
+      "reaction",
+      "cinematic",
+      "bold_hook",
+      "karaoke",
+      "hero_strip",
+      "split",
+      "grid_eight",
+      "grid_six",
+      "grid_four"
+    ],
+    "changed_clip": "clp_3vk7zrqcjcube8um",
+    "changed_from": "clean",
+    "file_changed": true,
+    "review_screenshot": "docs/design/live/16-looks-review.jpg",
+    "after_screenshot": "docs/design/live/16-looks-changed.jpg",
+    "at": "2026-09-26T05:20:17.994Z"
+  },
+  "10-deals": {
+    "finder_firecrawl": {
+      "job": "job_ocg0gluqa91r",
+      "run_id": 36220828966,
+      "light": {
+        "light": "green",
+        "note": "Last run found 4 new, refreshed 0"
+      },
+      "cards_above_line": 24,
+      "scores": [
+        0.57,
+        0.53,
+        0.48,
+        0.46,
+        0.43,
+        0.42,
+        0.41,
+        0.41,
+        0.41,
+        0.39,
+        0.38,
+        0.38,
+        0.38,
+        0.35,
+        0.3,
+        0.3,
+        0.2,
+        0.18,
+        0.15,
+        0.11,
+        0.1,
+        0.09,
+        0.08,
+        0.08
+      ],
+      "brands_suggested": 24,
+      "brands_paying_or_likely": 24
+    },
+    "finder_firecrawl_screenshot": "docs/design/live/10-deals-finder-firecrawl.jpg",
+    "at": "2026-09-26T05:53:20.415Z",
+    "finder_keyless": {
+      "job": "job_vfqx6l2vt9m1",
+      "run_id": 36221145903,
+      "light": {
+        "light": "green",
+        "note": "Last run found 4 new, refreshed 0"
+      },
+      "cards_above_line": 28,
+      "scores": [
+        0.57,
+        0.53,
+        0.48,
+        0.46,
+        0.43,
+        0.42,
+        0.41,
+        0.41,
+        0.41,
+        0.39,
+        0.38,
+        0.38,
+        0.38,
+        0.38,
+        0.35,
+        0.3,
+        0.3,
+        0.25,
+        0.25,
+        0.25,
+        0.2,
+        0.18,
+        0.15,
+        0.11,
+        0.1,
+        0.09,
+        0.08,
+        0.08
+      ],
+      "brands_suggested": 28,
+      "brands_paying_or_likely": 28
+    },
+    "finder_keyless_screenshot": "docs/design/live/10-deals-finder-keyless.jpg",
+    "pitch_brand": "Tableau on King",
+    "gmail_host": "mail.google.com",
+    "pitch_chars": 968,
+    "pitch_screenshot": "docs/design/live/10-deals-pitch.jpg",
+    "home_followup_screenshot": "docs/design/live/10-deals-home-followup.jpg",
+    "offer_screenshot": "docs/design/live/10-deals-offer.jpg",
+    "memo_screenshot": "docs/design/live/10-deals-memo.jpg",
+    "rate_card_packages": 4,
+    "emails_since_start": 0,
+    "emails_to_non_owner": 0
+  },
+  "15-cleanup": {
+    "posts_taken_off": 0,
+    "buffer_posts_deleted": 0,
+    "clips_deleted": 0,
+    "docs_removed": 1,
+    "narrations_deleted": 3,
+    "deals_closed": [
+      "Tableau on King",
+      "Phase0 Test Candles (TEST)"
+    ],
+    "deleted_on_platform_lights": [
+      {
+        "name": "Buffer",
+        "light": "green"
+      },
+      {
+        "name": "Instagram (via Buffer)",
+        "light": "green"
+      },
+      {
+        "name": "TikTok (via Buffer)",
+        "light": "green"
+      },
+      {
+        "name": "YouTube (via Buffer)",
+        "light": "green"
+      }
+    ],
+    "deleted_on_platform_posts": [
+      {
+        "platform": "youtube",
+        "status": "posted"
+      },
+      {
+        "platform": "instagram",
+        "status": "posted"
+      },
+      {
+        "platform": "tiktok",
+        "status": "posted"
+      }
+    ],
+    "connections_kept": [
+      "buffer",
+      "openrouter",
+      "elevenlabs",
+      "google",
+      "hunter",
+      "firecrawl",
+      "tiktok"
+    ],
+    "at": "2026-09-26T05:55:52.662Z"
   }
 }

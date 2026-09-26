@@ -10,13 +10,16 @@ import { d1, evidence, vaultSecret } from "./helpers";
 
 function testDumps(): string[] {
   const ev = JSON.parse(readFileSync("docs/design/live/evidence.json", "utf8")) as Record<string, { dump_id?: string }>;
-  return ["5-dump", "5b-dump-held", "5c-dump-synthetic"].map((k) => ev[k]?.dump_id).filter((x): x is string => !!x);
+  const ids = ["5-dump", "5b-dump-held", "5c-dump-synthetic"].map((k) => ev[k]?.dump_id).filter((x): x is string => !!x);
+  // the Looks check's dump (the 246 s third-party test video, cut by the Editing agent's run)
+  if (ev["16-looks"]?.dump_id) ids.push(ev["16-looks"].dump_id);
+  return ids;
 }
 
 test("15 · take the run's posts off, delete its clips, docs and voice overs", async ({ page }) => {
   test.setTimeout(10 * 60_000);
   const dumps = testDumps();
-  expect(dumps.length).toBe(3);
+  expect(dumps.length).toBeGreaterThanOrEqual(3);
   const inList = `('${dumps.join("','")}')`;
 
   // 1. Every planned / in-Buffer post of these clips comes off (the route also deletes it in Buffer).
@@ -44,7 +47,7 @@ test("15 · take the run's posts off, delete its clips, docs and voice overs", a
   for (const doc of docs) {
     await page.getByRole("button", { name: `Remove ${doc.file_name}` }).first().click();
     await page.getByRole("dialog").getByRole("button", { name: "Yes, remove it" }).click();
-    await expect(page.locator(".toast").filter({ hasText: "Removed." }).last()).toBeVisible();
+    await expect(page.getByRole("button", { name: `Remove ${doc.file_name}` })).toHaveCount(docs.filter((d) => d.file_name === doc.file_name).length - docs.slice(0, docs.indexOf(doc) + 1).filter((d) => d.file_name === doc.file_name).length);
   }
   expect(d1<{ n: number }>("SELECT COUNT(*) AS n FROM brand_docs WHERE file_name LIKE 'golden-table-%'")[0]!.n).toBe(0);
 
@@ -52,6 +55,25 @@ test("15 · take the run's posts off, delete its clips, docs and voice overs", a
   const narrations = d1<{ id: string }>("SELECT id FROM narrations WHERE script LIKE 'TEST narration%'");
   for (const n of narrations) expect((await page.request.delete(`/api/voice/narrations/${n.id}`)).ok()).toBe(true);
 
+  // 5. The run's deals close through the app's own stage move (there is no delete for a deal).
+  const deals = d1<{ id: string; name: string; stage: string }>("SELECT d.id, b.name, d.stage FROM deals d JOIN brands b ON b.id = d.brand_id WHERE d.stage NOT IN ('declined','lost','paid','done')");
+  for (const dl of deals) {
+    const r = await page.request.post(`/api/deals/deals/${dl.id}/stage`, { data: { stage: dl.name.includes("(TEST)") ? "declined" : "lost", reason: dl.name.includes("(TEST)") ? "Not a fit for my audience" : "They went with someone else" } });
+    expect(r.ok(), `${dl.name}: ${await r.text()}`).toBe(true);
+  }
+
+  // 6. A post removed on the platform (the owner deleted the Instagram and TikTok TEST posts):
+  //    Buffer still reports it sent, the dashboard never re-reads a posted post, so no red light,
+  //    no "needs you" / posting-problem email and no re-post. Re-check everything to prove it.
+  const since = new Date().toISOString();
+  expect((await page.request.post("/api/settings/health/recheck")).ok()).toBe(true);
+  const lights = d1<{ name: string; light: string }>("SELECT name, light FROM health WHERE name IN ('Buffer','TikTok (via Buffer)','Instagram (via Buffer)','YouTube (via Buffer)')");
+  expect(lights.every((l) => l.light === "green"), JSON.stringify(lights)).toBe(true);
+  const posted = d1<{ platform: string; status: string }>("SELECT platform, status FROM posts WHERE url IN ('https://tiktok.com/@iamcindymercer/video/7689660837077847309','https://www.instagram.com/reel/DdvCgMMFRhk/','https://www.youtube.com/shorts/lFDhkdWMj0w')");
+  expect(posted.every((p) => p.status === "posted")).toBe(true);
+  expect(d1<{ n: number }>(`SELECT COUNT(*) AS n FROM emails_sent WHERE kind IN ('posting_problem','connection_needs_you') AND sent_at >= '${since}'`)[0]!.n).toBe(0);
+  expect(d1<{ n: number }>("SELECT COUNT(*) AS n FROM posts WHERE status IN ('planned','in_buffer')")[0]!.n).toBe(0);
+
   const left = d1<{ service: string; status: string }>("SELECT service, status FROM connections WHERE status = 'ok'");
-  evidence("15-cleanup", { posts_taken_off: active.length, buffer_posts_deleted: pulledFromBuffer.length, clips_deleted: clips.length, docs_removed: docs.length, narrations_deleted: narrations.length, connections_kept: left.map((c) => c.service) });
+  evidence("15-cleanup", { posts_taken_off: active.length, buffer_posts_deleted: pulledFromBuffer.length, clips_deleted: clips.length, docs_removed: docs.length, narrations_deleted: narrations.length, deals_closed: deals.map((d) => d.name), deleted_on_platform_lights: lights, deleted_on_platform_posts: posted, connections_kept: left.map((c) => c.service) });
 });
