@@ -68,6 +68,8 @@ def kind_of(http: int, reason: str | None, thumbnail: bool = False) -> str:
         return "quota"
     if r == "uploadLimitExceeded":
         return "upload_limit"
+    if r in ("insufficientPermissions", "ACCESS_TOKEN_SCOPE_INSUFFICIENT", "PERMISSION_DENIED"):
+        return "scope"
     if http == 401 or r in ("authError", "invalid_grant", "unauthorized_client"):
         return "revoked"
     if r == "invalidPublishAt":
@@ -233,7 +235,7 @@ def upload(uploader: Uploader, spec: dict[str, Any], video: Path, thumb: bytes |
         video_res = uploader.send(session, video, size, int(spec.get("chunk_bytes") or 8 * 1024 * 1024), progress)
     except YouTubeError as e:
         kind = kind_of(e.http, e.reason)
-        outcome = kind if kind in ("quota", "upload_limit", "revoked") else "failed"
+        outcome = kind if kind in ("quota", "upload_limit", "revoked", "scope") else "failed"
         log("yt.upload.failed", status=e.http, kind=kind)
         return {"outcome": outcome, "http": e.http, "reason": (e.reason or "")[:40], "resumed": uploader.resumed}
     vid = video_res.get("id")

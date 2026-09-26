@@ -74,6 +74,9 @@ dashboard uses her Google account's permission for her YouTube channel to:</p>
   <li><strong>Read</strong> her channel's name, id and those videos' status back, to check each
   upload landed the way she asked, and her public video numbers for her Stats screen.</li>
 </ul>
+<p>Google's consent page words the second permission as "see, edit, and permanently delete your YouTube
+videos"; YouTube only offers the right to change a video's publish time together with that wording. The
+dashboard uses it only to read back, reschedule and make private the videos it uploaded.</p>
 <p>It does not read her email, contacts, comments, messages or anything outside her YouTube channel,
 and it does nothing on YouTube she did not ask for in the dashboard.</p>
 

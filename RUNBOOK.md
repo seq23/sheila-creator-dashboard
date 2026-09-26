@@ -558,7 +558,7 @@ Shorts, TikTok and Instagram clips. Code: `worker/domain/youtubeDirect.ts` (rule
 fake YouTube), `worker/jobs/ytupload.ts` + `jobs/ytupload.py` + `.github/workflows/job-ytupload.yml`
 (the upload), migration `0017_youtube_direct.sql` (`youtube_uploads`, connection `youtube`).
 
-- **Sign-in:** `/api/oauth/youtube/start` asks youtube.upload + youtube.readonly, offline, prompt
+- **Sign-in:** `/api/oauth/youtube/start` asks youtube.upload + youtube.force-ssl (videos.update refuses anything less: 403 insufficientPermissions, measured 26 Sep 2026; a sign-in missing one turns red with "Reconnect YouTube once"), offline, prompt
   consent, include_granted_scopes; Google returns to the one registered callback
   `/api/oauth/google/callback` (the state cookie says which flow). Google Cloud project
   `sheilastudio-staging-p0`, External, In production (unverified), staging and production each have

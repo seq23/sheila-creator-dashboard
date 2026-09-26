@@ -3,7 +3,7 @@
 // bodies (shared/youtube-errors.json): upload → read back, Calendar move → publishAt, taken off →
 // private and kept, 3 a day, quota, revoked sign-in, refused publish time, unverified thumbnail,
 // kept private, an interrupted upload; the job's token endpoint; validator youtube-direct negatively.
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Hono } from "hono";
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -125,7 +125,7 @@ function seedVideo(privacy: "public" | "unlisted" | "private", hoursAhead: numbe
 }
 
 async function connect() {
-  await saveConnection(env, "youtube", JSON.stringify({ access_token: "fake-youtube-token", refresh_token: "fake-refresh", expires_at: new Date(Date.now() + H).toISOString(), account_id: "UCx" }), "ok", { account: "Sheila Bruce" });
+  await saveConnection(env, "youtube", JSON.stringify({ access_token: "fake-youtube-token", refresh_token: "fake-refresh", expires_at: new Date(Date.now() + H).toISOString(), account_id: "UCx" }), "ok", { account: "Sheila Bruce", scopes: ["https://www.googleapis.com/auth/youtube.upload", "https://www.googleapis.com/auth/youtube.force-ssl"] });
 }
 async function scenario(s: FakeScenario) {
   const f = await readFake(env);
@@ -278,6 +278,30 @@ describe("the failure shapes: named, lit, never silent", () => {
     expect(upload(v.clip).status).toBe("scheduled");
   });
 
+  it("a sign-in from before force-ssl (upload + readonly) → red, Reconnect YouTube once, never a silent 403", async () => {
+    await saveConnection(env, "youtube", JSON.stringify({ access_token: "a", refresh_token: "r", expires_at: new Date(Date.now() + H).toISOString(), account_id: "UCx" }), "ok", { account: "Sequoia Taylor", scopes: ["https://www.googleapis.com/auth/youtube.upload", "https://www.googleapis.com/auth/youtube.readonly"] });
+    seedVideo("public", 2);
+    expect((await youtubeDirectSync(env)).dispatched).toBe(0);
+    expect(one<{ status: string; last_error: string }>("SELECT status, last_error FROM connections WHERE service = 'youtube'")).toEqual({ status: "error", last_error: expect.stringMatching(/^Reconnect YouTube once so the dashboard can also move and hide/) });
+    expect(light()).toMatchObject({ light: "red", fix_guide: "reconnect-youtube" });
+  });
+
+  it("videos.update refused for a missing permission (the real 403 body) → reconnect named, the failure recorded with its reason", async () => {
+    await connect();
+    const v = seedVideo("public", 3);
+    await youtubeDirectSync(env);
+    await runJob(v);
+    // stand-in YouTube answers the next update with the real insufficientPermissions body
+    const svc = await import("@worker/services/youtubeDirect");
+    const orig = svc.getYouTubeDirect;
+    const spy = vi.spyOn(svc, "getYouTubeDirect").mockImplementation((e) => ({ ...orig(e), updateStatus: async () => svc.fixtureFail("insufficient_scope") }));
+    await call("POST", `/api/posts/${v.post}/unschedule`);
+    spy.mockRestore();
+    expect(JSON.parse(one<{ detail: string }>("SELECT detail FROM events WHERE kind = 'ytdirect.fail'").detail)).toEqual({ step: "update", kind: "scope", http: 403, reason: "insufficientPermissions" });
+    expect(one<{ status: string }>("SELECT status FROM connections WHERE service = 'youtube'").status).toBe("error");
+    expect(light()).toMatchObject({ light: "red", fix_guide: "reconnect-youtube" });
+  });
+
   it("the job's token endpoint: only a running ytupload job, only a short-lived access token; 409 when revoked", async () => {
     await connect();
     const v = seedVideo("public", 2);
@@ -387,7 +411,8 @@ describe("validator youtube-direct", () => {
       ["a delete", (g) => (g.service += '\nfetch(u, { method: "DELETE" });\n'), /never delete a video/],
       ["cap raised", (g) => (g.domain = g.domain.replace("YT_UPLOADS_PER_DAY = 3;", "YT_UPLOADS_PER_DAY = 6;")), /must be 3/],
       ["cap not enforced", (g) => (g.lib = g.lib.replace("const cap = capNote(today);", "const cap = null;")), /daily cap/],
-      ["extra scope", (g) => (g.lib = g.lib.replace('"https://www.googleapis.com/auth/youtube.readonly"]', '"https://www.googleapis.com/auth/youtube.readonly", "https://www.googleapis.com/auth/youtube"]')), /exactly youtube\.upload/],
+      ["extra scope", (g) => (g.lib = g.lib.replace('"https://www.googleapis.com/auth/youtube.force-ssl"]', '"https://www.googleapis.com/auth/youtube.force-ssl", "https://www.googleapis.com/auth/youtube"]')), /exactly youtube\.upload/],
+      ["update scope missing", (g) => (g.lib = g.lib.replace('"https://www.googleapis.com/auth/youtube.force-ssl"]', '"https://www.googleapis.com/auth/youtube.readonly"]')), /exactly youtube\.upload/],
       ["take off not followed", (g) => (g.posts = g.posts.replace("await followYouTube(c.env, [post.clip_id]);", "")), /follow YouTube/],
       ["hourly lane", (g) => (g.cron = g.cron.replace("await youtubeDirectSync(env);", "")), /hourly lane/],
       ["token endpoint leaks", (g) => (g.jobsRoute = g.jobsRoute.replace("c.json({ access_token: tok.access_token, expires_at: tok.expires_at }", "c.json({ ...tok }")), /only the access token/],

@@ -81,7 +81,7 @@ export function verifyReadBack(intent: Intent, got: ReadBack | null): Verdict {
   return { ok: false, why: "privacy", note: `YouTube shows it as ${got.privacyStatus ?? "unknown"}, not ${intent.privacyStatus}. Open it in YouTube Studio and set who can see it.`, guide: "post-a-full-video" };
 }
 
-export type ErrorKind = "quota" | "upload_limit" | "revoked" | "publish_at" | "thumb_verify" | "retry" | "other";
+export type ErrorKind = "quota" | "upload_limit" | "revoked" | "scope" | "publish_at" | "thumb_verify" | "retry" | "other";
 
 /**
  * YouTube's and Google's error shapes (shared/youtube-errors.json, the real bodies),
@@ -92,6 +92,8 @@ export function classifyError(http: number, reason: string | null | undefined, o
   const r = (reason ?? "").trim();
   if (r === "quotaExceeded" || r === "dailyLimitExceeded" || r === "rateLimitExceeded" || r === "userRateLimitExceeded") return "quota";
   if (r === "uploadLimitExceeded") return "upload_limit";
+  // The sign-in lacks a permission the call needs (insufficientPermissions / ACCESS_TOKEN_SCOPE_INSUFFICIENT): reconnect.
+  if (r === "insufficientPermissions" || r === "ACCESS_TOKEN_SCOPE_INSUFFICIENT" || r === "PERMISSION_DENIED") return "scope";
   if (http === 401 || r === "authError" || r === "invalid_grant" || r === "unauthorized_client") return "revoked";
   if (r === "invalidPublishAt") return "publish_at";
   if (opts.thumbnail && http === 403) return "thumb_verify";
