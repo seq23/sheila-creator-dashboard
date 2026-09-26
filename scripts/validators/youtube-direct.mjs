@@ -5,13 +5,13 @@
 //   - her videos are never deleted: no videos.delete / DELETE call to YouTube anywhere
 //   - the quota cap: at most YT_UPLOADS_PER_DAY = 3 uploads a day, enforced by capNote in the sync
 //   - the status part: madeForKids false, synthetic media declared, publishAt only 15+ min ahead
-//   - the scopes are exactly youtube.upload + youtube.readonly
+//   - the scopes are exactly youtube.upload + youtube.force-ssl (update needs force-ssl, measured 26 Sep 2026)
 //   - the Calendar is followed: the hourly lane runs the sync, and move / swap / take off reconcile
 //   - every YouTube failure shape (shared/youtube-errors.json) is named and tested
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
-const KINDS = ["quota", "upload_limit", "revoked", "publish_at", "thumb_verify", "retry", "other"];
+const KINDS = ["quota", "upload_limit", "revoked", "scope", "publish_at", "thumb_verify", "retry", "other"];
 
 export function checkYouTubeDirect(src) {
   const problems = [];
@@ -34,7 +34,7 @@ export function checkYouTubeDirect(src) {
   check(/const cap = capNote\(today\);/.test(lib), "worker/lib/youtubeDirect.ts youtubeDirectSync must hold uploads past the daily cap (capNote)");
   check(/export const PUBLISH_AT_MIN_LEAD_MS = 15 \* 60_000;/.test(domain), "worker/domain/youtubeDirect.ts: a publish time closer than 15 minutes goes up at once");
   check(/selfDeclaredMadeForKids: false, containsSyntheticMedia: aiVoice/.test(domain), "worker/domain/youtubeDirect.ts statusPart must send madeForKids false and declare an automatic voice over");
-  check(/export const YT_UPLOAD_SCOPES = \["https:\/\/www\.googleapis\.com\/auth\/youtube\.upload", "https:\/\/www\.googleapis\.com\/auth\/youtube\.readonly"\];/.test(lib), "worker/lib/youtubeDirect.ts: the scopes must be exactly youtube.upload + youtube.readonly");
+  check(/export const YT_UPLOAD_SCOPES = \["https:\/\/www\.googleapis\.com\/auth\/youtube\.upload", "https:\/\/www\.googleapis\.com\/auth\/youtube\.force-ssl"\];/.test(lib), "worker/lib/youtubeDirect.ts: the scopes must be exactly youtube.upload + youtube.force-ssl");
   check(/oauth\.get\("\/youtube\/start"/.test(oauth) && /u\.searchParams\.set\("scope", YT_UPLOAD_SCOPES\.join\(" "\)\)/.test(oauth) && /u\.searchParams\.set\("access_type", "offline"\)/.test(oauth) && /include_granted_scopes", "true"/.test(oauth), "worker/routes/oauth.ts: Connect YouTube must ask for the upload scopes, offline, incrementally");
   check(/await youtubeDirectSync\(env\);/.test(cron), "worker/crons/index.ts: the hourly lane must run youtubeDirectSync");
   const follows = (posts.match(/await followYouTube\(c\.env, /g) ?? []).length;

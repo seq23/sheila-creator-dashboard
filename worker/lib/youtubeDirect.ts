@@ -40,8 +40,19 @@ import {
 import { composeDescription, type FullVideoDetails, type FullVideoPrivacy } from "../domain/fullVideo";
 import { POSTABLE_CLIP_SQL } from "../domain/sourceCheck";
 
-/** youtube.upload to put videos on her channel, youtube.readonly to read them back. Nothing else. */
-export const YT_UPLOAD_SCOPES = ["https://www.googleapis.com/auth/youtube.upload", "https://www.googleapis.com/auth/youtube.readonly"];
+/**
+ * youtube.upload puts videos on her channel; youtube.force-ssl reads them back and changes their
+ * publish time and privacy (videos.list / videos.update refuse youtube.upload + youtube.readonly with
+ * 403 insufficientPermissions: measured on staging 26 Sep 2026). Nothing else. The dashboard never
+ * deletes a video (validator youtube-direct), though Google words force-ssl as "edit and delete".
+ */
+export const YT_UPLOAD_SCOPES = ["https://www.googleapis.com/auth/youtube.upload", "https://www.googleapis.com/auth/youtube.force-ssl"];
+/** A sign-in without both scopes cannot follow the Calendar: it needs Reconnect YouTube. */
+export const RESCOPE_NOTE = "Reconnect YouTube once so the dashboard can also move and hide the videos it uploads (Google asks again for that). Until then new full videos wait on Home under Upload it yourself.";
+export function hasAllScopes(scope: string | null | undefined): boolean {
+  const got = (scope ?? "").split(/\s+/);
+  return YT_UPLOAD_SCOPES.every((s) => got.includes(s));
+}
 export const RECONNECT_GUIDE = "reconnect-youtube";
 export const CONNECT_GUIDE = "connect-youtube-full-videos";
 /** YouTube category 26 = Howto & Style (hosting, tablescapes, events); the same one Buffer's posts use. */
@@ -75,7 +86,12 @@ export interface UploadRow {
 }
 
 export async function directMode(env: Env): Promise<DirectMode> {
-  const row = await env.DB.prepare("SELECT status FROM connections WHERE service = 'youtube'").first<{ status: string }>();
+  const row = await env.DB.prepare("SELECT status, meta FROM connections WHERE service = 'youtube'").first<{ status: string; meta: string }>();
+  if (row?.status === "ok" && !hasAllScopes(parseJson<{ scopes?: string[] }>(row.meta, {}).scopes?.join(" "))) {
+    // Connected before the dashboard asked for everything it needs: one reconnect, named.
+    await markBroken(env, RESCOPE_NOTE);
+    return "broken";
+  }
   return row?.status === "ok" ? "on" : row?.status === "error" ? "broken" : "off";
 }
 
@@ -198,7 +214,7 @@ export async function buildUploadSpec(env: Env, jobId: string, ref: string | nul
 }
 
 export interface UploadOutcome {
-  outcome?: "uploaded" | "quota" | "upload_limit" | "revoked" | "failed";
+  outcome?: "uploaded" | "quota" | "upload_limit" | "revoked" | "scope" | "failed";
   video_id?: string;
   thumbnail?: "set" | "needs_verify" | "failed" | "none";
   publish_at_rejected?: boolean;
@@ -251,7 +267,12 @@ async function readBackAndVerify(env: Env, clipId: string, token: string, publis
 /** A named failure from YouTube or Google: the row, the light and the fallback, never silent. */
 async function nameFailure(env: Env, clipId: string, f: Pick<YtFail, "kind" | "http"> & { reason?: string | null }, step: string): Promise<void> {
   const now = new Date();
-  log.warn("ytdirect.fail", { step, kind: f.kind, http: f.http });
+  log.warn("ytdirect.fail", { step, kind: f.kind, http: f.http, reason: (f.reason ?? "").slice(0, 40) });
+  await recordEvent(env.DB, "ytdirect.fail", clipId, { step, kind: f.kind, http: f.http, reason: f.reason ?? null });
+  if (f.kind === "scope") {
+    await markBroken(env, RESCOPE_NOTE);
+    return;
+  }
   if (f.kind === "quota" || f.kind === "upload_limit") {
     // Waits for tomorrow's allowance: yellow, nothing for her to do.
     const r = await row(env, clipId);
@@ -290,7 +311,7 @@ export async function applyUpload(env: Env, jobId: string, ref: string | null, r
     return;
   }
   if (r.outcome !== "uploaded" || !r.video_id || !/^[\w-]{11}$/.test(r.video_id)) {
-    const kind = r.outcome === "quota" ? "quota" : r.outcome === "upload_limit" ? "upload_limit" : r.outcome === "revoked" ? "revoked" : "other";
+    const kind = r.outcome === "quota" ? "quota" : r.outcome === "upload_limit" ? "upload_limit" : r.outcome === "revoked" ? "revoked" : r.outcome === "scope" ? "scope" : "other";
     await nameFailure(env, clipId, { kind, http: Number(r.http) || 0, reason: r.reason ?? null }, "upload");
     return;
   }

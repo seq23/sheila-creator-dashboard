@@ -278,7 +278,8 @@ export const MOCKS: Record<string, Frame> = {
   ]),
   "youtube-allow": apiPage("Google", "accounts.google.com/consent", [], "", "seq-taylor.workers.dev wants access to your Google Account", [
     { k: "check", v: "Manage your YouTube videos", on: true },
-    { k: "check", v: "View your YouTube account", on: true },
+    { k: "check", v: "See, edit, and permanently delete your YouTube videos, ratings, comments and captions", on: true },
+    { k: "p", v: "The dashboard only uploads, moves and hides your videos. It never deletes one." },
     { k: "btn", v: "Continue", hl: true },
   ]),
   "youtube-channel": apiPage("YouTube", "youtube.com", ["Home", "Shorts", "You"], "You", "Your channel", [

@@ -43,7 +43,7 @@ Tap **Go to seq-taylor.workers.dev (unsafe)**. Google says "unsafe" only because
 ![Step 5](/help/screenshots/connect-youtube-full-videos-5.png)
 <!-- mock: youtube-allow -->
 
-Leave both boxes ticked and tap **Continue**. You're back on Connect with a green light. That's all: nothing else to do, ever.
+Leave both boxes ticked and tap **Continue**. Google words the second box "edit and delete"; the dashboard only moves and hides your videos, never deletes one. You're back on Connect with a green light. That's all: nothing else to do, ever.
 
 ## Did this work?
 

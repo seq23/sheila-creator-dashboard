@@ -31,7 +31,7 @@ Pick your account. On **Google hasn't verified this app**, tap the small **Advan
 <!-- mock: youtube-allow -->
 <!-- shared -->
 
-Leave both boxes ticked and tap **Continue**. The light turns green and waiting videos upload within the hour.
+Leave both boxes ticked and tap **Continue** (the dashboard never deletes a video). The light turns green and waiting videos upload within the hour.
 
 ## Did this work?
 

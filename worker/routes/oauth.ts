@@ -27,7 +27,7 @@ import { parseJson, recordEvent, setHealth } from "../lib/db";
 import { fail } from "../lib/http";
 import { newId } from "../lib/ids";
 import { log, safeError } from "../lib/log";
-import { markBroken as markYouTubeBroken, writeLight as writeYouTubeLight, YT_UPLOAD_SCOPES } from "../lib/youtubeDirect";
+import { hasAllScopes, markBroken as markYouTubeBroken, writeLight as writeYouTubeLight, YT_UPLOAD_SCOPES } from "../lib/youtubeDirect";
 
 export const oauth = new Hono<{ Bindings: Env; Variables: Vars }>();
 oauth.use("*", requireUser);
@@ -74,7 +74,7 @@ async function failConnect(env: Env, p: StatsProvider, why: string) {
 }
 
 /**
- * "Connect YouTube (full videos)": her own Google sign-in with youtube.upload + youtube.readonly,
+ * "Connect YouTube (full videos)": her own Google sign-in with youtube.upload + youtube.force-ssl,
  * offline (a refresh token), consent every time, incremental (include_granted_scopes keeps the
  * optional Stats sign-in's scopes). Google sends her back to the ONE registered callback,
  * /api/oauth/google/callback; the state cookie says it was this flow. Stored as its own connection
@@ -179,7 +179,7 @@ oauth.get("/:provider/callback", requireOwner, async (c) => {
     try {
       const { token, account, scope } = await exchangeGoogle(c.env, app, code);
       // Google's consent page lets her untick a box: without upload the videos cannot go up.
-      if (!scope.split(" ").includes(YT_UPLOAD_SCOPES[0])) throw new OAuthStop("no_upload", "Google didn't give permission to upload. Tap Connect YouTube again and leave every box ticked, then tap Continue.");
+      if (!hasAllScopes(scope)) throw new OAuthStop("no_upload", "Google didn't give permission to upload. Tap Connect YouTube again and leave every box ticked, then tap Continue.");
       await storeYouTube(c.env, token, account, scope, c.get("user").email);
       return c.redirect(back("connected=youtube"));
     } catch (e) {
