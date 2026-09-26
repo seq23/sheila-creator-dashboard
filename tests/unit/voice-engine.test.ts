@@ -7,11 +7,12 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { Hono } from "hono";
 import type { Env, Vars } from "@worker/env";
 import { fakeServices } from "@worker/env";
-import { chooseEngine, classifyElevenError, elevenLabsLight, fallbackNotice, mp3Duration, shouldClone, type EngineInputs, type EnginePreference } from "@worker/domain/voiceEngine";
+import { chooseEngine, classifyElevenError, elevenLabsLight, fallbackNotice, homeVoiceCard, mp3Duration, shouldClone, type EngineInputs, type EnginePreference } from "@worker/domain/voiceEngine";
 import { fakeElevenVoices, resetFakeElevenLabs, silentMp3 } from "@worker/services/elevenlabs";
 import { recheckElevenLabs } from "@worker/lib/premiumVoice";
 import { saveConnection } from "@worker/lib/connections";
-import { setSetting } from "@worker/lib/db";
+import { getSetting, setSetting } from "@worker/lib/db";
+import { DEFAULT_FEATURES } from "@shared/constants";
 import { voice } from "@worker/routes/voice";
 import { connections } from "@worker/routes/connections";
 import { sqliteD1 } from "./helpers/sqlite-d1";
@@ -260,7 +261,7 @@ describe("clone, narrate, fall back", () => {
     expect(n.status).toBe(200);
     expect(n.json.engine).toBe("built-in");
     expect(n.json.jobId).toMatch(/^job_/);
-    expect(n.json.notice).toBe("Your ElevenLabs credits are used up, so this narration uses your built-in voice. It shows up below in a few minutes.");
+    expect(n.json.notice).toBe("Your ElevenLabs credits are used up, so this voice over uses your built-in voice. It shows up below in a few minutes.");
     expect(narration(n.json.id as string)).toMatchObject({ engine: "built-in", status: "queued" });
     expect(light()).toMatchObject({ light: "yellow", note: expect.stringMatching(/credits used up/) });
     expect(conn()?.status).toBe("ok");
@@ -341,5 +342,44 @@ describe("daily lane: recheckElevenLabs", () => {
     await recheckElevenLabs(env);
     expect(light()).toMatchObject({ light: "red", fix_guide: "reconnect-elevenlabs" });
     expect(conn()?.status).toBe("error");
+  });
+});
+
+describe("Home: the Your voice card", () => {
+  const ready = { hasSample: true, engine: "built-in" as const, connection: null, problem: null };
+  it("not set up, built-in ready (with or without the premium hint), premium on, problem", () => {
+    expect(homeVoiceCard({ ...ready, hasSample: false })).toEqual({ state: "not_set_up", line: "Optional: record your voice so your clips can have voice overs in it", link: { to: "/voice", label: "Set up in 5 steps" } });
+    expect(homeVoiceCard(ready)).toEqual({ state: "built_in_ready", line: "Built-in voice ready · Premium available with ElevenLabs", link: { to: "/voice", label: "Manage" } });
+    expect(homeVoiceCard({ ...ready, connection: "ok" }).line).toBe("Built-in voice ready");
+    expect(homeVoiceCard({ ...ready, engine: "elevenlabs", connection: "ok" })).toMatchObject({ state: "premium_on", line: "Premium voice on" });
+    expect(homeVoiceCard({ ...ready, hasSample: false, problem: { note: "ElevenLabs refused the key · voice overs use the built-in voice", fix: "reconnect-elevenlabs" } })).toEqual({
+      state: "problem",
+      line: "ElevenLabs refused the key · voice overs use the built-in voice",
+      link: { to: "/help/reconnect-elevenlabs", label: "How to fix" },
+    });
+  });
+});
+
+describe("nothing hidden, nothing switched off", () => {
+  it("every feature defaults on, in the constant and in a fresh database", async () => {
+    expect(Object.values(DEFAULT_FEATURES).every((v) => v === true)).toBe(true);
+    const fresh = sqliteD1();
+    expect(await getSetting(fresh.DB, "features", {})).toEqual({ voice: true, deeper_research: true, weekly_recap: true, help_ask: true });
+  });
+
+  it("Voice overs on clips off: her voice can still be saved; narrations and drafts refuse; the switch persists", async () => {
+    expect((await call("PATCH", "/api/voice/clips", { on: "yes" })).status).toBe(422);
+    expect((await call("PATCH", "/api/voice/clips", { on: false })).json).toEqual({ ok: true, enabled: false });
+    expect((await getSetting<Record<string, boolean>>(env.DB, "features", {})).voice).toBe(false);
+    expect((await saveSample()).status).toBe(200);
+    const n = await narrate();
+    expect(n.status).toBe(409);
+    expect(n.json).toMatchObject({ error: "Voice overs on clips is off. Switch it on on the Voice overs screen first.", fix_guide: "record-your-voice" });
+    expect((await call("POST", "/api/voice/draft", {})).status).toBe(409);
+    expect((await call("GET", "/api/voice")).json).toMatchObject({ enabled: false, hasSample: true });
+    await call("PATCH", "/api/voice/clips", { on: true });
+    const f = await getSetting<Record<string, boolean>>(env.DB, "features", {});
+    expect(f).toEqual({ voice: true, deeper_research: false, weekly_recap: true, help_ask: false });
+    expect((await narrate()).status).toBe(200);
   });
 });

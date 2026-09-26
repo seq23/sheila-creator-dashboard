@@ -134,9 +134,9 @@ export function Settings() {
           <section className="section">
             <h2>Features</h2>
             <Card>
-              <Switch label="Voice narration" hint="Shows the Voice tab. Clips stay real footage." checked={draft.features.voice} onChange={(v) => owner && save({ features: { ...draft.features, voice: v } })} />
-              <Switch label="Deeper web research" hint="Perplexity search through OpenRouter, about $0.25 per brief. Off = free only." checked={draft.features.deeper_research} onChange={(v) => owner && save({ features: { ...draft.features, deeper_research: v } })} />
-              <Switch label="Weekly recap email" hint="Monday: last week’s top clip, runway, what’s scheduled." checked={draft.features.weekly_recap} onChange={(v) => owner && save({ features: { ...draft.features, weekly_recap: v } })} />
+              <Switch label="Voice overs on clips" hint="Off = clips stay real footage with no voice over. On = voice overs are made in your voice." checked={draft.features.voice} onChange={(v) => owner && save({ features: { ...draft.features, voice: v } })} />
+              <Switch label="Deeper web research" hint="Off = the brief uses the free web search only. On = Perplexity search through OpenRouter too, about $0.25 per brief, only when OpenRouter is connected." checked={draft.features.deeper_research} onChange={(v) => owner && save({ features: { ...draft.features, deeper_research: v } })} />
+              <Switch label="Weekly recap email" hint="Off = no Monday email. On = every Monday: last week’s top clip, runway, what’s scheduled." checked={draft.features.weekly_recap} onChange={(v) => owner && save({ features: { ...draft.features, weekly_recap: v } })} />
             </Card>
             <Card>
               <div className="set-row">

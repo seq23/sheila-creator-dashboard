@@ -125,6 +125,16 @@ export function Home() {
                 </ul>
               )}
             </Card>
+            <div className="card home-voice" data-voice={data.voice.state}>
+              <div className="card-label">Your voice overs</div>
+              <div className={`home-voice-line${data.voice.state === "problem" ? " bad" : ""}`}>
+                {data.voice.state === "problem" ? <Dot light="red" /> : null}
+                <span>{data.voice.line}</span>
+              </div>
+              <Link to={data.voice.link.to} className="home-go">
+                {data.voice.link.label} <Icon name="arrow" size="sm" />
+              </Link>
+            </div>
           </div>
 
           <div className="split">

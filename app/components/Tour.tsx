@@ -12,7 +12,7 @@ export const TOUR_STEPS: { to: string; title: string; text: string }[] = [
   { to: "/review", title: "Review", text: "New clips wait here for you. Approve the ones you like. Nothing ever posts without your yes." },
   { to: "/calendar", title: "Calendar", text: "Approved clips fill your week on their own, up to 10 posts per channel. Drag one to move it." },
   { to: "/deals", title: "Deals", text: "Brands that fit you, with the right public contact and a pitch ready. You send it yourself from Gmail." },
-  { to: "/help", title: "Help", text: "Stuck? Every screen has a ? button, and Help has picture-by-picture guides. You can replay this tour there." },
+  { to: "/help", title: "Help", text: "Stuck? Tap ? on any screen, or Help for picture guides and to replay this tour. Voice overs start on Home." },
 ];
 
 function tourDone(): boolean {

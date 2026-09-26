@@ -72,7 +72,7 @@ describe("open mode (production)", () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as Me;
     expect(body).toMatchObject({ email: OWNER, role: "owner", appName: "Sheila Studio", authMode: "open" });
-    expect(body.features).toMatchObject({ voice: false });
+    expect(body.features).toEqual({ voice: true, deeper_research: true, weekly_recap: true, help_ask: true }); // nothing switched off (migration 0010)
   });
 
   it("every /api/auth route is a 404 (no code is made, no email is sent)", async () => {

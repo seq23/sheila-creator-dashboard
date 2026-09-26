@@ -5,7 +5,7 @@
 // the truth rules (domain/brief.ts) before storing a new draft version.
 import type { JobHandler } from "./registry";
 import type { Env } from "../env";
-import { DEFAULT_WEEKLY_CAPS, LAUNCH_SLOTS, PLATFORMS, type Platform } from "@shared/constants";
+import { DEFAULT_FEATURES, DEFAULT_WEEKLY_CAPS, LAUNCH_SLOTS, PLATFORMS, type Platform } from "@shared/constants";
 import type { BriefBody, BriefSource, Features } from "@shared/types";
 import { getConnectionSecret } from "../lib/connections";
 import { getSetting, parseJson, recordEvent } from "../lib/db";
@@ -57,7 +57,7 @@ async function buildSpec(env: Env, jobId: string) {
   const { results: uploads } = await env.DB.prepare("SELECT id, file_name, r2_key FROM research_uploads ORDER BY uploaded_at DESC LIMIT 10").all<{ id: string; file_name: string; r2_key: string }>();
   const present: typeof uploads = [];
   for (const u of uploads) if (await env.FILES.head(u.r2_key)) present.push(u);
-  const features = await getSetting<Features>(env.DB, "features", { voice: false, deeper_research: false, weekly_recap: true, help_ask: false });
+  const features = await getSetting<Features>(env.DB, "features", { ...DEFAULT_FEATURES });
   return {
     job_id: jobId,
     type: "research",

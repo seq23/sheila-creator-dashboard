@@ -6,6 +6,7 @@ import type { Features, Me } from "@shared/types";
 import { signSession, verifySessionCookie } from "./crypto";
 import { getSetting } from "./db";
 import { newId, nowIso, addDays } from "./ids";
+import { DEFAULT_FEATURES } from "@shared/constants";
 
 export const SESSION_COOKIE = "ss_session";
 const SESSION_DAYS = 30;
@@ -95,6 +96,6 @@ export async function requireOwner(c: C, next: Next) {
 
 /** The signed-in person as the app sees them (GET /api/me, and /api/auth/me in code mode). */
 export async function meFor(env: Env, user: SessionUser): Promise<Me> {
-  const features = await getSetting<Features>(env.DB, "features", { voice: false, deeper_research: false, weekly_recap: true, help_ask: false });
+  const features = await getSetting<Features>(env.DB, "features", { ...DEFAULT_FEATURES });
   return { id: user.id, email: user.email, role: user.role, appName: env.APP_NAME, features, authMode: authMode(env) };
 }

@@ -35,7 +35,7 @@ const WHY: Record<EngineReason, string> = {
   needs_reconnect: "ElevenLabs refused your key, so the built-in voice is used until you reconnect it.",
   no_cloning: "Your ElevenLabs plan does not include voice cloning; the built-in voice will be used.",
   no_premium_voice: "Your premium voice is not made yet, so the built-in voice is used. Save your voice again to make it.",
-  no_sample: "Save your voice first. Then every narration uses the voice named here.",
+  no_sample: "Save your voice first. Then every voice over uses the voice named here.",
   premium_ready: "ElevenLabs is connected and your premium voice is ready.",
 };
 
@@ -90,7 +90,7 @@ export function classifyElevenError(status: number, body: string): ElevenFailure
 
 /** The toast after a narration that could not use premium and fell back to the built-in voice. */
 export function fallbackNotice(f: ElevenFailure): string {
-  const tail = "so this narration uses your built-in voice. It shows up below in a few minutes.";
+  const tail = "so this voice over uses your built-in voice. It shows up below in a few minutes.";
   if (f === "quota") return `Your ElevenLabs credits are used up, ${tail}`;
   if (f === "auth") return `ElevenLabs refused your key, ${tail} Reconnect ElevenLabs on Connect.`;
   if (f === "busy") return `ElevenLabs is busy right now, ${tail}`;
@@ -121,15 +121,15 @@ const fmt = (n: number) => Math.max(0, Math.round(n)).toLocaleString("en-US");
 
 /** grey not connected · red key refused · yellow low credits (< 10% left) or no cloning · green ok. */
 export function elevenLabsLight(i: ElevenLightInput): Light {
-  if (i.state === "not_connected") return { light: "grey", note: "Not connected · narrations use the built-in voice", fix: "connect-elevenlabs" };
-  if (i.state === "refused") return { light: "red", note: "ElevenLabs refused the key · narrations use the built-in voice", fix: "reconnect-elevenlabs" };
+  if (i.state === "not_connected") return { light: "grey", note: "Not connected · voice overs use the built-in voice", fix: "connect-elevenlabs" };
+  if (i.state === "refused") return { light: "red", note: "ElevenLabs refused the key · voice overs use the built-in voice", fix: "reconnect-elevenlabs" };
   if (i.state === "unreachable") return { light: "yellow", note: "ElevenLabs did not answer · checking again tomorrow", fix: "reconnect-elevenlabs" };
-  if (i.state === "quota_hit") return { light: "yellow", note: "ElevenLabs credits used up · narrations use the built-in voice", fix: "connect-elevenlabs" };
+  if (i.state === "quota_hit") return { light: "yellow", note: "ElevenLabs credits used up · voice overs use the built-in voice", fix: "connect-elevenlabs" };
   const { plan } = i;
   if (!plan.canClone) return { light: "yellow", note: "Your ElevenLabs plan does not include voice cloning; the built-in voice will be used", fix: "connect-elevenlabs" };
   const left = Math.max(0, plan.limit - plan.used);
   if (plan.limit <= 0 || left / plan.limit < LOW_CREDIT_FRACTION) {
-    return { light: "yellow", note: left <= 0 ? "ElevenLabs credits used up · narrations use the built-in voice" : `Low ElevenLabs credits · ${fmt(left)} of ${fmt(plan.limit)} characters left`, fix: "connect-elevenlabs" };
+    return { light: "yellow", note: left <= 0 ? "ElevenLabs credits used up · voice overs use the built-in voice" : `Low ElevenLabs credits · ${fmt(left)} of ${fmt(plan.limit)} characters left`, fix: "connect-elevenlabs" };
   }
   return { light: "green", note: `Premium voice ready · ${fmt(left)} of ${fmt(plan.limit)} characters left`, fix: null };
 }
@@ -183,4 +183,21 @@ export function mp3Duration(bytes: Uint8Array): number | null {
   }
   if (!frames || !rate) return null;
   return Math.round((samples / rate) * 100) / 100;
+}
+
+// ---------------------------------------------------------------- the Home card
+
+/** Home's quiet "Your voice" card: optional, never a nag. Red only for a real error. */
+export interface HomeVoiceCard {
+  state: "not_set_up" | "built_in_ready" | "premium_on" | "problem";
+  line: string;
+  link: { to: string; label: string };
+}
+
+export function homeVoiceCard(i: { hasSample: boolean; engine: VoiceEngine; connection: string | null; problem: { note: string; fix: string | null } | null }): HomeVoiceCard {
+  if (i.problem) return { state: "problem", line: i.problem.note, link: i.problem.fix ? { to: `/help/${i.problem.fix}`, label: "How to fix" } : { to: "/voice", label: "Open Voice" } };
+  if (!i.hasSample) return { state: "not_set_up", line: "Optional: record your voice so your clips can have voice overs in it", link: { to: "/voice", label: "Set up in 5 steps" } };
+  if (i.engine === "elevenlabs") return { state: "premium_on", line: "Premium voice on", link: { to: "/voice", label: "Manage" } };
+  const line = i.connection === "ok" || i.connection === "error" ? "Built-in voice ready" : "Built-in voice ready · Premium available with ElevenLabs";
+  return { state: "built_in_ready", line, link: { to: "/voice", label: "Manage" } };
 }

@@ -9,7 +9,7 @@ test.describe.configure({ mode: "serial" });
 test.beforeAll(() => seedDemo());
 test.afterAll(async ({ playwright }, info) => {
   const ctx = await playwright.request.newContext({ baseURL: info.project.use.baseURL, storageState: "test-results/.auth/owner.json" });
-  await setVoice(ctx, false).catch(() => undefined);
+  await setVoice(ctx, true).catch(() => undefined); // the base state: every feature on
   await ctx.dispose();
   clearDemo();
 });
@@ -168,16 +168,40 @@ test.describe("voice", () => {
     await page.addInitScript(TOUR_OFF);
   });
 
-  test("hidden and refused while off; consented sample, generate, listen, delete", async ({ page }) => {
+  test("never hidden; switch off refuses narrations but not the setup; consented sample, generate, listen, delete", async ({ page, isMobile }) => {
+    const feature = async () => ((await (await page.request.get("/api/settings")).json()) as { features: { voice: boolean } }).features.voice;
+    // the base state is on (nothing switched off); switch it off for this part
+    expect(await feature()).toBe(true);
     await setVoice(page.request, false);
     const off = await page.request.post("/api/voice/narrations", { data: { script: "Hello there, this is a test script." } });
     expect(off.status()).toBe(409);
+    expect(((await off.json()) as { error?: string; fix_guide?: string }).error).toMatch(/Voice overs on clips is off/);
     expect(((await off.json()) as { fix_guide?: string }).fix_guide).toBe("record-your-voice");
-    await page.goto("/voice");
-    await expect(page.getByText("Voice narration is off")).toBeVisible();
 
-    await setVoice(page.request, true);
+    // still in the menu and still the full screen: the five steps, the switch, Make a narration
+    await page.goto("/");
+    if (isMobile) await page.locator(".tabbar [data-menu]").click();
+    await expect(page.locator(isMobile ? ".more-sheet" : ".sidebar").getByRole("link", { name: "Voice overs", exact: true })).toBeVisible();
     await page.goto("/voice");
+    for (let n = 1; n <= 5; n++) await expect(page.locator(`.voice-step[data-step="${n}"]`)).toBeVisible();
+    const clips = page.locator(".clips-switch").getByLabel(/Voice overs on clips/);
+    await expect(clips).not.toBeChecked();
+    await expect(page.getByText("Switch on “Voice overs on clips” above to make voice overs.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Draft with AI" })).toBeDisabled();
+
+    // the switch on the Voice screen persists, both ways, and Settings shows the same switch
+    await clips.check();
+    await expect.poll(feature).toBe(true);
+    await clips.uncheck();
+    await expect.poll(feature).toBe(false);
+    await page.goto("/settings");
+    await expect(page.locator("label.switch", { hasText: "Voice overs on clips" }).getByRole("checkbox")).not.toBeChecked();
+    await expect(page.getByText("Off = clips stay real footage with no voice over. On = voice overs are made in your voice.").first()).toBeVisible();
+    await page.goto("/voice");
+    await clips.check();
+    await expect.poll(feature).toBe(true);
+    await page.reload();
+    await expect(clips).toBeChecked();
     // the five setup steps, the read-aloud script and the recorder are on the screen
     for (let n = 1; n <= 5; n++) await expect(page.locator(`.voice-step[data-step="${n}"]`)).toBeVisible();
     await expect(page.getByLabel("Script to read aloud")).toContainText("A Sheila Bruce Affair");
@@ -212,7 +236,7 @@ test.describe("voice", () => {
     const { jobId, id } = (await res.json()) as { jobId: string; id: string };
     expect((await page.request.post(`/api/jobs/${jobId}/run-fake`, { data: {} })).ok()).toBe(true);
     await page.reload();
-    await expect(page.getByLabel("Play narration")).toBeVisible();
+    await expect(page.getByLabel("Play voice over")).toBeVisible();
     await expect(page.locator(".narration").first().locator(".engine-tag")).toHaveText("Built-in");
     const audio = await page.request.get(`/api/voice/narrations/${id}/audio`);
     expect(audio.status()).toBe(200);
@@ -224,7 +248,7 @@ test.describe("voice", () => {
     await expect(page.getByText(/Voice ready · saved/)).toHaveCount(0);
     const state = (await (await page.request.get("/api/voice")).json()) as { hasSample: boolean };
     expect(state.hasSample).toBe(false);
-    await setVoice(page.request, false);
+    await setVoice(page.request, true); // the base state: every feature on
   });
 });
 

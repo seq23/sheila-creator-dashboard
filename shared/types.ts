@@ -36,6 +36,8 @@ export interface HomeSummary {
   health: HealthItem[];
   followups: { dealId: string; brand: string; dueAt: string }[];
   recentDumps: DumpSummary[];
+  /** Home's quiet "Your voice" card (worker/domain/voiceEngine.ts homeVoiceCard). */
+  voice: { state: "not_set_up" | "built_in_ready" | "premium_on" | "problem"; line: string; link: { to: string; label: string } };
 }
 
 export interface DumpSummary {

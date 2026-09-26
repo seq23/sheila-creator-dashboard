@@ -120,7 +120,7 @@ const CONNECTION_COPY: Record<string, { title: string; steps: string[]; guide: s
   openrouter: { title: "The AI (OpenRouter)", steps: ["Open OpenRouter and go to Keys.", "Create a new key and copy it.", "In your dashboard open Settings, Connect accounts, paste it under OpenRouter and press Check key."], guide: "reconnect-openrouter" },
   firecrawl: { title: "Web research (Firecrawl)", steps: ["Open Firecrawl and go to API Keys.", "Copy your key.", "In your dashboard open Settings, Connect accounts, paste it under Firecrawl and press Check key."], guide: "reconnect-firecrawl" },
   hunter: { title: "Hunter", steps: ["Open Hunter and go to API.", "Copy your key.", "In your dashboard open Settings, Connect accounts, paste it under Hunter and press Check key."], guide: "reconnect-hunter" },
-  elevenlabs: { title: "The premium voice (ElevenLabs)", steps: ["Open ElevenLabs, tap your profile, then API keys.", "Create a new key and copy it.", "In your dashboard open Settings, Connect accounts, paste it under ElevenLabs and press Check key. Until then your narrations use the built-in voice."], guide: "reconnect-elevenlabs" },
+  elevenlabs: { title: "Premium voice overs (ElevenLabs)", steps: ["Open ElevenLabs, tap your profile, then API keys.", "Create a new key and copy it.", "In your dashboard open Settings, Connect accounts, paste it under ElevenLabs and press Check key. Until then your voice overs use the built-in voice."], guide: "reconnect-elevenlabs" },
 };
 
 async function connectionNeedsYouEmail(env: Env, name: string) {

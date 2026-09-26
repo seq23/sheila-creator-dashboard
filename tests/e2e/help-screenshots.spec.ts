@@ -28,13 +28,13 @@ test.beforeAll(async ({ playwright }, info) => {
   mkdirSync(OUT, { recursive: true });
   seedDemo();
   const ctx = await playwright.request.newContext({ baseURL: info.project.use.baseURL, storageState: "test-results/.auth/owner.json" });
-  await setVoice(ctx, true); // the Voice guide shows the screen switched on
+  await setVoice(ctx, true); // the base state (every feature on); the Voice guide shows the switch on
   await ctx.dispose();
 });
 
 test.afterAll(async ({ playwright }, info) => {
   const ctx = await playwright.request.newContext({ baseURL: info.project.use.baseURL, storageState: "test-results/.auth/owner.json" });
-  await setVoice(ctx, false).catch(() => undefined);
+  await setVoice(ctx, true).catch(() => undefined); // the base state: every feature on
   await ctx.dispose();
   clearDemo();
 });

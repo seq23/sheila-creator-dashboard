@@ -80,7 +80,15 @@ Each lane writes a health row `Last <lane> run`; red = the lane threw, note has 
 The brief steps also write `Monthly brief refresh` / `Weekly brief adjustment` (why it ran or
 did not). No fourth cron expression: the monthly refresh is a daily check that acts on the 1st.
 
-## Voice: built-in (free) and ElevenLabs (premium)
+## Voice overs: built-in (free) and ElevenLabs (premium)
+
+**Nothing hidden, nothing switched off** (owner, 26 Sep 2026). The Voice overs screen (route
+`/voice`) is always in the menu, Home has a quiet "Your voice overs" card (not set up / built-in
+ready / premium on / a real error with its fix link), and every Settings → Features switch is
+on by default (migration `0010_features_on.sql`, `DEFAULT_FEATURES` in `shared/constants.ts`,
+validator `nothing-hidden`). `features.voice` is the switch "Voice overs on clips" (on the Voice
+overs screen and in Settings): off = clips stay real footage with no voice over; her voice can
+still be recorded and saved.
 
 Two engines, named the same on every screen, in `narrations.engine` and in the code
 (`worker/domain/voiceEngine.ts`):
@@ -95,7 +103,7 @@ built-in voice; the premium clone is extra.
 
 **How Sheila connects ElevenLabs** (guide `connect-elevenlabs`): elevenlabs.io → log in → her
 profile (bottom left) → **API keys** → Create API key → copy → dashboard **Settings →
-Connections → Voice · premium** → paste → **Check key**. The card then shows her plan tier,
+Connections → Voice overs · premium** → paste → **Check key**. The card then shows her plan tier,
 characters used of this month's limit, and whether instant voice cloning is on her plan
 (Starter and above include it). A plan without cloning is accepted and says so plainly; the
 built-in voice is used.

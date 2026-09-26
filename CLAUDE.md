@@ -9,13 +9,16 @@ operational reference ("runbook sheila" opens it).
   needs a terminal. Every screen has one obvious next action; every error says what to click.
 - **Public repo** (unlimited Actions minutes for video cutting). Section 13 rules are enforced
   by validators, not remembered.
-- Cost target $0/month. Optional paid levers are switches in Settings, off by default.
+- Cost target $0/month. Optional levers are switches in Settings, ON by default (owner, 26 Sep
+  2026: "nothing should be hidden - she can use it if she chooses, nothing switched off"); she
+  turns them off herself. No switch ever hides a screen, nav item or button (validator
+  `nothing-hidden`).
 
 ## Locked decisions you do not reopen
 
 Real footage only (no AI video) · two-door Dump · nothing posts without approval · hard cap 10
 posts per channel per week · Buffer free plan for posting · OpenRouter free models default ·
-voice narration off until she switches it on · research brief approved before the first cut ·
+nothing hidden, nothing switched off by default · research brief approved before the first cut ·
 public business contacts only for deals, she sends every pitch herself.
 
 ## Layout

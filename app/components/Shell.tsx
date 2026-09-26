@@ -1,11 +1,11 @@
 // Desktop sidebar + phone bottom tab bar (section 4). Badges: Review count, Deals follow-ups,
-// Voice "Off" until switched on. The Voice item is hidden entirely unless the feature is on.
+// Every screen is always in the menu: nothing is hidden behind a Settings switch (owner, 26 Sep
+// 2026; validator nothing-hidden).
 // Phone: Home · Dump · Review · Calendar in the bar (the daily four, per the wireframes) and a
 // Menu tab that opens a sheet with every other screen, so nothing is desktop-only. The help
 // guides say "tap X in the menu"; the tab is called Menu so that sentence is true on a phone.
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
-import type { Me } from "@shared/types";
 import { useApp } from "../state";
 import { Icon, type IconName } from "./Icon";
 import { Tour } from "./Tour";
@@ -15,7 +15,6 @@ interface NavItem {
   label: string;
   icon: IconName;
   badge?: (s: ShellCounts) => string | number | undefined;
-  feature?: keyof Me["features"];
   group: "daily" | "business" | "setup";
 }
 
@@ -28,7 +27,7 @@ const NAV: NavItem[] = [
   { to: "/brain", label: "Client Brain", icon: "brain", group: "business" },
   { to: "/research", label: "Research", icon: "research", group: "business" },
   { to: "/stats", label: "Stats", icon: "stats", group: "business" },
-  { to: "/voice", label: "Voice", icon: "voice", feature: "voice", group: "business" },
+  { to: "/voice", label: "Voice overs", icon: "voice", group: "business" },
   { to: "/settings", label: "Settings", icon: "settings", group: "setup" },
   { to: "/help", label: "Help", icon: "help", group: "setup" },
 ];
@@ -44,7 +43,7 @@ export function Shell() {
   const { me, counts, health } = useApp();
   const loc = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
-  const items = NAV.filter((n) => !n.feature || me?.features[n.feature]);
+  const items = NAV;
   const allOk = health.every((h) => h.light === "green" || h.light === "grey");
   const badge = (n: NavItem) => n.badge?.(counts);
   const menuItems = items.filter((n) => !TABS.includes(n.to));
