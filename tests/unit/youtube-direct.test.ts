@@ -199,10 +199,17 @@ describe("upload → read back → follow the Calendar", () => {
     expect((await call("PATCH", `/api/posts/${v.post}`, { scheduled_at: later })).status).toBe(200);
     expect((await readFake(env)).videos[id].publishAt).toBe(new Date(Math.floor(Date.parse(later) / 1000) * 1000).toISOString());
     expect(upload(v.clip).status).toBe("scheduled");
+    // checked against videos.update's own answer; no videos.list right after (it lags an update)
+    expect((await readFake(env)).calls.slice(-1)).toEqual(["videos.update"]);
+    expect(JSON.parse(one<{ detail: string }>("SELECT detail FROM events WHERE kind = 'ytdirect.update_answer' ORDER BY rowid DESC LIMIT 1").detail)).toMatchObject({ video_id: id, privacyStatus: "private" });
     expect((await call("POST", `/api/posts/${v.post}/unschedule`)).status).toBe(200);
     expect((await readFake(env)).videos[id]).toMatchObject({ privacyStatus: "private", publishAt: null });
     expect(upload(v.clip)).toMatchObject({ status: "removed", privacy: "private", publish_at: null });
-    // the take-off is read back too: private, no publish time, and the post is not marked posted
+    // the take-off is confirmed with videos.list once YouTube caught up (the next sync, 2+ minutes on)
+    expect(one<{ verified_at: string | null }>("SELECT verified_at FROM youtube_uploads WHERE clip_id = ?", v.clip).verified_at).toBeNull();
+    db.raw.prepare("UPDATE youtube_uploads SET updated_at = ? WHERE clip_id = ?").run(new Date(Date.now() - 3 * 60_000).toISOString(), v.clip);
+    await youtubeDirectSync(env);
+    expect(one<{ status: string; verified_at: string | null }>("SELECT status, verified_at FROM youtube_uploads WHERE clip_id = ?", v.clip)).toMatchObject({ status: "removed", verified_at: expect.any(String) });
     const reads = db.raw.prepare("SELECT detail FROM events WHERE kind = 'ytdirect.readback' AND ref_id = ? ORDER BY rowid").all(v.clip) as { detail: string }[];
     expect(JSON.parse(reads[reads.length - 1].detail)).toMatchObject({ video_id: id, privacyStatus: "private", publishAt: null });
     expect(one<{ actual_privacy: string; actual_publish_at: string | null }>("SELECT actual_privacy, actual_publish_at FROM youtube_uploads WHERE clip_id = ?", v.clip)).toEqual({ actual_privacy: "private", actual_publish_at: null });
