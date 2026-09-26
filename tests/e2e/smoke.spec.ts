@@ -119,11 +119,14 @@ test.describe("home and dump", () => {
     const before = sql<{ name: string; light: string }>("SELECT name, light FROM health");
     sql("UPDATE health SET light = 'green'");
     await page.goto("/settings");
-    await expect(page.getByText("All systems OK")).toBeVisible();
+    // The sidebar is the desktop layout; under 900 px it is in the DOM but hidden behind the tab
+    // bar, so read its text (both projects) rather than its visibility.
+    const status = page.locator(".sidebar-foot a").first();
+    await expect(status).toHaveText("All systems OK");
     await page.request.post("/api/connections/buffer/disconnect");
     await page.getByRole("button", { name: "Check everything now" }).click();
     await expect(page.getByText("Checked everything.")).toBeVisible();
-    await expect(page.getByText("Something needs you")).toBeVisible({ timeout: 3_000 });
+    await expect(status).toHaveText("Something needs you", { timeout: 3_000 });
     expect((await page.request.post("/api/connections/buffer/key", { data: { key: "good-key-ig-missing" } })).ok()).toBe(true);
     for (const r of before) sql(`UPDATE health SET light = '${r.light}' WHERE name = '${r.name.replace(/'/g, "''")}'`);
   });
