@@ -19,15 +19,17 @@ test.describe("voice", () => {
     await page.addInitScript(TOUR_OFF);
   });
 
-  test("never hidden; switch off refuses narrations but not the setup; consented sample, generate, listen, delete", async ({ page, isMobile }) => {
+  test("never hidden; switch off still makes the voice overs she adds herself; consented sample, generate, listen, delete", async ({ page, isMobile }) => {
     const feature = async () => ((await (await page.request.get("/api/settings")).json()) as { features: { voice: boolean } }).features.voice;
     // the base state is on (nothing switched off); switch it off for this part
     expect(await feature()).toBe(true);
     await setVoice(page.request, false);
+    // Off = only the voice overs she adds herself (owner, 26 Sep 2026): the switch never refuses one;
+    // with no voice saved yet the refusal is about the voice, not the switch
     const off = await page.request.post("/api/voice/narrations", { data: { script: "Hello there, this is a test script." } });
-    expect(off.status()).toBe(409);
-    expect(((await off.json()) as { error?: string; fix_guide?: string }).error).toMatch(/Voice overs on clips is off/);
-    expect(((await off.json()) as { fix_guide?: string }).fix_guide).toBe("record-your-voice");
+    const offBody = (await off.json()) as { error?: string; fix_guide?: string };
+    expect(offBody.error ?? "").not.toMatch(/is off|Switch it on/);
+    expect((await (await page.request.get("/api/voice")).json()).auto).toBe("off");
 
     // still in the menu and still the full screen: the five steps, the switch, Make a narration
     await page.goto("/");
@@ -35,10 +37,10 @@ test.describe("voice", () => {
     await expect(page.locator(isMobile ? ".more-sheet" : ".sidebar").getByRole("link", { name: "Voice overs", exact: true })).toBeVisible();
     await page.goto("/voice");
     for (let n = 1; n <= 5; n++) await expect(page.locator(`.voice-step[data-step="${n}"]`)).toBeVisible();
-    const clips = page.locator(".clips-switch").getByLabel(/Voice overs on clips/);
+    const clips = page.locator(".clips-switch").getByLabel(/Automatic voice overs/);
     await expect(clips).not.toBeChecked();
-    await expect(page.getByText("Switch on “Voice overs on clips” above to make voice overs.")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Draft with AI" })).toBeDisabled();
+    await expect(page.getByText(/Switch on/)).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Draft with AI" })).toBeEnabled();
 
     // the switch on the Voice screen persists, both ways, and Settings shows the same switch
     await clips.check();
@@ -46,8 +48,8 @@ test.describe("voice", () => {
     await clips.uncheck();
     await expect.poll(feature).toBe(false);
     await page.goto("/settings");
-    await expect(page.locator("label.switch", { hasText: "Voice overs on clips" }).getByRole("checkbox")).not.toBeChecked();
-    await expect(page.getByText("Off = clips stay real footage with no voice over. On = voice overs are made in your voice.").first()).toBeVisible();
+    await expect(page.locator("label.switch", { hasText: "Automatic voice overs" }).getByRole("checkbox")).not.toBeChecked();
+    await expect(page.getByText("On = clips with no talking get a voice over in your voice automatically; you can remove it in Review. Off = only the voice overs you add yourself.").first()).toBeVisible();
     await page.goto("/voice");
     await clips.check();
     await expect.poll(feature).toBe(true);
@@ -111,7 +113,8 @@ test.describe("voice", () => {
     await page.goto("/review");
     await page.getByRole("tab", { name: /Approved/ }).click();
     const voiced = page.locator('[data-clip-id="demo_clip_1"]');
-    await expect(voiced.locator('[data-voice-over="ready"]')).toHaveText("With your voice over");
+    // one she attached herself: no "added automatically", and the AI label is said before it posts
+    await expect(voiced.locator('[data-voice-over="ready"]')).toHaveText("With your voice over · AI-labelled when it posts");
     await expect(voiced.getByLabel("Play this clip")).toHaveAttribute("src", new RegExp(`\\?v=${id}$`));
     const [demo] = sql<{ media_token: string }>("SELECT media_token FROM clips WHERE id = 'demo_clip_1'");
     expect((await page.request.get(`/media/${demo.media_token}`)).status()).toBe(200);

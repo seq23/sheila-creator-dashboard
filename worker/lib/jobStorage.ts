@@ -53,7 +53,12 @@ export function jobStorageScope(type: JobRow["type"], jobId: string, refId: stri
     case "voice":
       scope.read.push("voice/sample/", "voice/model/");
       scope.write.push("voice/model/");
-      if (refId) {
+      if (refId?.startsWith("auto/")) {
+        // a batch (automatic voice overs): the clips, premium voices made in the Worker, and each
+        // item's own voice and mixed file (applyBatch accepts only this batch's narration ids)
+        scope.read.push("clips/", "voice/narrations/nar_");
+        scope.write.push("voice/narrations/nar_", "voice/mixed/nar_");
+      } else if (refId) {
         scope.write.push(`voice/narrations/${refId}`);
         // mix mode: its own voice over + the clip it is attached to, into its own mixed file
         scope.read.push(`voice/narrations/${refId}`, "clips/");

@@ -30,6 +30,8 @@ import { PLATFORMS, RECIPES, REJECT_REASONS, REJECTED_RETENTION_DAYS, type Platf
 import type { ClipRow } from "@shared/types";
 import { cellCount, cleanGridLayout, defaultGridLayout, editingFromStored, isGridLook, isLookId, LOOK_IDS, lookById, ZOOMS, type GridLayout, type LookId, type StoredEditing } from "../domain/looks";
 import { tracksOf } from "../lib/steerStore";
+import { hasVoiceSample, redoVoiceOver, removeVoiceOver } from "../lib/autoVoice";
+import { maxWords } from "../domain/autoVoice";
 import { dispatchJob } from "../services/github";
 import { checkEdit, editorName, isHandoffApp, HANDOFF } from "../domain/editors";
 import { editingNote, pollEditorJobs, startHandback } from "../lib/editorJobs";
@@ -102,6 +104,9 @@ export interface ReviewClip extends ClipRow {
   /** The song under it (her upload's id), and a Change music in progress ("none" or a song id). */
   music_id: string | null;
   pending_music: string | null;
+  /** Her voice over's script (Edit the script in Review) and whether it was made automatically. */
+  voice_script: string | null;
+  voice_auto: boolean;
 }
 export interface ReviewGroup {
   /** held_note: "Looks like someone else's video" (worker/domain/sourceCheck.ts), or null. */
@@ -155,6 +160,8 @@ interface ClipDb {
   voice_nid: string | null;
   music: string | null;
   pending_music: string | null;
+  voice_script: string | null;
+  voice_auto: number | null;
 }
 
 /** "?v=<file version>.<voice over>": changes when the file is swapped or a voice over is mixed in. */
@@ -203,6 +210,8 @@ function toView(r: ClipDb): ReviewClip {
     voice_over: r.voice_mix === "mixing" || r.voice_mix === "ready" || r.voice_mix === "failed" ? r.voice_mix : null,
     music_id: r.music ? r.music.slice("music/".length) : null,
     pending_music: r.pending_music,
+    voice_script: r.voice_script,
+    voice_auto: !!r.voice_auto,
   };
 }
 
@@ -213,7 +222,9 @@ const CLIP_SELECT = `SELECT c.id, c.asset_id, c.dump_id, c.start_s, c.end_s, c.r
   (SELECT e.capability FROM editor_jobs e WHERE e.clip_id = c.id AND e.status IN ('submitted', 'importing') ORDER BY e.created_at DESC LIMIT 1) AS busy_capability,
   a.file_name AS source_file, a.source_owner, a.source_note,
   (SELECT n.mix_status FROM narrations n WHERE n.clip_id = c.id AND n.mix_status IS NOT NULL ORDER BY n.created_at DESC LIMIT 1) AS voice_mix,
-  (SELECT n.id FROM narrations n WHERE n.clip_id = c.id AND n.mix_status IS NOT NULL ORDER BY n.created_at DESC LIMIT 1) AS voice_nid, d.door, d.created_at AS dump_created_at, d.ready_at AS dump_ready_at, d.status AS dump_status
+  (SELECT n.id FROM narrations n WHERE n.clip_id = c.id AND n.mix_status IS NOT NULL ORDER BY n.created_at DESC LIMIT 1) AS voice_nid,
+  (SELECT n.script FROM narrations n WHERE n.clip_id = c.id AND n.mix_status IS NOT NULL ORDER BY n.created_at DESC LIMIT 1) AS voice_script,
+  (SELECT n.auto FROM narrations n WHERE n.clip_id = c.id AND n.mix_status IS NOT NULL ORDER BY n.created_at DESC LIMIT 1) AS voice_auto, d.door, d.created_at AS dump_created_at, d.ready_at AS dump_ready_at, d.status AS dump_status
   FROM clips c JOIN assets a ON a.id = c.asset_id JOIN dumps d ON d.id = c.dump_id`;
 
 clips.get("/", async (c) => {
@@ -631,4 +642,37 @@ clips.post("/:id/replace", async (c) => {
   log.info("clip.handback", { app });
   const row = await c.env.DB.prepare(`${CLIP_SELECT} WHERE c.id = ?`).bind(id).first<ClipDb>();
   return c.json({ jobId: started.jobId, clip: row ? toView(row) : null, measured: probe });
+});
+
+// ---------------------------------------------------------------- her voice over on a clip (Review)
+
+/** Remove: the clip goes back to its own sound (the voice over and its mixed file are deleted). */
+clips.post("/:id/voice-over/remove", async (c) => {
+  const id = c.req.param("id");
+  if (await lockedByBuffer(c.env, id)) return fail(c, 409, "This clip is already loaded into Buffer. Remove it from the Calendar first.", "move-or-remove-a-post");
+  const n = await removeVoiceOver(c.env, id);
+  if (!n) return fail(c, 404, "This clip has no voice over.", "record-your-voice");
+  await recordEvent(c.env.DB, "voice.removed", id, {}, c.get("user").email);
+  const row = await c.env.DB.prepare(`${CLIP_SELECT} WHERE c.id = ?`).bind(id).first<ClipDb>();
+  return c.json({ ok: true, clip: row ? toView(row) : null });
+});
+
+/** Redo with her own words: the script she wrote is voiced and mixed into just this clip. */
+clips.post("/:id/voice-over", async (c) => {
+  const id = c.req.param("id");
+  const body = await readJson<{ script?: string }>(c);
+  const script = String(body?.script ?? "").replace(/\s+/g, " ").trim();
+  const clip = await c.env.DB.prepare("SELECT start_s, end_s, status FROM clips WHERE id = ?").bind(id).first<{ start_s: number; end_s: number; status: ClipStatus }>();
+  if (!clip || clip.status === "deleted") return fail(c, 404, "That clip is gone.");
+  if (script.length < 10) return fail(c, 422, "Write a sentence or two for the voice over.", "record-your-voice");
+  const seconds = clip.end_s - clip.start_s;
+  const words = script.split(" ").length;
+  if (words > maxWords(seconds)) return fail(c, 422, `That's about ${Math.round(words / 2.3)} seconds of talking; this clip is ${Math.round(seconds)} seconds. Shorten it a little.`, "record-your-voice");
+  if (!(await hasVoiceSample(c.env))) return fail(c, 409, "Record your voice first, on Voice overs.", "record-your-voice");
+  if (await lockedByBuffer(c.env, id)) return fail(c, 409, "This clip is already loaded into Buffer. Remove it from the Calendar first.", "move-or-remove-a-post");
+  const r = await redoVoiceOver(c.env, id, script);
+  if (!r.batch) return fail(c, 502, "The voice over could not start. Try again in a minute.", "reconnect-github");
+  await recordEvent(c.env.DB, "voice.redo", id, { words }, c.get("user").email);
+  const row = await c.env.DB.prepare(`${CLIP_SELECT} WHERE c.id = ?`).bind(id).first<ClipDb>();
+  return c.json({ ok: true, clip: row ? toView(row) : null });
 });

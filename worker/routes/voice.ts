@@ -1,6 +1,7 @@
 // Voice narration (section 12). The screen is always there (nothing hidden, owner 26 Sep 2026).
-// features.voice now means "Use my voice on clips": while it is off, recording and saving her
-// voice still work, but drafting, making and attaching narrations refuse with a plain sentence.
+// features.voice means "Automatic voice overs" (owner, 26 Sep 2026): on = every clip with no
+// talking gets a voice over in her voice automatically (worker/lib/autoVoice.ts); off = only the
+// voice overs she makes herself. Making, drafting and attaching her own voice overs always work.
 // Only the owner login can create, replace or delete the voice.
 // Two engines (worker/domain/voiceEngine.ts): "built-in" (free, the Chatterbox job on the GitHub
 // runner, always kept as the fallback) and "elevenlabs" (premium, her own ElevenLabs account,
@@ -16,7 +17,7 @@
 //   PATCH  /api/voice/narrations/:id      attach to a clip (or detach)
 //   DELETE /api/voice/narrations/:id
 //   GET    /api/voice/narrations/:id/audio   stream the file (logged-in only, never public)
-import { Hono, type Context, type Next } from "hono";
+import { Hono } from "hono";
 import type { Env, Vars } from "../env";
 import { requireOwner, requireUser } from "../lib/auth";
 import { getSetting, recordEvent, setSetting } from "../lib/db";
@@ -29,6 +30,7 @@ import { currentEngine, dropPremiumVoice, ENGINE_SETTING, ensurePremiumVoice, pr
 import { getLlm } from "../services/openrouter";
 import { KIT_NAME, lockedProfile, themeList } from "./mediakit";
 import type { Features } from "@shared/types";
+import { autoVoiceState } from "../domain/autoVoice";
 import { DEFAULT_FEATURES } from "@shared/constants";
 
 export const voice = new Hono<{ Bindings: Env; Variables: Vars }>();
@@ -40,17 +42,12 @@ const MAX_SCRIPT = 1500;
 /** A sample shorter than a minute makes a thin voice; about 3 minutes is best (the script on screen). */
 export const MIN_SAMPLE_SECONDS = 60;
 
-type C = Context<{ Bindings: Env; Variables: Vars }>;
 
 async function featureOn(env: Env): Promise<boolean> {
   const f = await getSetting<Features>(env.DB, "features", { ...DEFAULT_FEATURES });
   return !!f.voice;
 }
 
-async function requireVoiceOn(c: C, next: Next) {
-  if (!(await featureOn(c.env))) return fail(c, 409, "Voice overs on clips is off. Switch it on on the Voice overs screen first.", "record-your-voice");
-  await next();
-}
 
 interface VoiceDb {
   sample_r2_key: string | null;
@@ -105,6 +102,8 @@ voice.get("/", async (c) => {
     min_sample_seconds: MIN_SAMPLE_SECONDS,
     enabled: await featureOn(c.env),
     hasSample: !!v.sample_r2_key && !!v.consent_at,
+    /** "on", "needs_voice" (on, but her voice isn't saved yet: a quiet state, never an error) or "off". */
+    auto: autoVoiceState(await featureOn(c.env), !!v.sample_r2_key && !!v.consent_at),
     consent_at: v.consent_at,
     consent_line: CONSENT_LINE,
     hasModel: !!v.model_r2_key,
@@ -125,7 +124,7 @@ voice.patch("/engine", requireOwner, async (c) => {
   return c.json({ ok: true, active: e.engine, why: e.why });
 });
 
-/** "Voice overs on clips" (features.voice). Off = clips stay real footage with no voice over. */
+/** "Automatic voice overs" (features.voice). Off = only the voice overs she makes herself. */
 voice.patch("/clips", requireOwner, async (c) => {
   const body = await readJson<{ on?: boolean }>(c);
   if (typeof body?.on !== "boolean") return fail(c, 422, "Pick on or off.", "record-your-voice");
@@ -183,7 +182,7 @@ voice.delete("/sample", requireOwner, async (c) => {
 });
 
 /** A short narration script in her voice from the locked profile. */
-voice.post("/draft", requireVoiceOn, async (c) => {
+voice.post("/draft", async (c) => {
   const body = await readJson<{ topic?: string }>(c);
   const profile = await lockedProfile(c.env);
   if (!profile) return fail(c, 409, "Lock your Brand Profile first, so the script sounds like you.", "upload-brand-docs");
@@ -202,7 +201,7 @@ voice.post("/draft", requireVoiceOn, async (c) => {
   return c.json({ script: text.slice(0, MAX_SCRIPT), note: null });
 });
 
-voice.post("/narrations", requireVoiceOn, async (c) => {
+voice.post("/narrations", async (c) => {
   const body = await readJson<{ script?: string }>(c);
   const script = (body?.script ?? "").trim();
   if (script.length < 10) return fail(c, 422, "Write a sentence or two first, or tap Draft with AI.", "record-your-voice");
@@ -237,7 +236,7 @@ voice.post("/narrations", requireVoiceOn, async (c) => {
   return c.json({ id, jobId: r.jobId, engine: "built-in", notice: fellBack ? fallbackNotice(fellBack) : null });
 });
 
-voice.patch("/narrations/:id", requireVoiceOn, async (c) => {
+voice.patch("/narrations/:id", async (c) => {
   const body = await readJson<{ clip_id?: string | null }>(c);
   const clipId = body?.clip_id ?? null;
   if (clipId) {

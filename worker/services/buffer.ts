@@ -37,6 +37,8 @@ export interface CreatePostArgs {
   title: string;
   mediaUrl: string;
   scheduledAt: string;
+  /** The clip carries an automatic or added voice over in her cloned voice: disclosed to the platform. */
+  aiGenerated?: boolean;
 }
 
 /**
@@ -46,12 +48,19 @@ export interface CreatePostArgs {
  * TikTok needs none. Category 26 = Howto & Style (hosting, tablescapes, events).
  */
 export const YOUTUBE_CATEGORY_ID = "26";
-export function postMetadata(platform: Platform, title: string): Record<string, unknown> | undefined {
-  if (platform === "instagram") return { instagram: { type: "reel", shouldShareToFeed: true } };
+//
+// aiGenerated: a clip with a voice over in her cloned voice is AI-generated audio. Buffer's schema
+// (introspected with the live key, 26 Sep 2026) has `isAiGenerated: Boolean` on
+// TikTokPostMetadataInput, InstagramPostMetadataInput and YoutubePostMetadataInput ("Whether the
+// post discloses AI-generated content"); each platform shows its own AI label from it.
+export function postMetadata(platform: Platform, title: string, aiGenerated = false): Record<string, unknown> | undefined {
+  const ai = aiGenerated ? { isAiGenerated: true } : {};
+  if (platform === "instagram") return { instagram: { type: "reel", shouldShareToFeed: true, ...ai } };
   if (platform === "youtube") {
     const t = title.replace(/\s+/g, " ").trim().slice(0, 100) || "New video";
-    return { youtube: { title: t, categoryId: YOUTUBE_CATEGORY_ID, privacy: "public", madeForKids: false, notifySubscribers: true } };
+    return { youtube: { title: t, categoryId: YOUTUBE_CATEGORY_ID, privacy: "public", madeForKids: false, notifySubscribers: true, ...ai } };
   }
+  if (platform === "tiktok" && aiGenerated) return { tiktok: { isAiGenerated: true } };
   return undefined;
 }
 
@@ -78,12 +87,19 @@ interface FakePostState {
   reads: number;
   fail: boolean;
   deleted: boolean;
+  /** What the real client would send as metadata (tests read it: the AI disclosure). */
+  metadata: Record<string, unknown> | undefined;
 }
 const FAKE_POSTS = new Map<string, FakePostState>();
 
 /** Test hook: forget every fake post (unit tests start from an empty Buffer). */
 export function resetFakeBuffer(): void {
   FAKE_POSTS.clear();
+}
+
+/** Test hook: the metadata the fake was given for a post (the same postMetadata the real client sends). */
+export function fakePostMetadata(id: string): Record<string, unknown> | undefined {
+  return FAKE_POSTS.get(id)?.metadata;
 }
 
 export class FakeBuffer implements BufferClient {
@@ -108,7 +124,7 @@ export class FakeBuffer implements BufferClient {
     if (input.mediaUrl.includes("reject")) return { ok: false, id: null, error: "Buffer rejected the video (too long for this channel)." };
     const fail = input.mediaUrl.includes("fail");
     const id = `fake_post_${fail ? "fail_" : ""}${Math.random().toString(36).slice(2, 10)}`;
-    FAKE_POSTS.set(id, { channelId: input.channelId, reads: 0, fail, deleted: false });
+    FAKE_POSTS.set(id, { channelId: input.channelId, reads: 0, fail, deleted: false, metadata: postMetadata(input.platform, input.title, !!input.aiGenerated) });
     return { ok: true, id, error: null };
   }
   async getPost(id: string): Promise<BufferPostStatus> {
@@ -199,7 +215,7 @@ class RealBuffer implements BufferClient {
   }
   async createPost(input: CreatePostArgs) {
     try {
-      const metadata = postMetadata(input.platform, input.title);
+      const metadata = postMetadata(input.platform, input.title, !!input.aiGenerated);
       const data = await this.gql<{ createPost: { post?: { id: string }; message?: string } }>(
         `mutation($input: CreatePostInput!) { createPost(input: $input) { ... on PostActionSuccess { post { id } } ... on MutationError { message } } }`,
         {

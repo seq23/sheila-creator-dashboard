@@ -372,19 +372,24 @@ describe("nothing hidden, nothing switched off", () => {
     expect(await getSetting(fresh.DB, "features", {})).toEqual({ voice: true, deeper_research: true, weekly_recap: true, help_ask: true });
   });
 
-  it("Voice overs on clips off: her voice can still be saved; narrations and drafts refuse; the switch persists", async () => {
+  it("Automatic voice overs off: her voice can still be saved; the voice overs she makes herself still work; the switch persists", async () => {
+    // Owner, 26 Sep 2026: the switch is "Automatic voice overs". Off = only the voice overs she adds
+    // herself, so narrations and drafts work either way (they used to refuse with a 409).
     expect((await call("PATCH", "/api/voice/clips", { on: "yes" })).status).toBe(422);
     expect((await call("PATCH", "/api/voice/clips", { on: false })).json).toEqual({ ok: true, enabled: false });
     expect((await getSetting<Record<string, boolean>>(env.DB, "features", {})).voice).toBe(false);
     expect((await saveSample()).status).toBe(200);
     const n = await narrate();
-    expect(n.status).toBe(409);
-    expect(n.json).toMatchObject({ error: "Voice overs on clips is off. Switch it on on the Voice overs screen first.", fix_guide: "record-your-voice" });
-    expect((await call("POST", "/api/voice/draft", {})).status).toBe(409);
-    expect((await call("GET", "/api/voice")).json).toMatchObject({ enabled: false, hasSample: true });
+    expect(n.status).toBe(200);
+    expect(n.json).toMatchObject({ engine: "built-in", jobId: expect.stringMatching(/^job_/) });
+    expect(db.raw.prepare("SELECT auto, ai_generated FROM narrations WHERE id = ?").get(n.json.id as string)).toEqual({ auto: 0, ai_generated: 1 });
+    // a draft is refused only for its own reason (no locked Brand Profile here), never for the switch
+    expect((await call("POST", "/api/voice/draft", {})).json).toEqual({ error: "Lock your Brand Profile first, so the script sounds like you.", fix_guide: "upload-brand-docs" });
+    expect((await call("GET", "/api/voice")).json).toMatchObject({ enabled: false, hasSample: true, auto: "off" });
     await call("PATCH", "/api/voice/clips", { on: true });
     const f = await getSetting<Record<string, boolean>>(env.DB, "features", {});
     expect(f).toEqual({ voice: true, deeper_research: false, weekly_recap: true, help_ask: false });
+    expect((await call("GET", "/api/voice")).json).toMatchObject({ enabled: true, auto: "on" });
     expect((await narrate()).status).toBe(200);
   });
 });

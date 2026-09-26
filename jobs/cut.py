@@ -679,6 +679,18 @@ def grid_cells(k: int, m: "Moment", src: Source, others: list[tuple[str, "Moment
     return cells, {"cells": layout, "voice": voice}
 
 
+def speech_share(src: "Source", stretches: list[tuple[float, float]]) -> float:
+    """How much of a clip has her talking (0..1): her words' time when there is a transcript, else
+    the non-silent stretches. The Worker voices over a clip automatically only under 15%
+    (worker/domain/autoVoice.ts isSilentClip)."""
+    total = sum(max(0.0, e - s) for s, e in stretches) or 1.0
+    if src.transcript.words:
+        spoken = sum(max(0.0, min(e, w.end) - max(s, w.start)) for s, e in stretches for w in src.transcript.words if w.end > s and w.start < e)
+    else:
+        spoken = sum(coverage(src.runs, s, e) * (e - s) for s, e in stretches)
+    return round(min(1.0, spoken / total), 3)
+
+
 def music_key(spec: dict[str, Any], k: int) -> str | None:
     """The song clip k gets (her uploads only, one per clip in turn), or None."""
     tracks = [t for t in (spec.get("music") or []) if isinstance(t, dict) and str(t.get("r2_key", "")).startswith("music/")]
@@ -1048,6 +1060,7 @@ def cut_dump(spec: dict[str, Any], work: Path, download: Downloader, upload: Upl
                 "parts": [[round(s, 2), round(e, 2)] for s, e in m.parts],
                 "layout": layout,
                 "music": song if r.music_used else None,
+                "speech": speech_share(voice_src, [(cells[voice].start, cells[voice].end)] if cells else list(m.parts)),
                 "_files": (r.mp4, r.cover),
             }
         )
@@ -1243,6 +1256,7 @@ def import_items(spec: dict[str, Any], work: Path, download: Downloader, upload:
             "parts": [[0.0, d["duration"]]],
             "layout": None,
             "music": None,  # the editor's own audio; no song of hers is added
+            "speech": None,  # not measured: never voiced over automatically
         })
     editor = str(spec.get("editor") or "editor")
     return {"clips": clips, "engine": {"transcript": editor, "picker": editor, "crop": editor, "subtitles": editor}}

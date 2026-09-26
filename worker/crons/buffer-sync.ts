@@ -163,9 +163,10 @@ export async function bufferSync(env: Env, opts: { force?: boolean } = {}): Prom
   const local = Object.fromEntries(inBufferRows.map((r) => [r.platform, r.n])) as Partial<Record<Platform, number>>;
   const used = queueUsed(local, buf.remoteQueue);
   const { results: plannedRows } = await env.DB.prepare(
-    `SELECT p.id, p.platform, p.scheduled_at, p.retries, c.id AS clip_id, c.caption, c.hashtags, c.media_token, c.hook_text
+    `SELECT p.id, p.platform, p.scheduled_at, p.retries, c.id AS clip_id, c.caption, c.hashtags, c.media_token, c.hook_text,
+            (SELECT COUNT(*) FROM narrations n WHERE n.clip_id = c.id AND n.mix_status = 'ready' AND n.ai_generated = 1) AS ai_voice
      FROM posts p JOIN clips c ON c.id = p.clip_id WHERE p.status = 'planned' AND ${POSTABLE_CLIP_SQL}`,
-  ).all<{ id: string; platform: Platform; scheduled_at: string; retries: number; clip_id: string; caption: string; hashtags: string; media_token: string | null; hook_text: string }>();
+  ).all<{ id: string; platform: Platform; scheduled_at: string; retries: number; clip_id: string; caption: string; hashtags: string; media_token: string | null; hook_text: string; ai_voice: number }>();
   const loadPlan = choosePostsToLoad(plannedRows, used, ready, now);
   const byId = new Map(plannedRows.map((r) => [r.id, r]));
   let loaded = 0;
@@ -179,7 +180,7 @@ export async function bufferSync(env: Env, opts: { force?: boolean } = {}): Prom
       token = (await env.DB.prepare("SELECT media_token FROM clips WHERE id = ?").bind(row.clip_id).first<{ media_token: string }>())?.media_token ?? token;
     }
     const text = [row.caption, row.hashtags].filter((x) => x && x.trim()).join("\n\n");
-    const r = await client.createPost({ channelId: buf.channels[row.platform]!.id, platform: row.platform, title: row.hook_text, text, mediaUrl: `${env.PUBLIC_BASE_URL}/media/${token}`, scheduledAt: bufferDueAt(row.scheduled_at, now) });
+    const r = await client.createPost({ channelId: buf.channels[row.platform]!.id, platform: row.platform, title: row.hook_text, text, mediaUrl: `${env.PUBLIC_BASE_URL}/media/${token}`, scheduledAt: bufferDueAt(row.scheduled_at, now), aiGenerated: row.ai_voice > 0 });
     if (r.ok && r.id) {
       await env.DB.prepare("UPDATE posts SET status = 'in_buffer', buffer_post_id = ?, error = NULL WHERE id = ?").bind(r.id, row.id).run();
       loaded++;
@@ -193,9 +194,10 @@ export async function bufferSync(env: Env, opts: { force?: boolean } = {}): Prom
 
   // 4. read back posts whose time has come
   const { results: waiting } = await env.DB.prepare(
-    `SELECT p.id, p.platform, p.scheduled_at, p.retries, p.buffer_post_id, c.caption, c.hashtags, c.media_token, c.hook_text
+    `SELECT p.id, p.platform, p.scheduled_at, p.retries, p.buffer_post_id, c.caption, c.hashtags, c.media_token, c.hook_text,
+            (SELECT COUNT(*) FROM narrations n WHERE n.clip_id = c.id AND n.mix_status = 'ready' AND n.ai_generated = 1) AS ai_voice
      FROM posts p JOIN clips c ON c.id = p.clip_id WHERE p.status = 'in_buffer'`,
-  ).all<{ id: string; platform: Platform; scheduled_at: string; retries: number; buffer_post_id: string | null; caption: string; hashtags: string; media_token: string | null; hook_text: string }>();
+  ).all<{ id: string; platform: Platform; scheduled_at: string; retries: number; buffer_post_id: string | null; caption: string; hashtags: string; media_token: string | null; hook_text: string; ai_voice: number }>();
   let posted = 0;
   let retried = 0;
   let failed = 0;
@@ -217,7 +219,7 @@ export async function bufferSync(env: Env, opts: { force?: boolean } = {}): Prom
       if (d.next === "retry") {
         retried++;
         const ch = buf.channels[p.platform];
-        const again = ready[p.platform] && ch && p.media_token ? await client.createPost({ channelId: ch.id, platform: p.platform, title: p.hook_text, text: [p.caption, p.hashtags].filter((x) => x && x.trim()).join("\n\n"), mediaUrl: `${env.PUBLIC_BASE_URL}/media/${p.media_token}`, scheduledAt: bufferDueAt(p.scheduled_at, now) }) : null;
+        const again = ready[p.platform] && ch && p.media_token ? await client.createPost({ channelId: ch.id, platform: p.platform, title: p.hook_text, text: [p.caption, p.hashtags].filter((x) => x && x.trim()).join("\n\n"), mediaUrl: `${env.PUBLIC_BASE_URL}/media/${p.media_token}`, scheduledAt: bufferDueAt(p.scheduled_at, now), aiGenerated: p.ai_voice > 0 }) : null;
         if (again?.ok && again.id) await env.DB.prepare("UPDATE posts SET buffer_post_id = ?, retries = ?, error = ? WHERE id = ?").bind(again.id, d.retries, st.error, p.id).run();
         else await env.DB.prepare("UPDATE posts SET status = 'planned', buffer_post_id = NULL, retries = ?, error = ? WHERE id = ?").bind(d.retries, again?.error ?? st.error, p.id).run();
         continue;

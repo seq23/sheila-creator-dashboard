@@ -92,7 +92,7 @@ test.describe("home and dump", () => {
     const features = ((await (await page.request.get("/api/settings")).json()) as { features: Record<string, boolean> }).features;
     expect(features).toEqual({ voice: true, deeper_research: true, weekly_recap: true, help_ask: true });
     for (const [label, off] of [
-      ["Voice overs on clips", "Off = clips stay real footage with no voice over."],
+      ["Automatic voice overs", "Off = only the voice overs you add yourself."],
       ["Deeper web research", "Off = the brief uses the free web search only."],
       ["Weekly recap email", "Off = no Monday email."],
     ]) {

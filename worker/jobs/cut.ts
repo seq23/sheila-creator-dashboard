@@ -47,6 +47,7 @@ import {
 } from "../domain/looks";
 import { getSetting } from "../lib/db";
 import { CUT_REF } from "../lib/jobStorage";
+import { autoVoiceDump } from "../lib/autoVoice";
 import { cleanControls, mergeControls, recipesAllowed, steerLook, steerMusic, steerPlatforms, steerRecipes, steerTarget, whatWeTried } from "../domain/steer";
 import { readUnderstood, tracksOf } from "../lib/steerStore";
 import type { NotFollowed, SteerControls } from "@shared/steer";
@@ -423,6 +424,8 @@ export interface CutResultClip {
   layout?: unknown;
   /** The song under it (R2 key of her upload), null for none. */
   music?: string | null;
+  /** How much of it has her talking (0..1); null = not measured. */
+  speech?: number | null;
 }
 
 export interface CutResult {
@@ -480,6 +483,7 @@ export interface CleanClip {
   parts: [number, number][];
   layout: GridLayout | null;
   music: string | null;
+  speech: number | null;
 }
 
 export class CutResultError extends Error {
@@ -587,6 +591,7 @@ export function parseCutResult(
       parts: cleanParts(c.parts, start, end),
       layout: look && isGridLook(look) ? (cleanGridLayout(look, c.layout) ?? defaultGridLayout(look, [])) : null,
       music: typeof c.music === "string" && /^music\/[A-Za-z0-9_]{4,60}$/.test(c.music) ? c.music : null,
+      speech: typeof c.speech === "number" && Number.isFinite(c.speech) && c.speech >= 0 && c.speech <= 1 ? Math.round(c.speech * 1000) / 1000 : null,
     });
   }
   return { clips, dropped };
@@ -648,11 +653,11 @@ export async function applyDumpClips(env: Env, jobId: string, dumpId: string, re
   for (const c of clips) {
     stmts.push(
       env.DB.prepare(
-        `INSERT INTO clips (id, asset_id, dump_id, start_s, end_s, recipe, hook_text, hook_alt, caption, hashtags, platforms, score, r2_key, cover_r2_key, media_token, status, hidden, look, parts, layout, edited_with, music)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO clips (id, asset_id, dump_id, start_s, end_s, recipe, hook_text, hook_alt, caption, hashtags, platforms, score, r2_key, cover_r2_key, media_token, status, hidden, look, parts, layout, edited_with, music, speech)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?)`,
       ).bind(
         c.id, c.asset_id, dumpId, c.start_s, c.end_s, c.recipe, c.hook_text, c.hook_alt, c.caption, c.hashtags, JSON.stringify(c.platforms), c.score, c.r2_key, c.cover_r2_key, mediaToken(), c.hidden ? 1 : 0,
-        opts.editor ? null : c.look, JSON.stringify(c.parts), opts.editor ? null : c.layout ? JSON.stringify(c.layout) : null, opts.editor ?? null, c.music,
+        opts.editor ? null : c.look, JSON.stringify(c.parts), opts.editor ? null : c.layout ? JSON.stringify(c.layout) : null, opts.editor ?? null, c.music, c.speech,
       ),
     );
   }
@@ -678,6 +683,8 @@ export async function applyDumpClips(env: Env, jobId: string, dumpId: string, re
   await recordEvent(env.DB, "dump.cut", dumpId, { clips: clips.length, visible, dropped, door: dump.door, engine, looks, editor: opts.editor ?? "built-in", held_videos: held.filter((h) => h.owner === "other").length });
   if (opts.editor) await env.DB.prepare("UPDATE editor_jobs SET status = 'done', updated_at = ? WHERE dump_id = ? AND capability = 'cut_from_source' AND status = 'importing'").bind(nowIso(), dumpId).run();
   else await queueClipEditors(env, clips.map((c) => c.id), env.PUBLIC_BASE_URL);
+  // Automatic voice overs: every new clip with no talking, in one voice job run (worker/lib/autoVoice.ts).
+  if (!opts.editor) await autoVoiceDump(env, dumpId);
   await clipCuttingLight(env, { status: "done", at: readyAt });
   log.info("cut.apply", { clips: clips.length, visible, dropped });
 
@@ -883,6 +890,8 @@ async function fakeRun(env: Env, jobId: string, refId: string | null, options: R
       parts: [[start, start + len]],
       layout: null,
       music: spec.looks[look]?.music && spec.music.length ? spec.music[i % spec.music.length].r2_key : null,
+      // A montage is b-roll with no talking (the real job measures it from the transcript).
+      speech: recipe === "montage" ? 0.04 : 0.72,
     });
   }
   // Grid Looks: the other clips of this dump fill the cells, as the real job does.

@@ -1,6 +1,7 @@
 // Voice narration (section 12). Always in the menu and always usable (nothing hidden, owner
-// 26 Sep 2026). The switch "Use my voice on clips" (features.voice, also in Settings) sits right
-// under the steps: off = clips stay real footage with no narration; her voice can still be saved.
+// 26 Sep 2026). The switch "Automatic voice overs" (features.voice, also in Settings) sits right
+// under the steps: on = clips with no talking get a voice over automatically (Review can remove
+// it); off = only the voice overs she makes here herself. Her voice can be saved either way.
 // Top: five numbered setup steps, phone first: find a quiet spot, record (or Voice Memos) while
 // reading the ~3-minute script shown right here, listen back / upload, consent + Save my voice,
 // re-record any time. Recording works on iPhone Safari (MediaRecorder audio/mp4, else webm),
@@ -17,6 +18,7 @@ import { uploadFile } from "../lib/upload";
 import { Card, Dot, Empty, HelpButton, Modal, Notice, PageHead, Skeleton, useLoad, useToast } from "../components/ui";
 import SCRIPT from "../content/voice-script.md?raw";
 import "../styles/voice.css";
+import { AUTO_VOICE_HINT } from "@shared/autoVoice";
 
 type Engine = "built-in" | "elevenlabs";
 
@@ -223,7 +225,7 @@ function SetupSteps({ v, onChange }: { v: VoiceState; onChange: () => void }) {
       )}
 
       {open ? (
-        <ol className="voice-steps">
+        <ol className="voice-steps" id="voice-steps">
           <Step n={1} title="Find a quiet spot">
             <p>Find a quiet spot. Hold your phone like a call, about a hand’s width from your mouth.</p>
           </Step>
@@ -468,7 +470,7 @@ function ClipsSwitch({ v, onChange }: { v: VoiceState; onChange: () => void }) {
     setBusy(true);
     try {
       await patch("/api/voice/clips", { on: next });
-      toast.ok(next ? "On: voice overs are made in your voice." : "Off: clips stay real footage with no voice over.");
+      toast.ok(next ? "On: clips with no talking get a voice over in your voice." : "Off: only the voice overs you add yourself.");
       onChange();
     } catch (e) {
       setOn(!next);
@@ -482,10 +484,15 @@ function ClipsSwitch({ v, onChange }: { v: VoiceState; onChange: () => void }) {
       <label className="switch">
         <input type="checkbox" checked={on} disabled={busy || !v.owner} onChange={(e) => toggle(e.target.checked)} />
         <span>
-          <span className="switch-label">Voice overs on clips</span>
-          <span className="switch-hint hint">Off = clips stay real footage with no voice over. On = voice overs are made in your voice.</span>
+          <span className="switch-label">Automatic voice overs</span>
+          <span className="switch-hint hint">{AUTO_VOICE_HINT}</span>
         </span>
       </label>
+      {on && !v.hasSample ? (
+        <p className="hint" data-auto-voice="needs_voice">
+          <a href="#voice-steps">Record your voice first</a>: follow the steps, and clips with no talking get a voice over from then on. Until then nothing is made and nothing is wrong.
+        </p>
+      ) : null}
     </Card>
   );
 }
@@ -591,7 +598,7 @@ function NarrateCard({ v, onChange }: { v: VoiceState; onChange: () => void }) {
   return (
     <Card>
       <h2>Make a voice over</h2>
-      {!v.enabled ? <Notice tone="info">Switch on “Voice overs on clips” above to make voice overs.</Notice> : !v.hasSample ? <Notice tone="info">Save your voice in the steps above first.</Notice> : null}
+      {!v.hasSample ? <Notice tone="info">Save your voice in the steps above first.</Notice> : null}
       <label className="field">
         <span className="label">Script</span>
         <textarea className="textarea" rows={5} maxLength={1500} value={script} onChange={(e) => setScript(e.target.value)} placeholder="What should the voice-over say?" />
@@ -600,10 +607,10 @@ function NarrateCard({ v, onChange }: { v: VoiceState; onChange: () => void }) {
         </span>
       </label>
       <div className="btn-row">
-        <button type="button" className="btn quiet" onClick={draft} disabled={!!busy || !v.enabled}>
+        <button type="button" className="btn quiet" onClick={draft} disabled={!!busy}>
           {busy === "draft" ? "Drafting…" : "Draft with AI"}
         </button>
-        <button type="button" className={v.hasSample ? "btn" : "btn quiet"} data-primary={(v.enabled && v.hasSample) || undefined} onClick={generate} disabled={!!busy || !v.enabled || !v.hasSample || script.trim().length < 10}>
+        <button type="button" className={v.hasSample ? "btn" : "btn quiet"} data-primary={v.hasSample || undefined} onClick={generate} disabled={!!busy || !v.hasSample || script.trim().length < 10}>
           {busy === "gen" ? "Starting…" : "Generate"}
         </button>
       </div>
