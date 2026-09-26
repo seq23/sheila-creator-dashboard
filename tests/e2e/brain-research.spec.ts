@@ -4,6 +4,8 @@
 //   Gate (section 6): Dump is refused before, and goes through after, lock + approve
 //   Stats: fake Instagram sign-in, TikTok export import, sync, the expired-token failure shape
 import { randomBytes } from "node:crypto";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { expect, test, type APIRequestContext } from "@playwright/test";
 import { sql } from "./helpers";
 
@@ -39,7 +41,7 @@ async function dumpWithVideo(api: APIRequestContext): Promise<string> {
 // cleared directly.
 test.afterEach(async ({ page }) => {
   await page.request.post("/api/brain/profile/unlock");
-  sql(["DELETE FROM research_briefs", "DELETE FROM account_stats", "DELETE FROM platform_videos", "DELETE FROM metrics", "DELETE FROM settings WHERE key IN ('learned_slots','learned_slots_at')"].join("; "));
+  sql(["DELETE FROM research_briefs", "DELETE FROM account_stats", "DELETE FROM platform_videos", "DELETE FROM metrics", "DELETE FROM settings WHERE key IN ('learned_slots','learned_slots_at','youtube_public','youtube_channel','youtube_channel_typed','instagram_public','instagram_manual','instagram_reminder','instagram_handle_typed')"].join("; "));
 });
 
 test("brain → research → the cutting gate opens only after lock + approve", async ({ page }) => {
@@ -152,6 +154,49 @@ test("stats: Instagram sign-in, TikTok export, sync, and an expired token turns 
   // Reconnect puts it right.
   await page.locator(".list-row", { hasText: "Instagram needs you to reconnect." }).getByRole("link", { name: "Reconnect" }).click();
   await expect(page.getByText("Instagram stats connected.")).toBeVisible();
+});
+
+test("stats with no sign-in: YouTube public numbers, Instagram numbers form, TikTok zip export", async ({ page }) => {
+  const fixture = (f: string) => readFileSync(path.join(process.cwd(), "tests", "unit", "fixtures", f));
+  await page.goto("/stats");
+
+  // The sign-ins stay on the screen, labelled optional, with the plain warning sentence.
+  await expect(page.getByRole("heading", { name: "Extra detail (optional)" })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Connect with Google \(optional\)|Google connected/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Connect with Instagram \(optional\)|Instagram connected/ })).toBeVisible();
+  await expect(page.getByText(/may show a warning page until the app is approved/)).toBeVisible();
+
+  // YouTube: public numbers, no sign-in; the channel typed once.
+  await page.getByLabel("Different channel? Paste its @name or link").fill("@asheilabruceaffair");
+  await page.getByRole("button", { name: "Use this channel" }).click();
+  await expect(page.locator(".toast").filter({ hasText: "Channel saved." })).toBeVisible();
+  await expect(page.getByText(/1,260 subscribers/)).toBeVisible();
+  await expect(page.locator('[data-source="youtube"]')).toContainText("Public numbers, no sign-in");
+
+  // Instagram: the 3-step guide and the form; her numbers show at once.
+  await expect(page.getByText("Professional dashboard", { exact: true })).toBeVisible();
+  await page.getByLabel("Followers").fill("2,345");
+  await page.getByLabel("Average reach or views").fill("1500");
+  await page.getByRole("button", { name: "Save my numbers" }).click();
+  await expect(page.locator(".toast").filter({ hasText: "Instagram numbers saved." })).toBeVisible();
+  await expect(page.locator(".card", { hasText: "Instagram" }).getByText("2,345", { exact: true }).first()).toBeVisible();
+  await page.getByRole("button", { name: "Remind me monthly" }).click();
+  await expect(page.getByRole("button", { name: "Monthly reminder on" })).toBeVisible();
+
+  // TikTok: the zip TikTok Studio hands her imports; a real Excel file gets the Excel message.
+  await page.locator('input[type="file"]').setInputFiles({ name: "Content_fabul11.zip", mimeType: "application/zip", buffer: fixture("tiktok-content.zip") });
+  await expect(page.locator(".toast").filter({ hasText: "Imported 3 TikTok videos." })).toBeVisible();
+  await page.locator('input[type="file"]').setInputFiles({ name: "export.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: fixture("tiktok-export.xlsx") });
+  await expect(page.locator(".toast").filter({ hasText: "That is an Excel file." })).toBeVisible();
+
+  // Update numbers never needs a sign-in.
+  const r = await page.request.post("/api/stats/sync");
+  expect(r.status()).toBe(200);
+  const synced = (await r.json()) as { ok: boolean; youtube: { state: string }; jobId: string | null };
+  expect(synced).toMatchObject({ ok: true, youtube: { state: "ok" } });
+  // A sign-in left connected by the spec before this one adds its job: finish it, so the next
+  // project finds no update still running.
+  if (synced.jobId) await runFake(page.request, synced.jobId);
 });
 
 test("Client Brain, Research, Stats and Connections fit the screen with no sideways scroll", async ({ page }) => {

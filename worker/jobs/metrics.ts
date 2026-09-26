@@ -67,7 +67,10 @@ export async function upsertVideos(env: Env, videos: VideoRow[], source: "api" |
        ON CONFLICT(platform, external_id) DO UPDATE SET
          url = COALESCE(excluded.url, platform_videos.url), title = COALESCE(excluded.title, platform_videos.title),
          posted_at = COALESCE(excluded.posted_at, platform_videos.posted_at), views = excluded.views, likes = excluded.likes,
-         comments = excluded.comments, shares = excluded.shares, saves = excluded.saves,
+         comments = excluded.comments,
+         -- A source that cannot see shares / saves (YouTube's public numbers) reports 0: keep what a richer read found.
+         shares = CASE WHEN excluded.shares > 0 THEN excluded.shares ELSE platform_videos.shares END,
+         saves = CASE WHEN excluded.saves > 0 THEN excluded.saves ELSE platform_videos.saves END,
          avg_watch_s = COALESCE(excluded.avg_watch_s, platform_videos.avg_watch_s), source = excluded.source,
          post_id = COALESCE(excluded.post_id, platform_videos.post_id), captured_at = excluded.captured_at`,
     )

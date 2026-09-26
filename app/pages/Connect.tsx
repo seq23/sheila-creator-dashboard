@@ -1,5 +1,6 @@
-// Connect accounts (section 4b): Buffer (paste key → channels found), stats (Instagram and
-// Google sign-in via /api/oauth, TikTok export upload on Stats), AI (OpenRouter), web research (Firecrawl),
+// Connect accounts (section 4b): Buffer (paste key → channels found), stats (no sign-in first:
+// YouTube public numbers, Instagram numbers typed on Stats, TikTok export upload on Stats; the
+// Instagram and Google sign-ins via /api/oauth stay visible as optional extra detail), AI (OpenRouter), web research (Firecrawl),
 // Hunter (optional), Voice overs · ElevenLabs (premium, optional: her own ElevenLabs account; without it
 // the free built-in voice is used). Every connection has Connect / Check again / Disconnect, plus
 // Disconnect everything. She always logs in on the platform's own page.
@@ -45,7 +46,8 @@ export function Connect() {
   const owner = me?.role === "owner";
   // The screen's one next step: the first thing not connected yet, in the order she sets them up.
   // With everything connected, Buffer's "Check again" (posting is what matters most).
-  const order: Service[] = ["buffer", "meta", "google", "openrouter", "firecrawl", "hunter"];
+  // The stats sign-ins are optional extra detail (owner decision 25 Sep 2026), never the next step.
+  const order: Service[] = ["buffer", "openrouter", "firecrawl", "hunter"];
   const primary: Service | null = !owner || !data ? null : (order.find((sv) => byService(sv)?.status !== "ok") ?? "buffer");
 
   async function disconnectAll() {
@@ -91,15 +93,25 @@ export function Connect() {
             <ChannelsCard conn={byService("buffer")} />
           </Section>
 
-          <Section n={2} title="Stats · for research">
+          <Section n={2} title="Stats · no sign-in needed">
             <Card className="flat">
-              <div className="hint">Lets the dashboard learn what works for you. Read-only; it can’t post.</div>
+              <div className="hint">Lets the dashboard learn what works for you. Your numbers come in without signing in anywhere.</div>
               <div className="list">
-                <StatsRow name="Instagram" provider="meta" conn={byService("meta")} connectLabel="Connect with Instagram" owner={owner} primary={primary === "meta"} onChange={reload} />
-                <StatsRow name="YouTube" provider="google" conn={byService("google")} connectLabel="Connect with Google" owner={owner} primary={primary === "google"} onChange={reload} />
+                <NoLoginRow name="YouTube" line="Public numbers, read on their own through the channel Buffer posts to." cta="See YouTube numbers" />
+                <NoLoginRow name="Instagram" line="Type your followers and reach on Stats whenever you like (2 minutes)." cta="Add Instagram numbers" />
                 <TikTokRow conn={byService("tiktok")} />
               </div>
-              <div className="hint">TikTok stats: direct connect only if TikTok approves the app. Until then, upload the export from TikTok Studio once a month.</div>
+              <div className="hint">TikTok: upload the export from TikTok Studio once a month (the zip it gives you is fine).</div>
+            </Card>
+            <Card className="flat">
+              <div className="title">Extra detail · optional</div>
+              <div className="hint">
+                Signing in adds a little more (YouTube watch time, Instagram reach per video). Nothing waits on it. Google or Meta may show a warning page until the app is approved; that is expected.
+              </div>
+              <div className="list">
+                <StatsRow name="Instagram (optional)" provider="meta" conn={byService("meta")} connectLabel="Connect with Instagram" owner={owner} primary={false} onChange={reload} />
+                <StatsRow name="YouTube (optional)" provider="google" conn={byService("google")} connectLabel="Connect with Google" owner={owner} primary={false} onChange={reload} />
+              </div>
             </Card>
           </Section>
 
@@ -382,7 +394,7 @@ function StatsRow({ name, provider, conn, connectLabel, owner, primary, onChange
             ? `${account ? `${account} · ` : ""}${synced ? `Numbers updated ${ago(synced)}` : "Connected · first numbers this week"}`
             : status === "error"
               ? (conn?.last_error ?? "Needs reconnect")
-              : "Not connected"}
+              : "Not connected (optional)"}
         </div>
       </div>
       {owner ? (
@@ -401,6 +413,20 @@ function StatsRow({ name, provider, conn, connectLabel, owner, primary, onChange
           </a>
         )
       ) : null}
+    </div>
+  );
+}
+
+function NoLoginRow({ name, line, cta }: { name: string; line: string; cta: string }) {
+  return (
+    <div className="list-row">
+      <div className="grow">
+        <div className="title">{name}</div>
+        <div className="meta">{line}</div>
+      </div>
+      <Link className="btn quiet small" to="/stats">
+        {cta}
+      </Link>
     </div>
   );
 }

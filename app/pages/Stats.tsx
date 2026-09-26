@@ -1,13 +1,17 @@
 // Stats (BUILD_PLAN.md section 4: "What's working: top clips, best times, best cut styles";
 // phase 8 learning loop). Her accounts per platform, top videos, best posting times, best cut
-// styles, and whether the Calendar is on her own best times yet. Instagram and YouTube sync
-// through their stats connections; TikTok comes from the TikTok Studio export she uploads here.
+// styles, and whether the Calendar is on her own best times yet.
+// No login (owner decision 25 Sep 2026): YouTube's public numbers are read with the dashboard's
+// key (her channel found through Buffer, or typed once here); Instagram's public numbers when
+// Instagram answers, and always the "Your Instagram numbers" form; TikTok from the export she
+// uploads (the zip TikTok gives her, or the CSV). The Google / Instagram sign-ins stay visible
+// as optional extra detail; nothing here waits on them.
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { PLATFORMS, PLATFORM_LABEL, type Platform, type Slot } from "@shared/constants";
 import { ApiFailure, get, post } from "../lib/api";
 import { ago, fmtDate, plural } from "../lib/format";
-import { Card, Empty, HelpButton, Notice, PageHead, Skeleton, useLoad, useToast } from "../components/ui";
+import { Card, Dot, Empty, HelpButton, Notice, PageHead, Skeleton, useLoad, useToast } from "../components/ui";
 import "../styles/stats.css";
 
 interface StatsData {
@@ -20,7 +24,26 @@ interface StatsData {
   learnedAt: string | null;
   connections: { service: string; status: string; last_ok_at: string | null; meta: Record<string, unknown> }[];
   job: { id: string; status: string; safe_error: string | null; created_at: string } | null;
+  recapOn: boolean;
+  public: {
+    youtube: { state: string; checked_at: string; subscribers?: number; views?: number; videos?: number; read?: number } | null;
+    youtubeChannel: { id: string; title: string; handle: string | null; source: "buffer" | "typed" | "search" } | null;
+    youtubeTyped: string | null;
+    instagram: { path: "public" | "manual" | "oauth"; checked_at: string; handle: string | null; why?: string; followers?: number; posts?: number } | null;
+    instagramManual: { followers: number; avg_reach: number; updated_at: string } | null;
+    instagramReminder: boolean;
+  };
 }
+
+/** What the YouTube card says about the public numbers, in plain words. */
+const YT_STATE: Record<string, string> = {
+  no_key: "YouTube numbers are not set up on this dashboard yet. Your helper adds one key; nothing for you to do.",
+  no_channel: "Type your YouTube channel below so we can read its numbers.",
+  not_found: "We couldn’t find that YouTube channel. Check the @name below.",
+  key_refused: "YouTube refused this dashboard’s key. Your helper has the same message; we’ll try again tomorrow.",
+  quota: "YouTube asked us to slow down today. We’ll read your numbers tomorrow.",
+  failed: "YouTube didn’t answer this time. We’ll try again tomorrow.",
+};
 
 const DAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const hour = (h: number) => `${h % 12 === 0 ? 12 : h % 12} ${h < 12 ? "am" : "pm"}`;
@@ -41,15 +64,14 @@ export function Stats() {
   }, [running, reload]);
 
   const conn = (p: Platform) => data?.connections.find((c) => c.service === SERVICE[p]) ?? null;
-  const canSync = !!data?.connections.some((c) => (c.service === "meta" || c.service === "google") && c.status === "ok");
-  // One next step only while nothing feeds the numbers yet: connecting.
-  const nothingConnected = !!data && !canSync && !data.connections.some((c) => c.service === "tiktok" && c.meta.last_import_at);
+  // One next step while nothing has been read yet: Update numbers (no sign-in needed).
+  const nothingYet = !!data && data.accounts.length === 0;
 
   async function sync() {
     setBusy("sync");
     try {
-      await post("/api/stats/sync");
-      toast.ok("Getting your latest Instagram and YouTube results. A few minutes.");
+      const r = await post<{ youtube: { state: string }; instagram: { path: string }; jobId: string | null }>("/api/stats/sync");
+      toast.ok(r.youtube.state === "ok" ? `Numbers updated.${r.jobId ? " Extra detail from your sign-ins in a few minutes." : ""}` : `${YT_STATE[r.youtube.state] ?? "Numbers updated."}`);
     } catch (e) {
       toast.bad(e);
     } finally {
@@ -85,19 +107,13 @@ export function Stats() {
   return (
     <div className="page">
       <PageHead title="Stats" lede="What’s working: your numbers, your best videos and the times your audience watches.">
-        {canSync ? (
-          <button className="btn quiet" onClick={sync} disabled={running || busy === "sync"}>
-            {running ? "Updating…" : "Update numbers"}
-          </button>
-        ) : (
-          <Link className={nothingConnected ? "btn" : "btn quiet"} data-primary={nothingConnected || undefined} to="/settings/connections">
-            Connect Instagram / YouTube
-          </Link>
-        )}
+        <button className={nothingYet ? "btn" : "btn quiet"} data-primary={nothingYet || undefined} onClick={sync} disabled={running || busy === "sync"}>
+          {running || busy === "sync" ? "Updating…" : "Update numbers"}
+        </button>
         <button className="btn quiet" onClick={() => fileRef.current?.click()} disabled={busy === "import"}>
           {busy === "import" ? "Importing…" : "Upload TikTok export"}
         </button>
-        <input ref={fileRef} type="file" hidden aria-label="Choose your TikTok export" accept=".csv,text/csv" onChange={(e) => (e.target.files ? importTikTok(e.target.files).finally(() => (e.target.value = "")) : undefined)} />
+        <input ref={fileRef} type="file" hidden aria-label="Choose your TikTok export" accept=".csv,.zip,text/csv,application/zip,application/x-zip-compressed" onChange={(e) => (e.target.files ? importTikTok(e.target.files).finally(() => (e.target.value = "")) : undefined)} />
       </PageHead>
 
       {loading && !data ? <Skeleton blocks={3} columns={3} /> : null}
@@ -118,7 +134,7 @@ export function Stats() {
 
       {data && !hasAny ? (
         <Empty title="No results yet" secondary={{ to: "/help/upload-your-tiktok-export", label: "How to get the TikTok export" }}>
-          Connect Instagram and YouTube stats, and upload your TikTok export from TikTok Studio. After about 4 weeks of posting, the Calendar switches from the big studies’ times to your own best times.
+          Tap Update numbers: YouTube is read on its own, no sign-in. Add your Instagram numbers below and upload your TikTok export from TikTok Studio. After about 4 weeks of posting, the Calendar switches from the big studies’ times to your own best times.
         </Empty>
       ) : null}
 
@@ -128,7 +144,7 @@ export function Stats() {
             {PLATFORMS.map((p) => {
               const a = data.accounts.find((x) => x.platform === p);
               const c = conn(p);
-              const when = p === "tiktok" ? (c?.meta.last_import_at as string | undefined) : ((c?.meta.last_sync_at as string | undefined) ?? c?.last_ok_at ?? undefined);
+              const when = p === "tiktok" ? (c?.meta.last_import_at as string | undefined) : p === "youtube" ? (data.public.youtube?.state === "ok" ? data.public.youtube.checked_at : ((c?.meta.last_sync_at as string | undefined) ?? undefined)) : a?.captured_at;
               return (
                 <Card key={p}>
                   <div className="card-label">{PLATFORM_LABEL[p]}</div>
@@ -140,13 +156,20 @@ export function Stats() {
                   ) : (
                     <div className="soft">No numbers yet</div>
                   )}
-                  <div className="hint">
-                    {when ? `${p === "tiktok" ? "Imported" : "Updated"} ${ago(when)}` : p === "tiktok" ? "Upload the export from TikTok Studio" : c?.status === "error" ? "Needs you to reconnect" : "Not connected"}
+                  <div className="hint" data-source={p}>
+                    {sourceLine(p, data, when)}
                   </div>
                 </Card>
               );
             })}
           </div>
+
+          <div className="stats-split">
+            <YouTubeChannelCard data={data} onChange={reload} />
+            <InstagramNumbersCard data={data} onChange={reload} />
+          </div>
+
+          <OptionalSignIns data={data} />
 
           <section className="section" aria-labelledby="learn-h">
             <h2 id="learn-h">Your posting times</h2>
@@ -260,5 +283,201 @@ export function Stats() {
       ) : null}
       <HelpButton guide="upload-your-tiktok-export" />
     </div>
+  );
+}
+
+/** Where a platform card's numbers come from, in one plain line. */
+function sourceLine(p: Platform, data: StatsData, when: string | undefined): string {
+  if (p === "tiktok") return when ? `From your export · imported ${ago(when)}` : "Upload the export from TikTok Studio";
+  if (p === "youtube") {
+    const yt = data.public.youtube;
+    if (yt?.state === "ok") return `Public numbers, no sign-in · updated ${ago(yt.checked_at)}`;
+    if (when) return `Updated ${ago(when)}`;
+    return yt ? (YT_STATE[yt.state] ?? "Tap Update numbers") : "Tap Update numbers: no sign-in needed";
+  }
+  const ig = data.public.instagram;
+  const m = data.public.instagramManual;
+  if (ig?.path === "public") return `Public numbers, no sign-in · updated ${ago(ig.checked_at)}`;
+  if (ig?.path === "oauth") return when ? `From your Instagram sign-in · updated ${ago(when)}` : "From your Instagram sign-in";
+  if (m) return `Your numbers · updated ${ago(m.updated_at)}`;
+  return "Add your numbers below (2 minutes)";
+}
+
+function YouTubeChannelCard({ data, onChange }: { data: StatsData; onChange: () => void }) {
+  const toast = useToast();
+  const ch = data.public.youtubeChannel;
+  const yt = data.public.youtube;
+  const [text, setText] = useState(data.public.youtubeTyped ?? "");
+  const [busy, setBusy] = useState(false);
+  async function use() {
+    setBusy(true);
+    try {
+      await post("/api/stats/youtube-channel", { channel: text });
+      toast.ok(text.trim() ? "Channel saved. Your YouTube numbers are updated." : "Back to the channel Buffer posts to.");
+      onChange();
+    } catch (e) {
+      toast.bad(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+  const found = ch ? `${ch.title}${ch.handle ? ` (${ch.handle})` : ""} · ${ch.source === "typed" ? "the channel you typed" : ch.source === "buffer" ? "found through Buffer" : "found by its name"}` : null;
+  return (
+    <section className="section" aria-labelledby="yt-h">
+      <h2 id="yt-h">Your YouTube channel</h2>
+      <Card className="flat">
+        <div className="list-row">
+          <Dot light={yt?.state === "ok" ? "green" : yt ? "yellow" : "grey"} />
+          <div className="grow">
+            <div className="title">{found ?? "No channel yet"}</div>
+            <div className="meta nums">
+              {yt?.state === "ok" ? `${num(yt.subscribers ?? 0)} subscribers · ${num(yt.views ?? 0)} views · ${plural(yt.videos ?? 0, "video")}` : yt ? (YT_STATE[yt.state] ?? "") : "Tap Update numbers. No sign-in needed: YouTube numbers are public."}
+            </div>
+          </div>
+        </div>
+        <div className="field">
+          <label htmlFor="yt-channel">Different channel? Paste its @name or link</label>
+          <div className="row">
+            <input id="yt-channel" className="input" value={text} placeholder="@yourchannel" onChange={(e) => setText(e.target.value)} />
+            <button className="btn quiet" onClick={use} disabled={busy}>
+              {busy ? "Checking…" : "Use this channel"}
+            </button>
+          </div>
+          <div className="hint">
+            Leave it empty to use the channel Buffer posts to. <Link to="/help/your-youtube-numbers">How to find it</Link>
+          </div>
+        </div>
+      </Card>
+    </section>
+  );
+}
+
+function InstagramNumbersCard({ data, onChange }: { data: StatsData; onChange: () => void }) {
+  const toast = useToast();
+  const ig = data.public.instagram;
+  const m = data.public.instagramManual;
+  const [followers, setFollowers] = useState(m ? String(m.followers) : "");
+  const [reach, setReach] = useState(m ? String(m.avg_reach) : "");
+  const [handle, setHandle] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
+  async function save() {
+    setBusy("save");
+    try {
+      await post("/api/stats/instagram-numbers", { followers, avg_reach: reach });
+      toast.ok("Instagram numbers saved.");
+      onChange();
+    } catch (e) {
+      toast.bad(e);
+    } finally {
+      setBusy(null);
+    }
+  }
+  async function remind(on: boolean) {
+    setBusy("remind");
+    try {
+      await post("/api/stats/instagram-reminder", { on });
+      toast.ok(on ? (data.recapOn ? "We’ll remind you once a month in your Monday recap email." : "Reminder on. It comes in the Monday recap email: turn that on in Settings → Features.") : "Monthly reminder off.");
+      onChange();
+    } catch (e) {
+      toast.bad(e);
+    } finally {
+      setBusy(null);
+    }
+  }
+  async function saveHandle() {
+    setBusy("handle");
+    try {
+      await post("/api/stats/instagram-handle", { handle });
+      toast.ok("Instagram name saved.");
+      onChange();
+    } catch (e) {
+      toast.bad(e);
+    } finally {
+      setBusy(null);
+    }
+  }
+  const status =
+    ig?.path === "public"
+      ? `We read your public follower count${ig.handle ? ` for @${ig.handle}` : ""} on our own (${num(ig.followers ?? 0)} followers). Reach isn’t public, so add it here.`
+      : ig?.path === "oauth"
+        ? "Your Instagram sign-in sends the numbers. You can still add them here any time."
+        : "Instagram keeps these numbers behind its login, so you add them here, whenever you like.";
+  return (
+    <section className="section" aria-labelledby="ig-h">
+      <h2 id="ig-h">Your Instagram numbers</h2>
+      <Card className="flat">
+        <p className="soft" data-ig-path={ig?.path ?? "none"}>
+          {status}
+        </p>
+        <ol className="stats-steps">
+          <li>
+            Open the <strong>Instagram app</strong> and tap your profile picture.
+          </li>
+          <li>
+            Tap <strong>Professional dashboard</strong>.
+          </li>
+          <li>
+            Under <strong>Insights</strong>, pick the last 30 days: note <strong>Accounts reached</strong> (or Views) and <strong>Followers</strong>.
+          </li>
+        </ol>
+        <div className="stats-form">
+          <div className="field">
+            <label htmlFor="ig-followers">Followers</label>
+            <input id="ig-followers" className="input nums" inputMode="numeric" value={followers} placeholder="4820" onChange={(e) => setFollowers(e.target.value)} />
+          </div>
+          <div className="field">
+            <label htmlFor="ig-reach">Average reach or views</label>
+            <input id="ig-reach" className="input nums" inputMode="numeric" value={reach} placeholder="1500" onChange={(e) => setReach(e.target.value)} />
+          </div>
+        </div>
+        <div className="row wrap">
+          <button className="btn" onClick={save} disabled={busy === "save" || !followers.trim() || !reach.trim()}>
+            {busy === "save" ? "Saving…" : "Save my numbers"}
+          </button>
+          <button className="btn quiet" aria-pressed={data.public.instagramReminder} onClick={() => remind(!data.public.instagramReminder)} disabled={busy === "remind"}>
+            {data.public.instagramReminder ? "Monthly reminder on" : "Remind me monthly"}
+          </button>
+          <Link className="btn quiet" to="/help/update-instagram-numbers">
+            Show me how
+          </Link>
+        </div>
+        <div className="hint">{m ? `Last saved ${ago(m.updated_at)}.` : "Nothing saved yet."}</div>
+        {!ig?.handle ? (
+          <div className="field">
+            <label htmlFor="ig-handle">Your Instagram name (so we can read your public follower count)</label>
+            <div className="row">
+              <input id="ig-handle" className="input" value={handle} placeholder="@yourname" onChange={(e) => setHandle(e.target.value)} />
+              <button className="btn quiet" onClick={saveHandle} disabled={busy === "handle" || !handle.trim()}>
+                Save
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </Card>
+    </section>
+  );
+}
+
+/** The sign-ins stay visible (nothing hidden), labelled as optional extra detail; nothing waits on them. */
+function OptionalSignIns({ data }: { data: StatsData }) {
+  const google = data.connections.find((c) => c.service === "google");
+  const meta = data.connections.find((c) => c.service === "meta");
+  return (
+    <section className="section" aria-labelledby="extra-h">
+      <h2 id="extra-h">Extra detail (optional)</h2>
+      <Card className="flat">
+        <p className="soft">
+          Everything above works without signing in. Signing in adds a little more (YouTube watch time, Instagram reach per video). Google or Meta may show a warning page until the app is approved; that is expected and safe to skip.
+        </p>
+        <div className="row wrap">
+          <a className="btn quiet small" href="/api/oauth/google/start">
+            {google?.status === "ok" ? "Google connected · reconnect" : "Connect with Google (optional)"}
+          </a>
+          <a className="btn quiet small" href="/api/oauth/meta/start">
+            {meta?.status === "ok" ? "Instagram connected · reconnect" : "Connect with Instagram (optional)"}
+          </a>
+        </div>
+      </Card>
+    </section>
   );
 }
