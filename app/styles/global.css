@@ -1412,3 +1412,30 @@ a.list-row:hover .title {
   font-size: var(--text-2xs);
   color: var(--text-muted);
 }
+
+/* Privacy · Terms in the footer of every screen (Shell sidebar foot, phone Menu sheet, login card). */
+.legal-links {
+  display: flex;
+  gap: var(--space-sm);
+  font-size: var(--text-xs);
+}
+.legal-links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--touch);
+  color: inherit;
+  text-decoration: underline;
+}
+.more-sheet .legal-links,
+.login-card .legal-links {
+  justify-content: center;
+  color: var(--muted);
+}
+.more-sheet .legal-links a {
+  min-height: var(--touch);
+  border: 0;
+  background: transparent;
+  font-weight: 400;
+  font-size: var(--text-xs);
+  padding: 0;
+}

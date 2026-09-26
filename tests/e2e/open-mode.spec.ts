@@ -32,6 +32,14 @@ test.describe("open mode: no login at all", () => {
     await expect(page.locator(".login-card")).toHaveCount(0);
   });
 
+  test("/privacy and /terms are the public pages, not Home (Google's Branding page links them)", async ({ page }) => {
+    await page.goto("/privacy");
+    await expect(page.getByRole("heading", { name: "Privacy policy" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Hi Sheila" })).toHaveCount(0);
+    await page.goto("/terms");
+    await expect(page.getByRole("heading", { name: "Terms of service" })).toBeVisible();
+  });
+
   test("the login API is gone: /api/auth/request, /verify and /me are 404", async ({ request }) => {
     expect((await request.post("/api/auth/request", { data: { email: OWNER } })).status()).toBe(404);
     expect((await request.post("/api/auth/verify", { data: { email: OWNER, code: "123456" } })).status()).toBe(404);
