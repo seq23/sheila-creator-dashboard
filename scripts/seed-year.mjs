@@ -23,8 +23,8 @@
 //             the sample holds (its connections, lights, posts, sessions), loads the year with
 //             smaller file sizes (storage sits green) and the sample's own lights, then uploads
 //             the demo media (scripts/sample-media.mjs) under the keys the rows point at.
-//             `--remote-sample --media-only` uploads just the media; `--remote-sample --clear`
-//             removes the year from the sample.
+//             `--remote-sample --media-only` uploads just the media, `--no-media` skips it (the
+//             rows only); `--remote-sample --clear` removes the year from the sample.
 import { execFileSync } from "node:child_process";
 import { writeFileSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -251,6 +251,8 @@ export function yearSql(now = new Date(), { before = false, sample = false } = {
     out.push(row("dumps", { id, door, kind: full ? "full_video" : "clips", notes: full ? `Full video: ${topic} start to finish` : `${topic}${i % 3 === 0 ? ", keep it cosy" : ""}`, status, error_summary: FAILED.get(i) ?? null, clips_made: 0, created_at: iso(created), dumped_at: status === "uploading" ? null : iso(created + 5 * 60_000), ready_at: ["reviewed", "ready", "failed"].includes(status) ? iso(ready) : null }));
     if (status !== "uploading") email(status === "failed" ? "posting_problem" : "clips_ready", status === "failed" ? "A dump needs a look" : "Your clips are ready", ready, id);
     event("dump.sent", id, created + 5 * 60_000, { door, files: 1 });
+    // The sample keeps the job behind each dump, so "Clip cutting" reads the last cut, not "No clips cut yet".
+    if (sample && status !== "uploading") out.push(row("jobs", { id: `yr_job_${String(i).padStart(2, "0")}`, type: full ? "fullvideo" : "cut", status: status === "failed" ? "failed" : "done", ref_id: id, nonce: `yr_nonce_${i}`, safe_error: FAILED.get(i) ?? null, created_at: iso(created + 5 * 60_000), started_at: iso(created + 6 * 60_000), finished_at: iso(ready) }));
 
     const nAssets = full ? 1 : between(1, 4);
     const assets = [];
@@ -343,7 +345,8 @@ export function yearSql(now = new Date(), { before = false, sample = false } = {
       const at = c.at + between(1, 6) * DAY + 19 * 3600_000;
       const pid = `yr_post_${c.id}_${p}`;
       const y = r();
-      let status = at > T ? "planned" : y < 0.07 ? "failed" : y < 0.13 ? "unscheduled" : "posted";
+      // The sample shows no failed posts: three red "posts did not go out" lights read as broken to a visitor.
+      let status = at > T ? "planned" : y < 0.07 ? (sample ? "posted" : "failed") : y < 0.13 ? "unscheduled" : "posted";
       if (status === "planned" && at - T < 7 * DAY) status = r() < 0.5 ? "in_buffer" : "planned";
       out.push(row("posts", { id: pid, clip_id: c.id, platform: plat, scheduled_at: iso(at), status, url: status === "posted" ? `https://www.tiktok.com/@demo.sheila/video/7${String(++pv).padStart(18, "0")}` : null, error: status === "failed" ? pick(["Instagram did not accept the video. Reconnect Instagram in Buffer.", "Buffer was busy and the post was not sent. Tap Try again.", "TikTok said this video is too long."]) : null, retries: status === "failed" ? 2 : 0, posted_at: status === "posted" ? iso(at) : null, created_at: iso(c.at) }));
       stats.posts++;
@@ -484,6 +487,7 @@ if (isMain) {
   const outIdx = args.indexOf("--out");
   const { sql, stats, media } = args.includes("--clear") ? { sql: clearYearSql(), stats: null, media: [] } : yearSql(new Date(), { before, sample: remoteSample });
   if (outIdx >= 0) writeFileSync(args[outIdx + 1], sql);
+  // --no-media: the rows only (a re-seed after a seed-year change; the media in R2 is unchanged).
   if ((args.includes("--apply") || args.includes("--clear")) && !args.includes("--media-only")) {
     const dir = mkdtempSync(path.join(tmpdir(), "seed-year-"));
     const file = path.join(dir, "year.sql");
@@ -499,7 +503,7 @@ if (isMain) {
       }
     }
   }
-  if (remoteSample && (args.includes("--apply") || args.includes("--media-only"))) {
+  if (remoteSample && (args.includes("--apply") || args.includes("--media-only")) && !args.includes("--no-media")) {
     const { uploadSampleMedia } = await import("./sample-media.mjs");
     await uploadSampleMedia(media, { root, bucket: target.bucket, wranglerArgs: target.wranglerArgs });
   }
