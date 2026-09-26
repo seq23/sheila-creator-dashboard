@@ -76,7 +76,7 @@ Sheila', 'Hi Petal Post! Media kit: http://localhost:8787/kit/sheila', 'Hi again
 
 INSERT INTO deal_emails (id, deal_id, scenario, subject, subject_options, body, tone, length, source, status, created_at) VALUES ('demo_email_2', 'demo_deal_2', 'cold_pitch', 'An idea for Golden Hour Tableware: table styling content', '["An idea for Golden Hour Tableware: table styling content","Golden Hour Tableware × Sheila: a video idea","For your creator team: Table styling with Golden Hour Tableware"]', 'Hi Golden Hour Tableware team,
 
-I''m Sheila, a table styling and easy entertaining creator. I noticed their new stoneware line is shot on brunch tables like yours, so this felt like the right moment to reach out.
+I''m Sheila, a table styling and easy entertaining creator. I noticed your new stoneware line is shot on brunch tables like mine, so this felt like the right moment to reach out.
 
 My idea: a 30-second Sunday brunch reset using your stoneware.
 

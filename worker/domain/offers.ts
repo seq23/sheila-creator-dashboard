@@ -24,11 +24,14 @@ export interface RedFlag {
 
 const WORD_NUM: Record<string, number> = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, a: 1, an: 1, single: 1 };
 
+/** The sentence (or line) around a match: never the whole email when it is one paragraph. */
 function around(t: string, i: number, len: number): string {
-  const s = Math.max(0, t.lastIndexOf("\n", i) + 1);
-  let e = t.indexOf("\n", i + len);
-  if (e < 0) e = t.length;
-  return t.slice(s, e).trim().slice(0, 200);
+  const before = t.slice(0, i);
+  const s = Math.max(before.lastIndexOf("\n"), before.search(/[.!?][^.!?]*$/) >= 0 ? before.search(/[.!?][^.!?]*$/) + 1 : -1) + 1;
+  const rest = t.slice(i + len);
+  const m = rest.search(/[.!?](\s|$)|\n/);
+  const e = m < 0 ? t.length : i + len + m + 1;
+  return t.slice(Math.max(0, s), e).trim().slice(0, 200);
 }
 
 function firstMatch(t: string, re: RegExp): { m: RegExpExecArray; line: string } | null {

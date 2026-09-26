@@ -139,9 +139,19 @@ function termsLine(f: EmailFacts): string {
   return `Payment:${up} net-${t.netDays} from invoice. Includes ${t.revisionRounds} ${t.revisionRounds === 1 ? "round" : "rounds"} of changes. If the project is cancelled after the brief is approved, a ${t.killFeePct}% kill fee applies.`;
 }
 
+const TURN: Record<string, string> = { their: "your", theirs: "yours", they: "you", them: "you", your: "my", yours: "mine", you: "I" };
+
+/** A finder note is written to her ("their new line … like yours"); in a pitch it speaks to the brand ("your new line … like mine"). */
+export function toBrand(note: string): string {
+  return note.replace(/\b(their|theirs|they|them|your|yours|you)\b/gi, (w) => {
+    const t = TURN[w.toLowerCase()];
+    return w[0] === w[0].toUpperCase() ? t[0].toUpperCase() + t.slice(1) : t;
+  });
+}
+
 function researchLine(f: EmailFacts): string | null {
   const r = f.research[0];
-  return r ? r.text.replace(/\.$/, "") : null;
+  return r ? toBrand(r.text.replace(/\.$/, "")) : null;
 }
 
 function kitLine(f: EmailFacts): string {

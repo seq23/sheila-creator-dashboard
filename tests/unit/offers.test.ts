@@ -35,6 +35,15 @@ describe("reading their email", () => {
   });
 });
 
+describe("each term quotes only its own sentence", () => {
+  it("a one-paragraph email is not quoted whole under every term", () => {
+    const t = extractTerms("Hi Sheila! We'd love 2 TikTok videos for our napkin launch. Our budget is $600. We need usage rights in perpetuity across all media. Payment is net-90 after posting.");
+    expect(t.usage).toBe("We need usage rights in perpetuity across all media.");
+    expect(t.payment).toBe("Payment is net-90 after posting.");
+    expect(t.fee).toBe(600);
+  });
+});
+
 describe("red flags, in plain English", () => {
   const flags = redFlags(BAD, extractTerms(BAD));
   const keys = flags.map((f) => f.key);

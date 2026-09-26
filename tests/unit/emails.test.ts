@@ -3,7 +3,7 @@
 // dollar figure that is not in the facts. The validator `mediakit-deals` fails the build if a
 // scenario key in SCENARIOS is missing from the SCENARIO_TESTS table below.
 import { describe, expect, it } from "vitest";
-import { SCENARIOS, SCENARIO_KEYS, allowedAmounts, amountsIn, emailPrompt, numbersLine, parseEmail, starterEmail, suggestedScenario, type EmailFacts, type ScenarioKey } from "@worker/domain/emails";
+import { SCENARIOS, SCENARIO_KEYS, toBrand, allowedAmounts, amountsIn, emailPrompt, numbersLine, parseEmail, starterEmail, suggestedScenario, type EmailFacts, type ScenarioKey } from "@worker/domain/emails";
 import { beforeYouSend } from "@shared/emailcheck";
 
 const KIT = "https://sheilastudio.example/kit/sheila";
@@ -127,7 +127,14 @@ describe("real facts only", () => {
   });
   it("an agency gets the roster pitch; the first pitch names what we found about the brand", () => {
     expect(starterEmail("agency_pitch", facts({ brand: { ...facts().brand, kind: "agency" } })).body).toMatch(/12.4K followers on TikTok/);
-    expect(starterEmail("cold_pitch", facts({ idea: null, brand: { ...facts().brand, herPick: false } })).body).toMatch(/I noticed their new stoneware line launched this month/);
+    expect(starterEmail("cold_pitch", facts({ idea: null, brand: { ...facts().brand, herPick: false } })).body).toMatch(/I noticed your new stoneware line launched this month/);
+  });
+});
+
+describe("a finder note, turned to speak to the brand", () => {
+  it("their/you become your/I, keeping capitals", () => {
+    expect(toBrand("Their new stoneware line is shot on brunch tables like yours")).toBe("Your new stoneware line is shot on brunch tables like mine");
+    expect(toBrand("They sponsored 3 creators your size")).toBe("You sponsored 3 creators my size");
   });
 });
 
