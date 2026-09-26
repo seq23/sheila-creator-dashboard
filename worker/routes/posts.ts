@@ -2,12 +2,13 @@
 // Buffer sync (crons/buffer-sync.ts) hands Buffer only the next 7 days. Every rule that
 // decides something lives in domain/slotting.ts and domain/sync.ts; this file gathers rows.
 import { POSTABLE_CLIP_SQL } from "../domain/sourceCheck";
+import { reconcileClip } from "../lib/youtubeDirect";
 import { Hono } from "hono";
 import type { Env, Vars } from "../env";
 import { requireUser } from "../lib/auth";
 import { parseJson, recordEvent } from "../lib/db";
 import { fail, readJson } from "../lib/http";
-import { log } from "../lib/log";
+import { log, safeError } from "../lib/log";
 import { weekBounds, zonedToUtc, type PlannedPost, type SchedulableClip } from "../domain/slotting";
 import { ACTIVE_STATUSES, capRefusal, fillWeek, moveToDate, pickSlotTable, type ExistingPost } from "../domain/sync";
 import { readSettings } from "./settings";
@@ -256,6 +257,7 @@ posts.post("/swap", async (c) => {
     c.env.DB.prepare("UPDATE posts SET scheduled_at = ?, status = 'planned', buffer_post_id = NULL, error = NULL, retries = 0 WHERE id = ?").bind(a.scheduled_at, b.id),
   ]);
   await recordEvent(c.env.DB, "posts.swapped", a.id, { other: b.id }, c.get("user").email);
+  await followYouTube(c.env, [a.clip_id, b.clip_id]);
   return c.json({ ok: true });
 });
 
@@ -278,19 +280,21 @@ posts.patch("/:id", async (c) => {
   await pullFromBuffer(c.env, post.buffer_post_id);
   await c.env.DB.prepare("UPDATE posts SET scheduled_at = ?, status = 'planned', buffer_post_id = NULL, error = NULL, retries = 0 WHERE id = ?").bind(at, id).run();
   await recordEvent(c.env.DB, "post.moved", id, { platform: post.platform }, c.get("user").email);
+  await followYouTube(c.env, [post.clip_id]);
   return c.json({ ok: true, scheduled_at: at });
 });
 
 /** Take a post off the calendar: the clip goes back to the approved pool (and out of Buffer). */
 posts.post("/:id/unschedule", async (c) => {
   const id = c.req.param("id");
-  const post = await c.env.DB.prepare("SELECT status, buffer_post_id, platform FROM posts WHERE id = ?").bind(id).first<{ status: string; buffer_post_id: string | null; platform: Platform }>();
+  const post = await c.env.DB.prepare("SELECT status, buffer_post_id, platform, clip_id FROM posts WHERE id = ?").bind(id).first<{ status: string; buffer_post_id: string | null; platform: Platform; clip_id: string }>();
   if (!post) return fail(c, 404, "That post is gone. Refresh the calendar.");
   if (post.status === "posted") return fail(c, 409, "This one already went out, so it cannot be taken off.");
   if (post.status === "unscheduled") return c.json({ ok: true });
   await pullFromBuffer(c.env, post.buffer_post_id);
   await c.env.DB.prepare("UPDATE posts SET status = 'unscheduled', buffer_post_id = NULL WHERE id = ?").bind(id).run();
   await recordEvent(c.env.DB, "post.unscheduled", id, { platform: post.platform }, c.get("user").email);
+  await followYouTube(c.env, [post.clip_id]);
   return c.json({ ok: true });
 });
 
@@ -306,3 +310,18 @@ posts.post("/:id/retry", async (c) => {
   await recordEvent(c.env.DB, "post.retry", id, {}, c.get("user").email);
   return c.json({ ok: true });
 });
+
+/**
+ * A full video already on her channel (Connect YouTube) follows the Calendar at once: moved → its
+ * publish time changes on YouTube, taken off → private and kept (never deleted). A YouTube problem
+ * never undoes her Calendar change: it is named on the light and the hourly run tries again.
+ */
+async function followYouTube(env: Env, clipIds: string[]): Promise<void> {
+  for (const id of new Set(clipIds)) {
+    try {
+      await reconcileClip(env, id);
+    } catch (e) {
+      log.warn("ytdirect.follow", { err: safeError(e) });
+    }
+  }
+}

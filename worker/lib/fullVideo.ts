@@ -12,6 +12,8 @@ import { parseJson, recordEvent } from "./db";
 import { nowIso } from "./ids";
 import { log } from "./log";
 import { storageAction, studioLink, type FullVideoDetails } from "../domain/fullVideo";
+import { THUMB_VERIFY_NOTE, YT_VERIFY_URL } from "../domain/youtubeDirect";
+import { directMode, uploadStates } from "./youtubeDirect";
 
 interface Row {
   id: string;
@@ -49,7 +51,7 @@ export async function fullVideoRetention(env: Env, now = new Date()): Promise<{ 
 }
 
 export interface FullVideoCard {
-  kind: "finish_in_studio" | "upload_yourself" | "removal_soon";
+  kind: "finish_in_studio" | "upload_yourself" | "removal_soon" | "youtube_note";
   clip_id: string;
   title: string;
   thumbnail_url: string | null;
@@ -57,11 +59,17 @@ export interface FullVideoCard {
   studio_url: string;
   download_url: string | null;
   delete_on: string | null;
+  note?: string | null;
+  link?: { label: string; url: string } | null;
 }
 
 export async function fullVideoCards(env: Env, now = new Date()): Promise<FullVideoCard[]> {
   const { results } = await env.DB.prepare(SELECT).all<Row>();
   const out: FullVideoCard[] = [];
+  // Connect YouTube (full videos): connected = no Finish in YouTube Studio and no Upload it yourself
+  // (the thumbnail, tags and time go up with the video), except as the fallback of a named failure.
+  const mode = await directMode(env);
+  const uploads = mode === "off" ? new Map() : await uploadStates(env, results.map((r) => r.id));
   for (const r of results) {
     const d = parseJson<FullVideoDetails | null>(r.youtube, null);
     if (!d) continue;
@@ -76,6 +84,20 @@ export async function fullVideoCards(env: Env, now = new Date()): Promise<FullVi
     };
     const a = storageAction({ status: r.status, created_at: r.created_at, posted_at: r.posted_at, file_deleted_at: r.file_deleted_at }, now);
     if (a.do === "warn") out.push({ ...base, kind: "removal_soon", delete_on: a.deleteOn });
+    if (mode !== "off") {
+      const u = uploads.get(r.id);
+      const waiting = r.status === "approved" && !r.posted_at && !r.file_deleted_at;
+      if (u?.status === "failed" || u?.status === "mismatch" || (mode === "broken" && waiting && !u?.video_id)) {
+        const note = u?.note ?? "YouTube needs you to reconnect (Connect → Reconnect YouTube). Meanwhile you can upload it yourself.";
+        if (waiting && !u?.video_id) out.push({ ...base, kind: "upload_yourself", studio_url: "https://www.youtube.com/upload", note });
+        else out.push({ ...base, kind: "youtube_note", note, studio_url: u?.video_id ? `https://studio.youtube.com/video/${u.video_id}/edit` : base.studio_url, link: u?.video_id ? { label: "Open in YouTube Studio", url: `https://studio.youtube.com/video/${u.video_id}/edit` } : null });
+      } else if (u?.thumbnail === "needs_verify") {
+        out.push({ ...base, kind: "youtube_note", note: `“${d.title}” is on your channel. ${THUMB_VERIFY_NOTE}, then set the thumbnail in YouTube Studio.`, link: { label: "Verify my channel", url: YT_VERIFY_URL } });
+      } else if (u?.status === "queued" && u.note) {
+        out.push({ ...base, kind: "youtube_note", note: u.note, link: null });
+      }
+      continue;
+    }
     if (d.handoff && r.status === "approved" && !r.posted_at && !r.file_deleted_at) out.push({ ...base, kind: "upload_yourself", studio_url: "https://www.youtube.com/upload" });
     else if (r.posted_at && !d.studio_done_at) out.push({ ...base, kind: "finish_in_studio" });
   }

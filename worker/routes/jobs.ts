@@ -27,6 +27,7 @@ import { requireUser } from "../lib/auth";
 import { parseJson } from "../lib/db";
 import type { JobRow } from "@shared/types";
 import { JOB_HANDLERS } from "../jobs/registry";
+import { youtubeAccessToken } from "../lib/youtubeDirect";
 
 export const jobs = new Hono<{ Bindings: Env; Variables: Vars }>();
 
@@ -167,6 +168,22 @@ jobs.post("/:id/output/abort", async (c) => {
     // already gone
   }
   return c.json({ ok: true });
+});
+
+/**
+ * The ytupload job's YouTube access token: short-lived (about an hour), refreshed here from her
+ * stored sign-in. The refresh token never leaves the Worker. Only a running ytupload job may ask;
+ * 409 = Google refused her sign-in (the light is already red, the video falls back).
+ */
+jobs.post("/:id/youtube-token", async (c) => {
+  const text = await c.req.text();
+  const job = await loadStorageJob(c, text);
+  if (job instanceof Response) return job;
+  if (job.type !== "ytupload" || job.status === "failed") return fail(c, 403, "This job may not have a YouTube token.");
+  const tok = await youtubeAccessToken(c.env);
+  if (!tok) return fail(c, 409, "YouTube needs her to reconnect.", "reconnect-youtube");
+  log.info("job.youtube_token", {});
+  return c.json({ access_token: tok.access_token, expires_at: tok.expires_at }, 200, { "cache-control": "no-store" });
 });
 
 jobs.post("/:id/progress", async (c) => {

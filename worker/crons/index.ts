@@ -14,6 +14,7 @@ import { briefDraftNotice, monthlyBriefRefresh, weeklyBriefAdjust } from "./brie
 import { pollEditorJobs } from "../lib/editorJobs";
 import { dailyBrandRefresh } from "./deals";
 import { refreshPublicStats } from "../lib/publicStats";
+import { youtubeDirectSync } from "../lib/youtubeDirect";
 
 export async function runCron(env: Env, cron: string): Promise<void> {
   const lane = cron === "0 * * * *" ? "buffer-sync" : cron === "30 13 * * *" ? "daily" : cron === "0 12 * * 1" ? "weekly" : "unknown";
@@ -21,6 +22,8 @@ export async function runCron(env: Env, cron: string): Promise<void> {
   try {
     if (lane === "buffer-sync") {
       await bufferSync(env);
+      // Full videos straight to her channel (Connect YouTube): uploads due, Calendar moves, read-backs.
+      await youtubeDirectSync(env);
       await briefDraftNotice(env);
       // Connected editors (docs/EDITORS.md): the screens ask while they are open; this catches the rest.
       const e = await pollEditorJobs(env);

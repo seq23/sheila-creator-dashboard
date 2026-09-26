@@ -27,6 +27,7 @@ import { parseJson, recordEvent, setHealth } from "../lib/db";
 import { fail } from "../lib/http";
 import { newId } from "../lib/ids";
 import { log, safeError } from "../lib/log";
+import { markBroken as markYouTubeBroken, writeLight as writeYouTubeLight, YT_UPLOAD_SCOPES } from "../lib/youtubeDirect";
 
 export const oauth = new Hono<{ Bindings: Env; Variables: Vars }>();
 oauth.use("*", requireUser);
@@ -70,6 +71,45 @@ async function storeToken(env: Env, p: StatsProvider, token: OAuthToken, account
 async function failConnect(env: Env, p: StatsProvider, why: string) {
   await markConnection(env, p, "error", why);
   await setHealth(env.DB, HEALTH_NAME[p], "red", why, RECONNECT[p]);
+}
+
+/**
+ * "Connect YouTube (full videos)": her own Google sign-in with youtube.upload + youtube.readonly,
+ * offline (a refresh token), consent every time, incremental (include_granted_scopes keeps the
+ * optional Stats sign-in's scopes). Google sends her back to the ONE registered callback,
+ * /api/oauth/google/callback; the state cookie says it was this flow. Stored as its own connection
+ * ('youtube'), so the optional Stats sign-in ('google') is untouched.
+ */
+oauth.get("/youtube/start", requireOwner, async (c) => {
+  if (fakeServices(c.env)) {
+    const token: OAuthToken = { access_token: `fake-youtube-token-${newId("t", 8)}`, refresh_token: "fake-refresh", expires_at: new Date(Date.now() + 3600_000).toISOString(), account_id: "fake_yt_channel" };
+    await storeYouTube(c.env, token, "Sheila Bruce", YT_UPLOAD_SCOPES.join(" "), c.get("user").email);
+    return c.redirect(back("connected=youtube"));
+  }
+  const app = appCredentials(c.env, "google");
+  if (!app) {
+    log.warn("oauth.not_set_up", { provider: "youtube" });
+    return c.redirect(back("oauth_error=not_set_up&provider=youtube"));
+  }
+  const state = newId("st", 32);
+  setCookie(c, STATE_COOKIE, `youtube.${state}`, { httpOnly: true, secure: c.env.PUBLIC_BASE_URL.startsWith("https://"), sameSite: "Lax", path: "/api/oauth", maxAge: 600 });
+  const u = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+  u.searchParams.set("client_id", app.id);
+  u.searchParams.set("redirect_uri", redirectUri(c.env, "google"));
+  u.searchParams.set("response_type", "code");
+  u.searchParams.set("state", state);
+  u.searchParams.set("scope", YT_UPLOAD_SCOPES.join(" "));
+  u.searchParams.set("access_type", "offline");
+  u.searchParams.set("prompt", "consent");
+  u.searchParams.set("include_granted_scopes", "true");
+  return c.redirect(u.toString());
+});
+
+async function storeYouTube(env: Env, token: OAuthToken & { scope?: string }, account: string, scope: string, actor: string) {
+  await saveConnection(env, "youtube", JSON.stringify({ ...token, scope }), "ok", { account, channel_id: token.account_id, connected_via: "oauth", scopes: scope.split(" ").filter((x) => x.includes("youtube")) });
+  await recordEvent(env.DB, "connection.ok", "youtube", { via: "oauth" }, actor);
+  await writeYouTubeLight(env);
+  log.info("oauth.connected", { provider: "youtube" });
 }
 
 oauth.get("/:provider/start", requireOwner, async (c) => {
@@ -121,17 +161,34 @@ oauth.get("/:provider/callback", requireOwner, async (c) => {
   deleteCookie(c, STATE_COOKIE, { path: "/api/oauth" });
   const [cp, cstate] = cookie.split(".");
   const state = c.req.query("state") ?? "";
-  if (cp !== p || !cstate || !timingSafeEqual(cstate, state)) {
+  // Connect YouTube (full videos) comes back through Google's one registered callback.
+  const youtube = p === "google" && cp === "youtube";
+  if ((cp !== p && !youtube) || !cstate || !timingSafeEqual(cstate, state)) {
     log.warn("oauth.bad_state", { provider: p });
     return c.redirect(back(`oauth_error=expired&provider=${p}`));
   }
   if (c.req.query("error")) {
-    log.info("oauth.denied", { provider: p });
-    return c.redirect(back(`oauth_error=denied&provider=${p}`));
+    log.info("oauth.denied", { provider: youtube ? "youtube" : p });
+    return c.redirect(back(`oauth_error=denied&provider=${youtube ? "youtube" : p}`));
   }
   const code = c.req.query("code");
   const app = appCredentials(c.env, p);
-  if (!code || !app) return c.redirect(back(`oauth_error=failed&provider=${p}`));
+  if (!code || !app) return c.redirect(back(`oauth_error=failed&provider=${youtube ? "youtube" : p}`));
+
+  if (youtube) {
+    try {
+      const { token, account, scope } = await exchangeGoogle(c.env, app, code);
+      // Google's consent page lets her untick a box: without upload the videos cannot go up.
+      if (!scope.split(" ").includes(YT_UPLOAD_SCOPES[0])) throw new OAuthStop("no_upload", "Google didn't give permission to upload. Tap Connect YouTube again and leave every box ticked, then Allow.");
+      await storeYouTube(c.env, token, account, scope, c.get("user").email);
+      return c.redirect(back("connected=youtube"));
+    } catch (e) {
+      log.error("oauth.exchange", { provider: "youtube", err: safeError(e) });
+      const why = e instanceof OAuthStop ? e.message : "The connection did not finish. Tap Connect YouTube again.";
+      await markYouTubeBroken(c.env, why);
+      return c.redirect(back(`oauth_error=${e instanceof OAuthStop ? e.reason : "failed"}&provider=youtube`));
+    }
+  }
 
   try {
     const { token, account } = p === "meta" ? await exchangeMeta(c.env, app, code) : await exchangeGoogle(c.env, app, code);
@@ -148,7 +205,7 @@ oauth.get("/:provider/callback", requireOwner, async (c) => {
 /** A plain-sentence stop the Connect page can show (e.g. not a Professional account). */
 class OAuthStop extends Error {
   constructor(
-    public reason: "no_account" | "failed",
+    public reason: "no_account" | "no_upload" | "failed",
     message: string,
   ) {
     super(message);
@@ -179,11 +236,11 @@ async function exchangeMeta(env: Env, app: { id: string; secret: string }, code:
   };
 }
 
-async function exchangeGoogle(env: Env, app: { id: string; secret: string }, code: string): Promise<{ token: OAuthToken; account: string }> {
+async function exchangeGoogle(env: Env, app: { id: string; secret: string }, code: string): Promise<{ token: OAuthToken; account: string; scope: string }> {
   const form = new URLSearchParams({ client_id: app.id, client_secret: app.secret, grant_type: "authorization_code", redirect_uri: redirectUri(env, "google"), code });
   const res = await fetch("https://oauth2.googleapis.com/token", { method: "POST", body: form });
   if (!res.ok) throw new Error(`google token ${res.status}`);
-  const t = (await res.json()) as { access_token?: string; refresh_token?: string; expires_in?: number };
+  const t = (await res.json()) as { access_token?: string; refresh_token?: string; expires_in?: number; scope?: string };
   if (!t.access_token) throw new Error("google token missing");
   const ch = await fetch("https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true", { headers: { Authorization: `Bearer ${t.access_token}` } });
   const data = ch.ok ? ((await ch.json()) as { items?: { id: string; snippet?: { title?: string } }[] }) : {};
@@ -192,6 +249,7 @@ async function exchangeGoogle(env: Env, app: { id: string; secret: string }, cod
   return {
     token: { access_token: t.access_token, refresh_token: t.refresh_token ?? null, expires_at: new Date(Date.now() + (t.expires_in ?? 3600) * 1000).toISOString(), account_id: first.id },
     account: first.snippet?.title ?? "YouTube",
+    scope: t.scope ?? "",
   };
 }
 

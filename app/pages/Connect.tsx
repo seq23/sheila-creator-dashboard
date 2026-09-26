@@ -99,7 +99,11 @@ export function Connect() {
             <ChannelsCard conn={byService("buffer")} />
           </Section>
 
-          <Section n={2} title="Stats · no sign-in needed">
+          <Section n={2} title="YouTube · full videos">
+            <YouTubeDirectCard conn={byService("youtube")} owner={owner} onChange={reload} />
+          </Section>
+
+          <Section n={3} title="Stats · no sign-in needed">
             <Card className="flat">
               <div className="hint">Lets the dashboard learn what works for you. Your numbers come in without signing in anywhere.</div>
               <div className="list">
@@ -121,22 +125,22 @@ export function Connect() {
             </Card>
           </Section>
 
-          <Section n={3} title="AI and research">
+          <Section n={4} title="AI and research">
             <div className="grid cols-2">
               <KeyCard def={KEY_SERVICES[1]} conn={byService("openrouter")} owner={owner} primary={primary === "openrouter"} onChange={reload} />
               <KeyCard def={KEY_SERVICES[2]} conn={byService("firecrawl")} owner={owner} primary={primary === "firecrawl"} onChange={reload} />
             </div>
           </Section>
 
-          <Section n={4} title="Brand deals · optional">
+          <Section n={5} title="Brand deals · optional">
             <KeyCard def={KEY_SERVICES[3]} conn={byService("hunter")} owner={owner} primary={primary === "hunter"} onChange={reload} />
           </Section>
 
-          <Section n={5} title="Voice overs · premium, optional">
+          <Section n={6} title="Voice overs · premium, optional">
             <KeyCard def={KEY_SERVICES[4]} conn={byService("elevenlabs")} owner={owner} primary={false} onChange={reload} />
           </Section>
 
-          <Section n={6} title="Editing apps · optional">
+          <Section n={7} title="Editing apps · optional">
             <Card className="flat">
               <div className="hint">The built-in editor makes every clip for free. Use your own apps on top whenever you like.</div>
               <div className="list">
@@ -391,6 +395,7 @@ const OAUTH_ERRORS: Record<string, string> = {
   denied: "the sign-in was cancelled, so nothing was connected.",
   expired: "the sign-in took too long. Press Connect again.",
   no_account: "that account has no Professional Instagram or YouTube channel to read.",
+  no_upload: "Google didn't give permission to upload. Tap Connect YouTube again, leave every box ticked, then tap Allow.",
   failed: "the connection did not finish. Press Connect again.",
 };
 
@@ -398,6 +403,8 @@ const OAUTH_ERRORS: Record<string, string> = {
 function oauthMessage(params: URLSearchParams): { ok: boolean; text: string; guide: string | null } | null {
   const who = (p: string | null) => (p === "google" ? "YouTube" : "Instagram");
   const connected = params.get("connected");
+  if (connected === "youtube") return { ok: true, text: "YouTube connected. Your full videos now upload straight to your channel, with their thumbnail and tags.", guide: null };
+  if (params.get("oauth_error") && params.get("provider") === "youtube") return { ok: false, text: `YouTube: ${OAUTH_ERRORS[params.get("oauth_error")!] ?? OAUTH_ERRORS.failed}`, guide: "connect-youtube-full-videos" };
   if (connected === "meta" || connected === "google") return { ok: true, text: `${who(connected)} stats connected. We’ll read your results every week.`, guide: null };
   const err = params.get("oauth_error");
   if (!err) return null;
@@ -478,6 +485,67 @@ function TikTokRow({ conn }: { conn: ConnectionView | null }) {
       <Link className="btn quiet small" to="/stats">
         Upload TikTok export
       </Link>
+    </div>
+  );
+}
+
+/**
+ * Connect YouTube (full videos): her own Google sign-in, once. The only thing she ever does is tap
+ * the button, pick her Google account on Google's page and tap Allow (worker/routes/oauth.ts
+ * /api/oauth/youtube/start). Red when Google refused the sign-in: Reconnect YouTube.
+ */
+function YouTubeDirectCard({ conn, owner, onChange }: { conn: ConnectionView | null; owner: boolean; onChange: () => void }) {
+  const toast = useToast();
+  const status = conn?.status ?? "missing";
+  const account = conn?.meta.account as string | undefined;
+  const start = "/api/oauth/youtube/start";
+  async function disconnect() {
+    try {
+      await post("/api/connections/youtube/disconnect");
+      toast.ok("YouTube disconnected. Full videos go back to Upload it yourself.");
+      onChange();
+    } catch (e) {
+      toast.bad(e);
+    }
+  }
+  return (
+    <div data-youtube-direct>
+    <Card className="flat">
+      <div className="list-row">
+        <Dot light={status === "ok" ? "green" : status === "error" ? "red" : "grey"} />
+        <div className="grow">
+          <div className="title">YouTube (full videos)</div>
+          <div className="meta">
+            {status === "ok"
+              ? `Connected${account ? ` · ${account}` : ""} · full videos upload straight to your channel`
+              : status === "error"
+                ? (conn?.last_error ?? "YouTube needs you to reconnect.")
+                : "Not connected: full videos wait for you to upload them yourself"}
+          </div>
+        </div>
+      </div>
+      {owner ? (
+        <div className="btn-row">
+          {status === "ok" ? (
+            <button className="btn danger small" onClick={disconnect}>
+              Disconnect
+            </button>
+          ) : (
+            <a className="btn small" href={start}>
+              {status === "error" ? "Reconnect YouTube" : "Connect YouTube (full videos)"}
+            </a>
+          )}
+        </div>
+      ) : null}
+      <div className="hint">
+        Your long videos go straight to your own channel with the thumbnail, title, description, chapters and tags you approved, at the time on your Calendar. Your Shorts, TikToks and Reels keep going through Buffer.
+      </div>
+      {status !== "ok" ? (
+        <div className="hint" data-unverified-note>
+          You sign in on Google's own page. Google may show “Google hasn't verified this app”: that is expected, tap <strong>Continue</strong>, then <strong>Allow</strong>.
+        </div>
+      ) : null}
+    </Card>
     </div>
   );
 }

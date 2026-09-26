@@ -31,6 +31,8 @@ export interface FullVideo {
   file_deleted: boolean;
   post: { status: string; url: string | null; scheduled_at: string } | null;
   studio_url: string;
+  /** Connect YouTube (full videos): on = straight to her channel; broken = needs Reconnect YouTube; off = the older path. */
+  direct: { mode: "on" | "broken" | "off"; upload: { status: string; video_id: string | null; note: string | null; thumbnail: string | null; publish_at: string | null; privacy: string | null; url: string | null } | null };
 }
 
 interface Clip {
@@ -87,7 +89,7 @@ export function FullVideoBody({ clip, tab, busy, onChanged }: { clip: Clip; tab:
             </button>
           ))}
         </div>
-        <span className="hint">You set the one you pick in YouTube Studio after it posts: YouTube only takes a thumbnail from you there.</span>
+        <span className="hint">{v.direct.mode === "on" ? "The one you pick goes up to YouTube with the video." : "You set the one you pick in YouTube Studio after it posts: YouTube only takes a thumbnail from you there."}</span>
       </fieldset>
 
       <fieldset className="fv-privacy" disabled={busy || locked || tab === "rejected"}>
@@ -123,9 +125,52 @@ export function FullVideoBody({ clip, tab, busy, onChanged }: { clip: Clip; tab:
         </button>
       ) : null}
 
-      {v.post ? <PostLine clip={clip} v={v} /> : null}
-      {v.handoff && v.post?.status !== "posted" ? clip.status === "approved" ? <Handoff clip={clip} v={v} onChanged={onChanged} /> : <p className="hint" data-handoff-note>You upload this one yourself after you approve it (two taps): YouTube lets apps post only Shorts, vertical and 3 minutes or less.</p> : null}
+      {v.direct.mode !== "off" ? <DirectLine v={v} /> : v.post ? <PostLine clip={clip} v={v} /> : null}
+      {v.direct.mode === "off" ? (
+        v.handoff && v.post?.status !== "posted" ? clip.status === "approved" ? <Handoff clip={clip} v={v} onChanged={onChanged} /> : <p className="hint" data-handoff-note>You upload this one yourself after you approve it (two taps): YouTube lets apps post only Shorts, vertical and 3 minutes or less.</p> : null
+      ) : directFellBack(v) && clip.status === "approved" && v.post?.status !== "posted" ? (
+        <Handoff clip={clip} v={v} onChanged={onChanged} />
+      ) : null}
       {editing ? <EditFull clip={clip} v={v} onClose={() => setEditing(false)} onSaved={(u) => { onChanged(u); setEditing(false); }} /> : null}
+    </div>
+  );
+}
+
+/** Connected, but this one has to go up by hand: the sign-in needs Reconnect YouTube, or the upload failed twice. */
+function directFellBack(v: FullVideo): boolean {
+  const u = v.direct.upload;
+  return (v.direct.mode === "broken" && !u?.video_id) || u?.status === "failed";
+}
+
+/** Connect YouTube: where this video stands on her channel, in one line. */
+function DirectLine({ v }: { v: FullVideo }) {
+  const u = v.direct.upload;
+  const when = v.post?.scheduled_at ? fmtDate(v.post.scheduled_at) : null;
+  const watch = u?.url ? (
+    <a href={u.url} target="_blank" rel="noreferrer">
+      See it on YouTube
+    </a>
+  ) : null;
+  let line: React.ReactNode;
+  if (v.direct.mode === "broken" && !u?.video_id) line = <>YouTube needs you to reconnect (Settings → Connections → Reconnect YouTube). Meanwhile you can upload it yourself below.</>;
+  else if (!u) line = v.post ? <>On the Calendar for {when}. It uploads to your channel up to a week before, with this thumbnail, title, description, chapters and tags.</> : <>Approve it and put it on the Calendar: it uploads straight to your YouTube channel.</>;
+  else if (u.status === "queued") line = <>{u.note ?? "Waiting to upload to your channel."}</>;
+  else if (u.status === "uploading") line = <>Uploading to your YouTube channel now.</>;
+  else if (u.status === "scheduled") line = <>On your channel as private; it goes public {u.publish_at ? fmtDate(u.publish_at) : when}. {watch}</>;
+  else if (u.status === "live") line = <>On your channel ({u.privacy === "public" ? "Public" : u.privacy === "unlisted" ? "Unlisted" : "Private"}). {watch}</>;
+  else if (u.status === "removed") line = <>Taken off the Calendar: private on your channel and kept. Put it back on the Calendar to schedule it again. {watch}</>;
+  else line = <>{u.note} {watch}</>;
+  return (
+    <div className="fv-direct" data-direct={u?.status ?? v.direct.mode}>
+      <p className="hint">{line}</p>
+      {u?.thumbnail === "needs_verify" ? (
+        <p className="hint" data-thumb-verify>
+          Verify your channel's phone number in YouTube to use custom thumbnails.{" "}
+          <a href="https://www.youtube.com/verify" target="_blank" rel="noreferrer">
+            Verify my channel
+          </a>
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -172,7 +217,7 @@ function Handoff({ clip, v, onChanged }: { clip: Clip; v: FullVideo; onChanged: 
   return (
     <Notice tone="warn">
       <div data-handoff>
-        <strong>Upload this one yourself{v.post ? `, on ${fmtDate(v.post.scheduled_at)}` : ""}.</strong> YouTube lets apps post only Shorts (vertical, 3 minutes or less), so a full video goes up from your account: download it, upload it on YouTube with the title and description below, set it to {v.privacy === "public" ? "Public" : v.privacy === "unlisted" ? "Unlisted" : "Private"}, and pick your thumbnail. We mark it posted when it shows on your channel.
+        <strong>Upload this one yourself{v.post ? `, on ${fmtDate(v.post.scheduled_at)}` : ""}.</strong> {v.direct.mode === "off" ? "YouTube lets apps post only Shorts (vertical, 3 minutes or less), so a full video goes up from your account:" : `${v.direct.upload?.note ?? "YouTube needs you to reconnect first."} Or do it by hand:`} download it, upload it on YouTube with the title and description below, set it to {v.privacy === "public" ? "Public" : v.privacy === "unlisted" ? "Unlisted" : "Private"}, and pick your thumbnail. We mark it posted when it shows on your channel.
         <div className="btn-row">
           {clip.media_url && !v.file_deleted ? (
             <a className="btn small" href={`${clip.media_url}${clip.media_url.includes("?") ? "&" : "?"}download=1`} download>
@@ -243,7 +288,7 @@ function EditFull({ clip, v, onClose, onSaved }: { clip: Clip; v: FullVideo; onC
       <div className="field">
         <label htmlFor="fv-tags">Tags</label>
         <input id="fv-tags" className="input" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="brunch, tablescape, hosting" />
-        <span className="hint">Separated by commas. You paste these in YouTube Studio after it posts.</span>
+        <span className="hint">Separated by commas. {v.direct.mode === "on" ? "They go up to YouTube with the video." : "You paste these in YouTube Studio after it posts."}</span>
       </div>
       <div className="btn-row">
         <button className="btn" data-primary disabled={saving} onClick={save}>

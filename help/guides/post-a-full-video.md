@@ -3,7 +3,7 @@ title: "Post a full video on YouTube"
 group: everyday
 screen: dump
 last_checked: 2026-09-26
-keywords: full video, long video, youtube video, whole video, not a short, landscape, horizontal, upload to youtube, chapters, thumbnail
+keywords: connect youtube, straight to my channel, scheduled, publish time, full video, long video, youtube video, whole video, not a short, landscape, horizontal, upload to youtube, chapters, thumbnail
 fix: upload-it-yourself
 ---
 
@@ -33,21 +33,29 @@ In **Review**, pick one of three frames. We draft the title, description, chapte
 
 **Public**, **Unlisted** or **Private**. Edit the title, description, chapters and tags if you like, then **Approve**.
 
-## Vertical and short posts by itself
+## Connected YouTube? It goes straight to your channel
 
 ![Step 4](/help/screenshots/post-a-full-video-4.png)
+<!-- route: /settings/connections -->
+<!-- target: [data-youtube-direct] .grow -->
+
+With **YouTube (full videos)** connected, an approved video on the Calendar uploads to your channel by itself with its thumbnail, words and tags. **Public** waits as private until its Calendar time; **Unlisted** or **Private** is set at once. Move it and YouTube's time moves; take it off and it stays private (never deleted).
+
+## Not connected: vertical and short posts through Buffer
+
+![Step 5](/help/screenshots/post-a-full-video-5.png)
 <!-- route: /review?tab=approved -->
 <!-- target: [data-clip-id="demo_full_2"] [data-finish-studio] -->
 
-A vertical video of 3 minutes or less goes on the Calendar (one a week) and posts through Buffer like your clips. Then you add the thumbnail and tags in YouTube Studio.
+Without Connect YouTube, a vertical video of 3 minutes or less posts through Buffer like your clips. Then you add the thumbnail and tags in YouTube Studio.
 
-## Landscape or longer: you upload it
+## Not connected: landscape or longer, you upload it
 
-![Step 5](/help/screenshots/post-a-full-video-5.png)
+![Step 6](/help/screenshots/post-a-full-video-6.png)
 <!-- route: /review -->
 <!-- target: [data-clip-id="demo_full_1"] [data-handoff-note] -->
 
-YouTube lets apps post only Shorts, so a landscape or longer video is yours to upload: after Approve, **Download for YouTube** and upload it on YouTube (see Upload it yourself).
+Buffer posts only Shorts, so a landscape or longer video is yours to upload: after Approve, **Download for YouTube** and upload it on YouTube (see Upload it yourself). Connect YouTube and this step goes away.
 
 ## Did this work?
 

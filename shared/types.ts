@@ -52,7 +52,8 @@ export interface HomeSummary {
 /** A full video for YouTube that needs her: Finish in YouTube Studio, Upload it yourself, or removed soon. */
 export interface HomeYoutubeCard {
   key: string;
-  kind: "finish_in_studio" | "upload_yourself" | "removal_soon";
+  /** youtube_note: a full video on its way to her channel (Connect YouTube) that has something to say: waiting for tomorrow's allowance, a thumbnail that needs her channel verified, or a read-back that didn't match. */
+  kind: "finish_in_studio" | "upload_yourself" | "removal_soon" | "youtube_note";
   clip_id: string;
   title: string;
   thumbnail_url: string | null;
@@ -60,6 +61,10 @@ export interface HomeYoutubeCard {
   studio_url: string;
   download_url: string | null;
   delete_on: string | null;
+  /** Plain sentence for youtube_note / a direct upload that fell back to upload_yourself. */
+  note?: string | null;
+  /** One link with the note (e.g. YouTube's verify page). */
+  link?: { label: string; url: string } | null;
 }
 
 export type HomeNotice =
@@ -207,7 +212,7 @@ export interface SettingsShape {
 }
 
 export interface ConnectionView {
-  service: "buffer" | "openrouter" | "firecrawl" | "resend" | "hunter" | "meta" | "google" | "tiktok" | "github" | "elevenlabs" | "opusclip" | "vizard" | "klap" | "submagic" | "descript";
+  service: "buffer" | "openrouter" | "firecrawl" | "resend" | "hunter" | "meta" | "google" | "tiktok" | "github" | "elevenlabs" | "opusclip" | "vizard" | "klap" | "submagic" | "descript" | "youtube";
   status: "missing" | "ok" | "error" | "disconnected";
   meta: Record<string, unknown>;
   last_ok_at: string | null;
@@ -324,7 +329,7 @@ export interface HelpGuideMeta {
 
 export interface JobRow {
   id: string;
-  type: "cut" | "extract" | "research" | "brand_finder" | "voice" | "help_screenshots" | "metrics" | "fullvideo";
+  type: "cut" | "extract" | "research" | "brand_finder" | "voice" | "help_screenshots" | "metrics" | "fullvideo" | "ytupload";
   status: "queued" | "dispatched" | "running" | "done" | "failed";
   ref_id: string | null;
   safe_error: string | null;
