@@ -7,6 +7,7 @@
 //   mixes                                            the Look's clip video with a narration laid over it
 //   music                                            ffmpeg tones with a fade (demo "my songs")
 //   the brand guide                                  tests/live/fixtures/golden-table-brand-guide.pdf
+//   the kit photo                                    public/assets/brand/sheila-logo.png (the brand mark)
 // Uploads go through `wrangler r2 object put` with the args seed-year resolved for the sample
 // (--remote --env staging), eight at a time. Demo only: nothing in worker/ or app/ imports this.
 import { execFile, execFileSync } from "node:child_process";
@@ -67,6 +68,7 @@ export async function buildSampleMedia(media, { root, outDir }) {
   }
   const tones = [[220, 330], [262, 392], [294, 440], [330, 494], [349, 523]];
   for (const [i, [a, b]] of tones.entries()) made[`music:${i}`] = await once(`music-${i}.mp3`, (f) => ffmpeg(["-f", "lavfi", "-i", `sine=frequency=${a}:sample_rate=44100`, "-f", "lavfi", "-i", `sine=frequency=${b}:sample_rate=44100`, "-filter_complex", "[0:a][1:a]amix=inputs=2,volume=0.3,afade=t=in:d=1,afade=t=out:st=13:d=2", "-t", "15", "-c:a", "libmp3lame", "-b:a", "64k", f]));
+  made.kitphoto = await once("kit-photo.png", (f) => copyFileSync(path.join(root, "public", "assets", "brand", "sheila-logo.png"), f));
   made.doc = await once("brand-guide.pdf", (f) => copyFileSync(path.join(root, "tests", "live", "fixtures", "golden-table-brand-guide.pdf"), f));
 
   let n = 0;
@@ -81,6 +83,7 @@ export async function buildSampleMedia(media, { root, outDir }) {
       case "mix": return { key: m.key, file: made[`mix:${m.look}:${i % NARRATIONS.length}`], contentType: "video/mp4" };
       case "music": return { key: m.key, file: made[`music:${i % tones.length}`], contentType: "audio/mpeg" };
       case "doc": return { key: m.key, file: made.doc, contentType: "application/pdf" };
+      case "kitphoto": return { key: m.key, file: made.kitphoto, contentType: "image/png" };
       case "voice": return { key: m.key, file: made.voice, contentType: "audio/mpeg" };
       default: throw new Error(`unknown media kind ${m.kind}`);
     }

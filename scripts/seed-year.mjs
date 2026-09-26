@@ -109,7 +109,7 @@ const briefBody = (v) =>
     shot_list: [{ text: "A 20-second table reset before guests arrive.", source_ids: ["s1"], basis: "web", confidence: "solid" }],
   });
 
-function kitContent(showcase, version) {
+function kitContent(showcase, version, photoKey = null) {
   return JSON.stringify({
     name: "Sheila Bruce",
     handles: { tiktok: "@demo.sheila", instagram: "@demo.sheila" },
@@ -117,7 +117,7 @@ function kitContent(showcase, version) {
     location: "Mobile, Alabama",
     positioning: "Hosting that makes every guest feel celebrated.",
     bio: `Hosting, table styling and everyday luxury for women who love to gather. (kit v${version})`,
-    photoKey: null,
+    photoKey,
     pillars: [{ title: "Table styling", text: "Tablescapes for every season" }, { title: "Easy entertaining", text: "Gatherings without the stress" }],
     series: [{ title: "Sunday Table", text: "A weekly 60-second table reset" }],
     showcase,
@@ -325,7 +325,7 @@ export function yearSql(now = new Date(), { before = false, sample = false } = {
       stats.clips++;
       made++;
       if (st !== "deleted") stats.bytes += bytes;
-      if (st === "approved") approvedPool.push({ id: cid, at: reviewedAt, age, bytes });
+      if (st === "approved") approvedPool.push({ id: cid, at: reviewedAt, age, bytes, hook });
       clipLook.set(cid, look);
       event(st === "draft" ? "clip.made" : `clip.${st === "deleted" ? "rejected" : st}`, cid, reviewedAt ?? created, { recipe: c.recipe, score });
     }
@@ -353,7 +353,7 @@ export function yearSql(now = new Date(), { before = false, sample = false } = {
       if (status === "failed") email("posting_problem", "A post did not go out", at + 3600_000, pid);
       if (status === "posted") {
         postedClips.push({ id: c.id, at });
-        out.push(row("platform_videos", { id: `yr_pv_${pv}`, platform: plat, external_id: `yr${plat}${pv}`, url: `https://example.org/${plat}/${pv}`, title: `Demo clip ${pv}`, posted_at: iso(at), views: between(300, 48000), likes: between(10, 3000), comments: between(0, 200), shares: between(0, 400), saves: between(0, 1200), source: "import", post_id: pid, captured_at: iso(Math.min(T, at + 7 * DAY)) }));
+        out.push(row("platform_videos", { id: `yr_pv_${pv}`, platform: plat, external_id: `yr${plat}${pv}`, url: `https://example.org/${plat}/${pv}`, title: c.hook, posted_at: iso(at), views: between(300, 48000), likes: between(10, 3000), comments: between(0, 200), shares: between(0, 400), saves: between(0, 1200), source: "import", post_id: pid, captured_at: iso(Math.min(T, at + 7 * DAY)) }));
       }
     }
   }
@@ -410,8 +410,10 @@ export function yearSql(now = new Date(), { before = false, sample = false } = {
   }
 
   // ---------------------------------------------------------------- the kit, stats, a year of email and health
-  for (let v = 0; v < 26; v++) out.push(row("media_kit_versions", { version: 9101 + v, content: kitContent(showcase, v + 1), slug: "sheila", published_at: iso(day0 + 5 * DAY + v * 13 * DAY) }));
-  out.push(`UPDATE media_kit SET draft = ${q(kitContent(showcase, 27))}, draft_saved_at = ${q(iso(T - DAY))} WHERE id = 1;`);
+  // The sample's kit carries a photo (the brand mark), so the Kit check and the public kit read as complete.
+  const kitPhoto = sample ? file("kit/photo/upl_yrsample01", "kitphoto") : null;
+  for (let v = 0; v < 26; v++) out.push(row("media_kit_versions", { version: 9101 + v, content: kitContent(showcase, v + 1, kitPhoto), slug: "sheila", published_at: iso(day0 + 5 * DAY + v * 13 * DAY) }));
+  out.push(`UPDATE media_kit SET draft = ${q(kitContent(showcase, 27, kitPhoto))}, draft_saved_at = ${q(iso(T - DAY))} WHERE id = 1;`);
   for (let v = 0; v < 400; v++) out.push(row("kit_views", { id: `yr_kv_${v}`, version: 9101 + Math.min(25, Math.floor(v / 16)), viewed_at: iso(day0 + 6 * DAY + Math.floor(v * 0.88) * DAY) }));
   for (let w = 0; w < 51; w++) {
     const at = day0 + (w + 1) * 7 * DAY;

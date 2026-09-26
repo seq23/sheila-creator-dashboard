@@ -98,7 +98,7 @@ export default async function ({ root }) {
   items++;
   if (!sample.sql.startsWith(reset)) problems.push("scripts/seed-year.mjs: the sample SQL must begin with the sample reset");
   if (sample.media.length < 500) problems.push(`scripts/seed-year.mjs: the sample lists ${sample.media.length} media keys; the screens need the clips, covers, thumbnails, narrations and mixes (500+)`);
-  const prefixes = /^(clips|full|narrations|music|docs|voice)\//;
+  const prefixes = /^(clips|full|narrations|music|docs|voice|kit\/photo)\//;
   for (const m of sample.media) if (!prefixes.test(m.key)) problems.push(`scripts/seed-year.mjs: sample media key ${m.key} is outside the app's own folders`);
   return { items, problems };
 }
