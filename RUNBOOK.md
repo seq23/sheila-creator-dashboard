@@ -127,6 +127,58 @@ Rules (unit-tested, `tests/unit/voice-engine.test.ts`):
   cloning), `good-quota-…` (every character used; text to speech answers quota_exceeded);
   anything else is refused.
 
+## Looks: variety from the built-in editor
+
+The owner's ask (25 Sep 2026): clips need variety, layouts and "bells and whistles", with no paid
+service. Every clip is rendered in a **Look**, a named preset of the built-in editor's options
+(ffmpeg + libass + MediaPipe, `jobs/looks.py`). `jobs/looks.json` is the source of truth;
+`worker/domain/looks.ts` mirrors it (`tests/unit/looks.test.ts` fails if they differ).
+
+| Look | What it is |
+| --- | --- |
+| Clean | Face-follow full frame, plain white captions at the bottom, end card |
+| Bold hook | Big hook at the top for 2.5 s, word-by-word highlight at the bottom, punch-in on sentence starts |
+| Karaoke captions | Centred captions, the spoken word lights up, punch-in, progress bar |
+| Brand card | Captions on a brand-coloured box, brand-coloured progress bar, end card |
+| Cinematic | Whole frame over a blurred copy (landscape keeps everything), warm grade, crossfades, fade in |
+| Reaction inset | Full frame plus the strongest line replaying in a small inset |
+| Split moment | Two moments stacked (grid, 2 cells) |
+| Side by side | Two moments left and right (grid, 2 cells) |
+| Grid of four / six / eight | 2x2, 2x3, 2x4 grids of the dump's moments |
+| Hero and strip | One big moment, three small underneath |
+
+- **Rotation:** the Worker sends `rotation` (`rotationFor`: her enabled Looks shuffled per dump,
+  singles and grids two to one, every Look before a repeat) and each Look resolved with her
+  Settings > Editing switches; clip k takes `rotation[k % n]` and comes back with `look`,
+  `parts` and (grids) `layout` (clips columns, migration 0008).
+- **Grids:** cells come from the dump's other moments (same length, their own face-follow
+  crop), then this moment closer (1.35x / 1.7x / 2.1x). The cell with the clearest speech is the
+  voice (its sound plays, its words are the captions); she can change every cell and the voice in
+  Review. Low-resolution cells are upscaled with lanczos and a light sharpen, never stretched.
+- **Change look (Review):** `POST /api/clips/:id/look` sets `pending_look` and dispatches a
+  `cut` job with ref `<dumpId>/<clipId>`; the job renders `<clip>-v<n+1>.mp4`, the Worker swaps
+  it in (`media_version` bumps, `?v=` busts the cache) and deletes the old file. The old version
+  plays until then. Refused plainly when the clip is in Buffer, already re-rendering, or its raw
+  upload was cleared (7 days).
+- **Settings > Editing:** Looks in the mix (all on; stored as `looks_off` so a new Look starts
+  on), captions, end card (logo `public/assets/brand/sheila-logo.png` + her TikTok handle from
+  Buffer, else Brand Profile), music bed. **Music is only her own uploads** (My music, R2
+  `music/`, table `music_tracks`): no bundled music or libraries, because a song she does not hold
+  the rights to can get a post muted or removed. The bed switches on with her first song and off
+  when the last one is removed.
+- **Brand colours / font:** the first two `#rrggbb` codes in her Brand Profile are the primary and
+  accent colours; a font it names from `BRAND_FONTS` is fetched from Google Fonts' repo at render
+  time (default DejaVu Sans when absent or unreachable).
+- **Proof:** `python3 jobs/selftest_cut.py` renders every Look on synthetic footage (the
+  `selftest` job on every PR touching the pipeline) and checks 1080x1920, duration, captions and
+  hook burned where the Look says (pixel diff against the same render with text off), the end
+  card, grid gutters and cells from sampled pixels, and that every two Looks differ by difference
+  hash (floor 0.02 of the bits in some frame). `--looks-only` runs just that; `--write-thumbs`
+  refreshes the previews in `public/looks/` (needs an ffmpeg with libass and libwebp, e.g.
+  Homebrew `ffmpeg-full`). Validator `looks` (`npm run validate:looks`): every Look has a
+  description, a WebP preview, the mirror entry, unit coverage, and each grid a picture in the
+  `grid-looks` guide.
+
 ## Staging
 
 The owner's fully real twin of production for testing with her own throwaway accounts;

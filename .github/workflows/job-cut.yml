@@ -12,6 +12,8 @@ on:
   pull_request:
     paths:
       - jobs/cut.py
+      - jobs/looks.py
+      - jobs/looks.json
       - jobs/common.py
       - jobs/selftest_cut.py
       - .github/workflows/job-cut.yml
@@ -69,7 +71,7 @@ jobs:
   selftest:
     if: github.event_name != 'repository_dispatch'
     runs-on: ubuntu-latest
-    timeout-minutes: 25    # fault detector (~4x a normal run), never a budget
+    timeout-minutes: 35    # fault detector (~4x a normal run: the dump runs plus every Look twice), never a budget
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -86,5 +88,5 @@ jobs:
           key: whisper-${{ env.WHISPER_MODEL }}-v1
       - name: System tools (ffmpeg with libass; GLES/EGL for MediaPipe; espeak-ng for a spoken sample)
         run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg libgles2 libegl1 espeak-ng > /dev/null
-      - name: Pipeline self-test (synthetic footage, no secrets)
+      - name: Pipeline self-test (synthetic footage, every Look, no secrets)
         run: python3 jobs/selftest_cut.py --require-heavy

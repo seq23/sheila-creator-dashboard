@@ -10,9 +10,15 @@ Pipeline per dump (every stage reports progress; logs carry counts only):
      segmentation + longest speech runs) runs when there is no key or the model fails
   5. cut with ffmpeg into one of the recipes (talking_head, hook_first, story, montage; Door B:
      recycle = new first 2 seconds, new subtitle style, trimmed dead air, new caption)
-  6. 9:16: MediaPipe face centre when it installed in time, else black-bar removal
-     (cropdetect) + centre crop; word-level subtitles burned from an ASS file (soft
-     subtitles when this ffmpeg has no libass); loudness to -14 LUFS; cover frame
+  6. render each clip in a Look (jobs/looks.py, jobs/looks.json): clip k takes the Worker's
+     rotation[k] (her enabled Looks, varied per dump), so a dump's clips never all look alike.
+     A Look sets the captions (clean / karaoke / boxed / none, word-level ASS burned with libass,
+     soft subtitles when this ffmpeg has none), the hook at the top, the layout (face-follow 9:16
+     crop from MediaPipe's face centre or cropdetect + centre; a blurred fill; a reaction inset;
+     or a grid of the dump's other moments with one voice cell), punch-in, a progress bar,
+     crossfades, a warm grade, her end card and a music bed from her own songs; loudness to
+     -14 LUFS; cover frame. A job whose spec says mode "rerender" makes one clip again in the
+     Look she picked in Review.
   7. caption, hashtags, hook + alternative hook; score 0..1 from speech density, hook
      strength and length fit
   8. upload clips/<dump_id>/<clip_id>.mp4 and .jpg, then call back with the clip list

@@ -41,14 +41,16 @@ CREATE TABLE music_tracks (
 INSERT OR IGNORE INTO settings (key, value) VALUES
   ('editing', '{"looks_off":[],"captions":true,"end_card":true,"music":false,"editors":{"cut_from_source":"built-in","caption":"built-in","enhance":"built-in"}}');
 
--- Work sent to a connected editor (Opus Clip, Vizard, Klap cut a dump; Submagic captions a clip;
--- Descript enhances one). Polled until done, then imported through the same checks as the
--- built-in cutter. source_token is the long random path the editor fetches the video from
--- (/media/source/<token>), valid only while the row is 'submitted'.
+-- Work done by another editor. A connected editor (Opus Clip, Vizard, Klap cut a dump; Submagic
+-- captions a clip; Descript enhances one) is polled until done; 'handback' is her own edit from an
+-- app with no API (CapCut, InShot), uploaded back from Review. Either way the result is imported
+-- through the same checks as the built-in cutter (the cut job's import mode). source_token is the
+-- long random path a connected editor fetches the video from (/media/source/<token>), valid only
+-- while the row is 'submitted'. result: JSON (the editor's output links, or her uploaded file).
 CREATE TABLE editor_jobs (
   id TEXT PRIMARY KEY,
   editor TEXT NOT NULL,
-  capability TEXT NOT NULL CHECK (capability IN ('cut_from_source', 'caption', 'enhance')),
+  capability TEXT NOT NULL CHECK (capability IN ('cut_from_source', 'caption', 'enhance', 'handback')),
   dump_id TEXT REFERENCES dumps (id) ON DELETE CASCADE,
   clip_id TEXT REFERENCES clips (id) ON DELETE CASCADE,
   asset_id TEXT,
