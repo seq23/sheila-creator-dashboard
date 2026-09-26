@@ -24,6 +24,7 @@ import {
   intentFor,
   nextQuotaReset,
   QUOTA_NOTE,
+  REMOVED_INTENT,
   quotaDay,
   reconcile,
   statusPart,
@@ -233,7 +234,7 @@ async function markPosted(env: Env, clipId: string, videoId: string) {
  * `published`: its publish time has passed, so YouTube should now show it public (a video still
  * private with the same time is YouTube running late: checked again next hour, not a mismatch).
  */
-async function readBackAndVerify(env: Env, clipId: string, token: string, published = false): Promise<boolean> {
+async function readBackAndVerify(env: Env, clipId: string, token: string, published = false, removed = false): Promise<boolean> {
   const r = await row(env, clipId);
   if (!r?.video_id || !r.privacy) return false;
   const got = await getYouTubeDirect(env).listVideos(token, [r.video_id]);
@@ -246,7 +247,7 @@ async function readBackAndVerify(env: Env, clipId: string, token: string, publis
   await recordEvent(env.DB, "ytdirect.readback", clipId, { video_id: r.video_id, found: !!back, privacyStatus: back?.privacyStatus ?? null, publishAt: back?.publishAt ?? null, uploadStatus: back?.uploadStatus ?? null, failureReason: back?.failureReason ?? null, rejectionReason: back?.rejectionReason ?? null });
   const planned: Intent = { privacyStatus: r.privacy, publishAt: r.publish_at };
   if (published && back?.privacyStatus === "private" && back.publishAt && r.publish_at && Math.abs(Date.parse(back.publishAt) - Date.parse(r.publish_at)) < 1000) return false;
-  const intent: Intent = published ? { privacyStatus: "public", publishAt: null } : planned;
+  const intent: Intent = published ? { privacyStatus: "public", publishAt: null } : removed ? REMOVED_INTENT : planned;
   const v = verifyReadBack(intent, back);
   const at = nowIso();
   if (!v.ok) {
@@ -255,6 +256,12 @@ async function readBackAndVerify(env: Env, clipId: string, token: string, publis
     await recordEvent(env.DB, "ytdirect.mismatch", clipId, { why: v.why });
     log.warn("ytdirect.mismatch", { why: v.why });
     return false;
+  }
+  if (removed) {
+    // Off the Calendar and proven private with no publish time on YouTube: kept, never posted.
+    await patchRow(env, clipId, { status: "removed", actual_privacy: back!.privacyStatus, actual_publish_at: back!.publishAt, verified_at: at });
+    log.info("ytdirect.verified", { removed: true });
+    return true;
   }
   const live = !intent.publishAt;
   await patchRow(env, clipId, { status: live ? "live" : "scheduled", privacy: intent.privacyStatus, publish_at: intent.publishAt, reason: null, note: null, actual_privacy: back!.privacyStatus, actual_publish_at: back!.publishAt, verified_at: at });
@@ -373,7 +380,8 @@ export async function reconcileClip(env: Env, clipId: string, now = new Date(), 
   await patchRow(env, clipId, { privacy: action.intent.privacyStatus, publish_at: action.intent.publishAt, status: removed ? "removed" : action.intent.publishAt ? "scheduled" : "live", note: removed ? "Taken off the Calendar: it is private on your channel and kept." : null, reason: null });
   await recordEvent(env.DB, removed ? "ytdirect.made_private" : "ytdirect.moved", clipId, {});
   log.info("ytdirect.update", { removed, scheduled: !!action.intent.publishAt });
-  if (!removed) await readBackAndVerify(env, clipId, access);
+  // Every change is read back, a take-off too: it must be private with no publish time on YouTube.
+  await readBackAndVerify(env, clipId, access, false, removed);
 }
 
 // ---------------------------------------------------------------- hourly
