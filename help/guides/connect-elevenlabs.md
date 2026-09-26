@@ -3,11 +3,11 @@ title: "Connect ElevenLabs for the premium voice (optional)"
 group: getting_started
 screen: connect
 last_checked: 2026-09-25
-target: "role=textbox[name=\"Voice · ElevenLabs (premium) key\"]"
+target: "role=textbox[name=\"Voice overs · ElevenLabs (premium) key\"]"
 fix: reconnect-elevenlabs
 ---
 
-Your narrations always work with the free built-in voice: good quality, a few minutes each.
+Your voice overs always work with the free built-in voice: good quality, a few minutes each.
 Connect your own ElevenLabs account for the premium voice: best quality, seconds each, paid
 from your ElevenLabs credits. The dashboard shows how many you have used on this card.
 
@@ -38,9 +38,9 @@ Tap **Create API key**, name it **Sheila Studio** and leave the access as it is.
 
 ![Step 4](/help/screenshots/connect-elevenlabs-4.png)
 <!-- route: /settings/connections -->
-<!-- target: role=textbox[name="Voice · ElevenLabs (premium) key"] -->
+<!-- target: role=textbox[name="Voice overs · ElevenLabs (premium) key"] -->
 
-In the dashboard open **Settings**, then **Connections**. Scroll to **Voice · premium**, and
+In the dashboard open **Settings**, then **Connections**. Scroll to **Voice overs · premium**, and
 paste the key into the **ElevenLabs** box.
 
 ## Tap Check key
@@ -51,7 +51,7 @@ paste the key into the **ElevenLabs** box.
 
 Tap **Check key**. You see your plan, the characters you have used this month, and whether
 voice cloning is on your plan. Your premium voice is made from the voice you saved on
-**Voice**, in about a minute.
+**Voice overs**, in about a minute.
 
 ## Did this work?
 

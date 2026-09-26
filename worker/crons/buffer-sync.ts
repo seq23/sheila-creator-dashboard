@@ -15,6 +15,7 @@ import { getConnectionSecret, markConnection, type Service } from "../lib/connec
 import { mediaToken, nowIso } from "../lib/ids";
 import { log } from "../lib/log";
 import { planAhead } from "../routes/posts";
+import { POSTABLE_CLIP_SQL } from "../domain/sourceCheck";
 import { readSettings } from "../routes/settings";
 import { bufferRequests, getBuffer, type BufferChannel, type BufferClient } from "../services/buffer";
 import { emailFrame, sendEmail } from "../services/email";
@@ -120,7 +121,7 @@ const CONNECTION_COPY: Record<string, { title: string; steps: string[]; guide: s
   openrouter: { title: "The AI (OpenRouter)", steps: ["Open OpenRouter and go to Keys.", "Create a new key and copy it.", "In your dashboard open Settings, Connect accounts, paste it under OpenRouter and press Check key."], guide: "reconnect-openrouter" },
   firecrawl: { title: "Web research (Firecrawl)", steps: ["Open Firecrawl and go to API Keys.", "Copy your key.", "In your dashboard open Settings, Connect accounts, paste it under Firecrawl and press Check key."], guide: "reconnect-firecrawl" },
   hunter: { title: "Hunter", steps: ["Open Hunter and go to API.", "Copy your key.", "In your dashboard open Settings, Connect accounts, paste it under Hunter and press Check key."], guide: "reconnect-hunter" },
-  elevenlabs: { title: "The premium voice (ElevenLabs)", steps: ["Open ElevenLabs, tap your profile, then API keys.", "Create a new key and copy it.", "In your dashboard open Settings, Connect accounts, paste it under ElevenLabs and press Check key. Until then your narrations use the built-in voice."], guide: "reconnect-elevenlabs" },
+  elevenlabs: { title: "Premium voice overs (ElevenLabs)", steps: ["Open ElevenLabs, tap your profile, then API keys.", "Create a new key and copy it.", "In your dashboard open Settings, Connect accounts, paste it under ElevenLabs and press Check key. Until then your voice overs use the built-in voice."], guide: "reconnect-elevenlabs" },
 };
 
 async function connectionNeedsYouEmail(env: Env, name: string) {
@@ -144,7 +145,7 @@ export async function bufferSync(env: Env, opts: { force?: boolean } = {}): Prom
   // 1. plan ahead + pull unapproved clips off the calendar
   const plan = await planAhead(env, { respectHeld: true });
   const { results: unapproved } = await env.DB.prepare(
-    "SELECT p.id, p.buffer_post_id FROM posts p JOIN clips c ON c.id = p.clip_id WHERE p.status IN ('planned','in_buffer') AND c.status != 'approved'",
+    `SELECT p.id, p.buffer_post_id FROM posts p JOIN clips c ON c.id = p.clip_id WHERE p.status IN ('planned','in_buffer') AND NOT (${POSTABLE_CLIP_SQL})`,
   ).all<{ id: string; buffer_post_id: string | null }>();
   for (const p of unapproved) {
     if (p.buffer_post_id) await client.deletePost(p.buffer_post_id);
@@ -161,7 +162,7 @@ export async function bufferSync(env: Env, opts: { force?: boolean } = {}): Prom
   const used = queueUsed(local, buf.remoteQueue);
   const { results: plannedRows } = await env.DB.prepare(
     `SELECT p.id, p.platform, p.scheduled_at, p.retries, c.id AS clip_id, c.caption, c.hashtags, c.media_token, c.hook_text
-     FROM posts p JOIN clips c ON c.id = p.clip_id WHERE p.status = 'planned' AND c.status = 'approved'`,
+     FROM posts p JOIN clips c ON c.id = p.clip_id WHERE p.status = 'planned' AND ${POSTABLE_CLIP_SQL}`,
   ).all<{ id: string; platform: Platform; scheduled_at: string; retries: number; clip_id: string; caption: string; hashtags: string; media_token: string | null; hook_text: string }>();
   const loadPlan = choosePostsToLoad(plannedRows, used, ready, now);
   const byId = new Map(plannedRows.map((r) => [r.id, r]));

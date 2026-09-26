@@ -16,7 +16,10 @@ export const SERVICE_NAMES: Record<string, { label: string; supersededBy?: strin
   meta: { label: "Instagram stats" },
   google: { label: "YouTube stats" },
   tiktok: { label: "TikTok stats" },
-  elevenlabs: { label: "Voice · ElevenLabs", supersededBy: "Voice · ElevenLabs" },
+  elevenlabs: { label: "Voice overs · ElevenLabs", supersededBy: "Voice · ElevenLabs" },
+  // rows the voice code writes under its own names (kept), shown under the screen's name
+  Voice: { label: "Voice overs" },
+  "Voice · ElevenLabs": { label: "Voice overs · ElevenLabs" },
 };
 
 export const LIGHT_ORDER: Record<HealthItem["light"], number> = { red: 0, yellow: 1, grey: 2, green: 3 };

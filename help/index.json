@@ -47,7 +47,7 @@
     { "slug": "move-or-remove-a-post", "title": "Move or remove a post", "group": "everyday", "screen": "calendar" },
     { "slug": "what-runway-means", "title": "What \"runway\" means", "group": "everyday", "screen": "home" },
     { "slug": "change-posts-per-week", "title": "Change posts per week", "group": "everyday", "screen": "settings" },
-    { "slug": "record-your-voice", "title": "Record your voice (optional)", "group": "everyday", "screen": "voice" },
+    { "slug": "record-your-voice", "title": "Record your voice for voice overs (optional)", "group": "everyday", "screen": "voice" },
     { "slug": "update-your-media-kit", "title": "Update your media kit", "group": "brand_deals", "screen": "deals" },
     { "slug": "send-a-pitch", "title": "Send a pitch", "group": "brand_deals", "screen": "deals" },
     { "slug": "mark-a-reply", "title": "Mark a reply", "group": "brand_deals", "screen": "deals" },
@@ -67,6 +67,7 @@
     { "slug": "storage-almost-full", "title": "Storage almost full", "group": "fix_it", "screen": "settings" },
     { "slug": "upload-your-tiktok-export", "title": "Upload your TikTok export", "group": "fix_it", "screen": "stats" },
     { "slug": "i-didnt-get-an-email", "title": "I didn't get an email", "group": "fix_it", "screen": "settings" },
-    { "slug": "clips-look-wrong", "title": "Clips look wrong", "group": "fix_it", "screen": "review" }
+    { "slug": "clips-look-wrong", "title": "Clips look wrong", "group": "fix_it", "screen": "review" },
+    { "slug": "someone-elses-video", "title": "Looks like someone else's video", "group": "fix_it", "screen": "dump" }
   ]
 }

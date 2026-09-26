@@ -1,9 +1,12 @@
-// Voice narration (section 12). Hidden until she switches it on in Settings; every change here
-// refuses while it is off. Only the owner login can create, replace or delete the voice.
+// Voice narration (section 12). The screen is always there (nothing hidden, owner 26 Sep 2026).
+// features.voice now means "Use my voice on clips": while it is off, recording and saving her
+// voice still work, but drafting, making and attaching narrations refuse with a plain sentence.
+// Only the owner login can create, replace or delete the voice.
 // Two engines (worker/domain/voiceEngine.ts): "built-in" (free, the Chatterbox job on the GitHub
 // runner, always kept as the fallback) and "elevenlabs" (premium, her own ElevenLabs account,
 // made here in the Worker in seconds). Every narration row records which one made it.
 //   GET    /api/voice                     state + which engine is active and why + narrations
+//   PATCH  /api/voice/clips               "Use my voice on clips" on or off (owner; features.voice)
 //   PATCH  /api/voice/engine              "Use premium voice when connected" on or off (owner)
 //   POST   /api/voice/sample              record the uploaded sample (uploads kind "voice_sample") + consent
 //                                         (+ the premium clone when ElevenLabs is connected and allows it)
@@ -26,6 +29,7 @@ import { currentEngine, dropPremiumVoice, ENGINE_SETTING, ensurePremiumVoice, pr
 import { getLlm } from "../services/openrouter";
 import { KIT_NAME, lockedProfile, themeList } from "./mediakit";
 import type { Features } from "@shared/types";
+import { DEFAULT_FEATURES } from "@shared/constants";
 
 export const voice = new Hono<{ Bindings: Env; Variables: Vars }>();
 voice.use("*", requireUser);
@@ -39,12 +43,12 @@ export const MIN_SAMPLE_SECONDS = 60;
 type C = Context<{ Bindings: Env; Variables: Vars }>;
 
 async function featureOn(env: Env): Promise<boolean> {
-  const f = await getSetting<Features>(env.DB, "features", { voice: false, deeper_research: false, weekly_recap: true, help_ask: false });
+  const f = await getSetting<Features>(env.DB, "features", { ...DEFAULT_FEATURES });
   return !!f.voice;
 }
 
 async function requireVoiceOn(c: C, next: Next) {
-  if (!(await featureOn(c.env))) return fail(c, 409, "Voice narration is off. Turn it on in Settings first.", "record-your-voice");
+  if (!(await featureOn(c.env))) return fail(c, 409, "Voice overs on clips is off. Switch it on on the Voice overs screen first.", "record-your-voice");
   await next();
 }
 
@@ -120,7 +124,17 @@ voice.patch("/engine", requireOwner, async (c) => {
   return c.json({ ok: true, active: e.engine, why: e.why });
 });
 
-voice.post("/sample", requireVoiceOn, requireOwner, async (c) => {
+/** "Voice overs on clips" (features.voice). Off = clips stay real footage with no voice over. */
+voice.patch("/clips", requireOwner, async (c) => {
+  const body = await readJson<{ on?: boolean }>(c);
+  if (typeof body?.on !== "boolean") return fail(c, 422, "Pick on or off.", "record-your-voice");
+  const current = await getSetting<Features>(c.env.DB, "features", { ...DEFAULT_FEATURES });
+  await setSetting(c.env.DB, "features", { ...current, voice: body.on });
+  await recordEvent(c.env.DB, "voice.clips.switch", null, { on: body.on }, c.get("user").email);
+  return c.json({ ok: true, enabled: body.on });
+});
+
+voice.post("/sample", requireOwner, async (c) => {
   const body = await readJson<{ upload_id?: string; consent?: boolean; consent_text?: string; duration_s?: number }>(c);
   if (!body?.consent) return fail(c, 422, "Tick the consent box first: it confirms this is your own voice.", "record-your-voice");
   const seconds = Number(body.duration_s);
@@ -216,7 +230,7 @@ voice.post("/narrations", requireVoiceOn, async (c) => {
   const r = await dispatchJob(c.env, "voice", id);
   if (!r.dispatched) {
     await c.env.DB.prepare("UPDATE narrations SET status = 'failed' WHERE id = ?").bind(id).run();
-    return fail(c, 502, r.error ?? "The narration could not start.", "reconnect-github");
+    return fail(c, 502, r.error ?? "The voice over could not start.", "reconnect-github");
   }
   await recordEvent(c.env.DB, "voice.narration.queued", id, { engine: "built-in", chars: script.length, fallback: fellBack }, c.get("user").email);
   return c.json({ id, jobId: r.jobId, engine: "built-in", notice: fellBack ? fallbackNotice(fellBack) : null });
@@ -230,14 +244,14 @@ voice.patch("/narrations/:id", requireVoiceOn, async (c) => {
     if (!ok) return fail(c, 422, "That clip is not available.", "record-your-voice");
   }
   const r = await c.env.DB.prepare("UPDATE narrations SET clip_id = ? WHERE id = ? AND status = 'ready'").bind(clipId, c.req.param("id")).run();
-  if (!r.meta.changes) return fail(c, 404, "That narration is not ready.");
+  if (!r.meta.changes) return fail(c, 404, "That voice over is not ready.");
   await recordEvent(c.env.DB, clipId ? "voice.narration.attached" : "voice.narration.detached", c.req.param("id") ?? null, {}, c.get("user").email);
   return c.json({ ok: true });
 });
 
 voice.delete("/narrations/:id", async (c) => {
   const n = await c.env.DB.prepare("SELECT r2_key FROM narrations WHERE id = ?").bind(c.req.param("id")).first<{ r2_key: string | null }>();
-  if (!n) return fail(c, 404, "That narration is gone.");
+  if (!n) return fail(c, 404, "That voice over is gone.");
   if (n.r2_key) await c.env.FILES.delete(n.r2_key);
   await c.env.DB.prepare("DELETE FROM narrations WHERE id = ?").bind(c.req.param("id")).run();
   await recordEvent(c.env.DB, "voice.narration.deleted", c.req.param("id"), {}, c.get("user").email);
@@ -256,7 +270,7 @@ voice.get("/narrations/:id/audio", async (c) => {
   headers.set("content-type", type);
   headers.set("accept-ranges", "bytes");
   headers.set("cache-control", "private, no-store");
-  if (c.req.query("download") === "1") headers.set("content-disposition", `attachment; filename="narration-${c.req.param("id")}.${type.includes("wav") ? "wav" : "mp3"}"`);
+  if (c.req.query("download") === "1") headers.set("content-disposition", `attachment; filename="voice-over-${c.req.param("id")}.${type.includes("wav") ? "wav" : "mp3"}"`);
   if (range && obj.range && "offset" in obj.range) {
     const start = obj.range.offset ?? 0;
     const length = obj.range.length ?? obj.size - start;

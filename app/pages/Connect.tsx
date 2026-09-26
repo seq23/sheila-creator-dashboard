@@ -1,6 +1,6 @@
 // Connect accounts (section 4b): Buffer (paste key → channels found), stats (Instagram and
 // Google sign-in via /api/oauth, TikTok export upload on Stats), AI (OpenRouter), web research (Firecrawl),
-// Hunter (optional), Voice · ElevenLabs (premium, optional: her own ElevenLabs account; without it
+// Hunter (optional), Voice overs · ElevenLabs (premium, optional: her own ElevenLabs account; without it
 // the free built-in voice is used). Every connection has Connect / Check again / Disconnect, plus
 // Disconnect everything. She always logs in on the platform's own page.
 import { useState } from "react";
@@ -25,9 +25,9 @@ const KEY_SERVICES: { service: Service; title: string; name: string; why: string
   { service: "hunter", title: "Brand deals · Hunter.io", name: "Hunter.io", why: "Finds public partnership emails on brand websites. Free account: 50 lookups a month.", steps: ["Create a free Hunter account", "Open API → copy key", "Paste it here"], guide: "connect-hunter", optional: true },
   {
     service: "elevenlabs",
-    title: "Voice · ElevenLabs (premium)",
+    title: "Voice overs · ElevenLabs (premium)",
     name: "ElevenLabs",
-    why: "Premium voice cloning: best quality, seconds per narration, uses your own ElevenLabs credits. Without it the free built-in voice is used, which is good quality and takes a few minutes.",
+    why: "Premium voice cloning: best quality, seconds per voice over, uses your own ElevenLabs credits. Without it the free built-in voice is used, which is good quality and takes a few minutes.",
     steps: ["Open elevenlabs.io → your profile → API keys", "Create API key, copy it", "Paste it here"],
     guide: "connect-elevenlabs",
     optional: true,
@@ -114,7 +114,7 @@ export function Connect() {
             <KeyCard def={KEY_SERVICES[3]} conn={byService("hunter")} owner={owner} primary={primary === "hunter"} onChange={reload} />
           </Section>
 
-          <Section n={5} title="Voice · premium, optional">
+          <Section n={5} title="Voice overs · premium, optional">
             <KeyCard def={KEY_SERVICES[4]} conn={byService("elevenlabs")} owner={owner} primary={false} onChange={reload} />
           </Section>
 
@@ -287,7 +287,7 @@ function ElevenLabsPlan({ conn }: { conn: ConnectionView | null }) {
         Plan: <strong>{m.tier}</strong> · {n(used)} of {n(limit)} characters used this month
       </div>
       {m.can_clone === true ? (
-        <Notice tone="ok">Voice cloning is on your plan: your narrations use the premium voice.</Notice>
+        <Notice tone="ok">Voice cloning is on your plan: your voice overs use the premium voice.</Notice>
       ) : (
         <Notice tone="warn">Your ElevenLabs plan does not include voice cloning; the built-in voice will be used.</Notice>
       )}

@@ -37,9 +37,15 @@ test.describe("login", () => {
 });
 
 test.describe("home and dump", () => {
-  test("home shows runway, this week, waiting and health, and the big Dump button", async ({ page }) => {
+  test("home shows runway, this week, waiting, health, your voice, and the big Dump button", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByText("Runway")).toBeVisible();
+    // the optional voice is always there, quietly: one line and a link, never a primary or a badge
+    const voice = page.locator(".home-voice");
+    await expect(voice).toContainText("Your voice overs");
+    await expect(voice).toContainText("Optional: record your voice so your clips can have voice overs in it");
+    await expect(voice.getByRole("link", { name: /Set up in 5 steps/ })).toHaveAttribute("href", "/voice");
+    await expect(voice.locator(".badge, [data-primary], .dot.red")).toHaveCount(0);
     await expect(page.getByText("This week")).toBeVisible();
     await expect(page.getByText("Waiting for you")).toBeVisible();
     await expect(page.getByRole("link", { name: "+ Dump videos" })).toBeVisible();
@@ -49,7 +55,7 @@ test.describe("home and dump", () => {
   });
 
   test("every screen is reachable and has a ? help button", async ({ page }) => {
-    for (const path of ["/dump", "/review", "/calendar", "/brain", "/research", "/stats", "/settings", "/settings/connections", "/deals", "/help"]) {
+    for (const path of ["/dump", "/review", "/calendar", "/brain", "/research", "/stats", "/settings", "/settings/connections", "/deals", "/voice", "/help"]) {
       await page.goto(path);
       await expect(page.getByRole("link", { name: "Help for this screen" }), path).toBeVisible();
     }
@@ -76,9 +82,21 @@ test.describe("home and dump", () => {
     await expect(page.locator(".toast.bad").getByRole("link", { name: "How to fix" })).toBeVisible();
   });
 
-  test("settings: caps stop at 10 and save", async ({ page }) => {
+  test("settings: caps stop at 10 and save; every feature switch is on by default and says what off does", async ({ page }) => {
     await page.request.patch("/api/settings", { data: { weekly_caps: { tiktok: 10, instagram: 7, youtube: 5 } } });
     await page.goto("/settings");
+    // nothing switched off: a fresh database has every feature on (migration 0010)
+    const features = ((await (await page.request.get("/api/settings")).json()) as { features: Record<string, boolean> }).features;
+    expect(features).toEqual({ voice: true, deeper_research: true, weekly_recap: true, help_ask: true });
+    for (const [label, off] of [
+      ["Voice overs on clips", "Off = clips stay real footage with no voice over."],
+      ["Deeper web research", "Off = the brief uses the free web search only."],
+      ["Weekly recap email", "Off = no Monday email."],
+    ]) {
+      const sw = page.locator("label.switch", { hasText: label });
+      await expect(sw.getByRole("checkbox")).toBeChecked();
+      await expect(sw).toContainText(off);
+    }
     const more = page.getByRole("button", { name: "More TikTok posts per week" });
     await expect(more).toBeDisabled();
     await page.getByRole("button", { name: "Fewer YouTube Shorts posts per week" }).click();

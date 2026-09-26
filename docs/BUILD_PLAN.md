@@ -116,7 +116,7 @@ One **Connect accounts** screen, shown as the first-run wizard and later under S
 | Her YouTube numbers | YouTube Analytics API | $0 |
 | Her TikTok numbers | Buffer analytics if its API exposes them (confirmed in Phase 0); otherwise she uploads TikTok's data export on the Stats page | $0 |
 | Web research | Firecrawl search (1,000 free credits/month) + an OpenRouter free model to read and summarize | $0 |
-| Optional deeper search | OpenRouter's Perplexity search, about $0.005 per search (about $0.25 per full brief) — switch in Settings, off by default | cents |
+| Optional deeper search | OpenRouter's Perplexity search, about $0.005 per search (about $0.25 per full brief) — switch in Settings, on by default since 26 Sep 2026 (runs only when OpenRouter is connected; she can switch it off) | cents |
 | Outside reports | She uploads a ChatGPT Deep Research or Perplexity report; treated as a source like any other | $0 |
 
 **The brief contains:** audience snapshot · 3–5 content themes · hook formulas that fit her voice · cut styles and lengths to favor · best days and times per platform · comparable creators to learn from · a "what to film next" shot list.
@@ -236,9 +236,9 @@ Sources: [Buffer: best times, all platforms](https://buffer.com/resources/best-t
 
 Email is sent through Resend's free tier from her own domain or a default sender.
 
-## 12. Voice narration (optional, off by default)
+## 12. Voice narration (optional)
 
-- **Off at launch.** The Voice tab is hidden until Sheila switches it on in Settings. Clips remain real footage either way.
+- **Always visible (owner, 26 Sep 2026: nothing hidden, nothing switched off).** The Voice screen is always in the menu and Home has a quiet "Your voice" card. The switch "Use my voice on clips" (on by default, on the Voice screen and in Settings) decides whether narrations are made; off keeps clips real footage with no narration. Clips remain real footage either way.
 - **Model:** Chatterbox by Resemble AI (open source, MIT). Clones from a short, clean voice sample; runs on CPU in GitHub Actions (slower, fine for short narrations). Its output carries an inaudible watermark.
 - **Setup once:** she records in the browser or uploads a sample, reads a short consent line ("This is my voice and I authorize its use in this dashboard"), and ticks a consent box. Only the owner login can create or replace the voice.
 - **Use:** type a script, or ask the AI to draft one from the Brand Profile → Generate → listen → download MP3, or attach it to a clip in Review.

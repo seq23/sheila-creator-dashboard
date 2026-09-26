@@ -7,7 +7,7 @@ last_checked: 2026-09-25
 
 ## What happened
 
-ElevenLabs refused the key, or your credits ran out. Nothing stops: every narration uses your
+ElevenLabs refused the key, or your credits ran out. Nothing stops: every voice over uses your
 free built-in voice until the premium voice works again.
 
 ## Step 1
@@ -38,7 +38,7 @@ In the dashboard open **Settings**, then **Connections**. On the **ElevenLabs** 
 
 ![Step 4](/help/screenshots/reconnect-elevenlabs-4.png)
 <!-- route: /settings/connections -->
-<!-- target: role=textbox[name="Voice · ElevenLabs (premium) key"] -->
+<!-- target: role=textbox[name="Voice overs · ElevenLabs (premium) key"] -->
 
 Paste the new key and tap **Check key**.
 
@@ -47,7 +47,7 @@ Paste the new key and tap **Check key**.
 ![Step 5](/help/screenshots/reconnect-elevenlabs-5.png)
 <!-- route: /settings -->
 
-Open **Settings** and tap **Check everything now**. **Voice · ElevenLabs** turns green.
+Open **Settings** and tap **Check everything now**. **Voice overs · ElevenLabs** turns green.
 
 ## Did this work?
 

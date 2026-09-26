@@ -1,5 +1,6 @@
-// Voice narration (section 12). Hidden until she switches it on in Settings (the sidebar item
-// only shows when it is on; this page says so if opened directly).
+// Voice narration (section 12). Always in the menu and always usable (nothing hidden, owner
+// 26 Sep 2026). The switch "Use my voice on clips" (features.voice, also in Settings) sits right
+// under the steps: off = clips stay real footage with no narration; her voice can still be saved.
 // Top: five numbered setup steps, phone first: find a quiet spot, record (or Voice Memos) while
 // reading the ~3-minute script shown right here, listen back / upload, consent + Save my voice,
 // re-record any time. Recording works on iPhone Safari (MediaRecorder audio/mp4, else webm),
@@ -44,8 +45,8 @@ interface VoiceState {
 }
 
 export const ENGINE_COPY: Record<Engine, { name: string; line: string; tag: string }> = {
-  "built-in": { name: "Built-in voice (free)", line: "Built-in voice (free): good quality, takes a few minutes per narration.", tag: "Built-in" },
-  elevenlabs: { name: "ElevenLabs premium voice", line: "ElevenLabs premium voice: best quality, seconds per narration, uses your ElevenLabs credits.", tag: "Premium" },
+  "built-in": { name: "Built-in voice (free)", line: "Built-in voice (free): good quality, takes a few minutes per voice over.", tag: "Built-in" },
+  elevenlabs: { name: "ElevenLabs premium voice", line: "ElevenLabs premium voice: best quality, seconds per voice over, uses your ElevenLabs credits.", tag: "Premium" },
 };
 
 export function Voice() {
@@ -59,16 +60,12 @@ export function Voice() {
 
   return (
     <div className="page voice">
-      <PageHead title="Voice narration" lede="Spoken voice-overs in your own voice. Your clips stay real footage either way." />
+      <PageHead title="Voice overs" lede="Spoken voice overs in your own voice. Your clips stay real footage either way." />
       {loading && !data ? <Skeleton blocks={2} /> : null}
-      {data && !data.enabled ? (
-        <Empty title="Voice narration is off" cta={{ to: "/settings", label: "Open Settings" }} primary>
-          Turn on Voice narration in Settings if you want spoken voice-overs in your own voice.
-        </Empty>
-      ) : null}
-      {data && data.enabled ? (
+      {data ? (
         <>
           <SetupSteps v={data} onChange={reload} />
+          <ClipsSwitch v={data} onChange={reload} />
           <EngineCard v={data} onChange={reload} />
           <NarrateCard v={data} onChange={reload} />
           <Narrations v={data} onChange={reload} />
@@ -165,7 +162,7 @@ function SetupSteps({ v, onChange }: { v: VoiceState; onChange: () => void }) {
     try {
       const h = await uploadFile(clip.file, "voice_sample", null, () => undefined);
       const r = await post<{ engine: Engine; premium_voice: boolean }>("/api/voice/sample", { upload_id: h.id, consent: true, consent_text: v.consent_line, duration_s: clip.seconds });
-      toast.ok(r.premium_voice ? "Voice saved. Your premium voice is ready too." : "Voice saved. The built-in voice is ready for your first narration.");
+      toast.ok(r.premium_voice ? "Voice saved. Your premium voice is ready too." : "Voice saved. The built-in voice is ready for your first voice over.");
       setClip(null);
       setConsent(false);
       onChange();
@@ -280,7 +277,7 @@ function SetupSteps({ v, onChange }: { v: VoiceState; onChange: () => void }) {
 
       {confirmDelete ? (
         <Modal title="Delete your voice?" onClose={() => setConfirmDelete(false)}>
-          <p>Your voice sample and the voice model are deleted for good, and your premium voice is deleted from ElevenLabs too. Narrations you already made stay until you delete them.</p>
+          <p>Your voice sample and the voice model are deleted for good, and your premium voice is deleted from ElevenLabs too. Voice overs you already made stay until you delete them.</p>
           <div className="btn-row">
             <button type="button" className="btn danger" onClick={remove}>
               Yes, delete my voice
@@ -459,6 +456,40 @@ function ClipPreview({ clip }: { clip: Clip | null }) {
   return <audio controls src={url} className="voice-audio" aria-label="Play back your recording" />;
 }
 
+// ---------------------------------------------------------------- use my voice on clips
+
+function ClipsSwitch({ v, onChange }: { v: VoiceState; onChange: () => void }) {
+  const toast = useToast();
+  const [on, setOn] = useState(v.enabled);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => setOn(v.enabled), [v.enabled]);
+  async function toggle(next: boolean) {
+    setOn(next);
+    setBusy(true);
+    try {
+      await patch("/api/voice/clips", { on: next });
+      toast.ok(next ? "On: voice overs are made in your voice." : "Off: clips stay real footage with no voice over.");
+      onChange();
+    } catch (e) {
+      setOn(!next);
+      toast.bad(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Card className="clips-switch">
+      <label className="switch">
+        <input type="checkbox" checked={on} disabled={busy || !v.owner} onChange={(e) => toggle(e.target.checked)} />
+        <span>
+          <span className="switch-label">Voice overs on clips</span>
+          <span className="switch-hint hint">Off = clips stay real footage with no voice over. On = voice overs are made in your voice.</span>
+        </span>
+      </label>
+    </Card>
+  );
+}
+
 // ---------------------------------------------------------------- which voice
 
 function EngineCard({ v, onChange }: { v: VoiceState; onChange: () => void }) {
@@ -548,7 +579,7 @@ function NarrateCard({ v, onChange }: { v: VoiceState; onChange: () => void }) {
     setBusy("gen");
     try {
       const r = await post<{ engine: Engine; notice: string | null }>("/api/voice/narrations", { script });
-      toast.ok(r.notice ?? (r.engine === "elevenlabs" ? "Done. Your premium narration is ready below." : "Generating. It shows up below when it’s ready; short scripts take a few minutes."));
+      toast.ok(r.notice ?? (r.engine === "elevenlabs" ? "Done. Your premium voice over is ready below." : "Generating. It shows up below when it’s ready; short scripts take a few minutes."));
       setScript("");
       onChange();
     } catch (e) {
@@ -559,8 +590,8 @@ function NarrateCard({ v, onChange }: { v: VoiceState; onChange: () => void }) {
   }
   return (
     <Card>
-      <h2>Make a narration</h2>
-      {!v.hasSample ? <Notice tone="info">Save your voice in the steps above first.</Notice> : null}
+      <h2>Make a voice over</h2>
+      {!v.enabled ? <Notice tone="info">Switch on “Voice overs on clips” above to make voice overs.</Notice> : !v.hasSample ? <Notice tone="info">Save your voice in the steps above first.</Notice> : null}
       <label className="field">
         <span className="label">Script</span>
         <textarea className="textarea" rows={5} maxLength={1500} value={script} onChange={(e) => setScript(e.target.value)} placeholder="What should the voice-over say?" />
@@ -569,10 +600,10 @@ function NarrateCard({ v, onChange }: { v: VoiceState; onChange: () => void }) {
         </span>
       </label>
       <div className="btn-row">
-        <button type="button" className="btn quiet" onClick={draft} disabled={!!busy}>
+        <button type="button" className="btn quiet" onClick={draft} disabled={!!busy || !v.enabled}>
           {busy === "draft" ? "Drafting…" : "Draft with AI"}
         </button>
-        <button type="button" className={v.hasSample ? "btn" : "btn quiet"} data-primary={v.hasSample || undefined} onClick={generate} disabled={!!busy || !v.hasSample || script.trim().length < 10}>
+        <button type="button" className={v.hasSample ? "btn" : "btn quiet"} data-primary={(v.enabled && v.hasSample) || undefined} onClick={generate} disabled={!!busy || !v.enabled || !v.hasSample || script.trim().length < 10}>
           {busy === "gen" ? "Starting…" : "Generate"}
         </button>
       </div>
@@ -586,10 +617,10 @@ function Narrations({ v, onChange }: { v: VoiceState; onChange: () => void }) {
   return (
     <section className="section">
       <div className="section-head">
-        <h2>Recent narrations</h2>
+        <h2>Recent voice overs</h2>
       </div>
       {v.narrations.length === 0 ? (
-        <Empty title="No narrations yet">Write a script above and press Generate. Each narration shows up here to listen to, download or attach to a clip.</Empty>
+        <Empty title="No voice overs yet">Write a script above and press Generate. Each voice over shows up here to listen to, download or attach to a clip.</Empty>
       ) : (
         <Card className="flat">
           <div className="list">
@@ -609,7 +640,7 @@ function Narrations({ v, onChange }: { v: VoiceState; onChange: () => void }) {
                       {n.duration_s ? ` · ${mmss(n.duration_s)}` : ""}
                     </span>
                   </div>
-                  {n.audio_url ? <audio controls preload="none" src={n.audio_url} className="voice-audio" aria-label="Play narration" /> : null}
+                  {n.audio_url ? <audio controls preload="none" src={n.audio_url} className="voice-audio" aria-label="Play voice over" /> : null}
                 </div>
                 <div className="btn-row">
                   {n.audio_url ? (
@@ -667,7 +698,7 @@ function AttachModal({ narrationId, onClose, onDone }: { narrationId: string; on
         <Skeleton />
       ) : data.clips.length === 0 ? (
         <Empty title="No approved clips yet" cta={{ to: "/review", label: "Open Review" }}>
-          Approve a clip in Review, then attach this narration to it.
+          Approve a clip in Review, then attach this voice over to it.
         </Empty>
       ) : (
         <div className="list">
