@@ -15,7 +15,8 @@ import { Link } from "react-router-dom";
 import { del, get, patch, post } from "../lib/api";
 import { fmtDate } from "../lib/format";
 import { uploadFile } from "../lib/upload";
-import { Card, Dot, Empty, HelpButton, Modal, Notice, PageHead, Skeleton, useLoad, useToast } from "../components/ui";
+import { Card, DismissButton, Dot, Empty, HelpButton, Modal, MoreRow, Notice, PageHead, SearchBox, Skeleton, useLoad, useToast } from "../components/ui";
+import { archiveWithUndo, restoreArchived } from "../lib/archive";
 import SCRIPT from "../content/voice-script.md?raw";
 import "../styles/voice.css";
 import { AUTO_VOICE_HINT } from "@shared/autoVoice";
@@ -44,6 +45,8 @@ interface VoiceState {
     characters_limit: number | null;
   };
   narrations: { id: string; script: string; status: "queued" | "generating" | "ready" | "failed"; clip_id: string | null; engine: Engine; duration_s: number | null; mix_status: "mixing" | "ready" | "failed" | null; created_at: string; audio_url: string | null }[];
+  /** Day 358: the true count for this list, how many are archived, and the page. */
+  narrations_page: { total: number; limit: number; offset: number; archived: number; q: string };
 }
 
 export const ENGINE_COPY: Record<Engine, { name: string; line: string; tag: string }> = {
@@ -618,20 +621,81 @@ function NarrateCard({ v, onChange }: { v: VoiceState; onChange: () => void }) {
   );
 }
 
+type NarrationRow = VoiceState["narrations"][number];
+
+/**
+ * Your voice overs (day 358): a page at a time with the true count, search the script, archive with
+ * Undo, Show archived + Restore. Failed ones archive on their own after 14 days, unused ones after 60.
+ */
 function Narrations({ v, onChange }: { v: VoiceState; onChange: () => void }) {
   const toast = useToast();
   const [attach, setAttach] = useState<string | null>(null);
+  const [archived, setArchived] = useState(false);
+  const [q, setQ] = useState("");
+  const [search, setSearch] = useState("");
+  const [rows, setRows] = useState<NarrationRow[]>(v.narrations);
+  const [page, setPage] = useState(v.narrations_page);
+  const [busy, setBusy] = useState(false);
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(q.trim()), 300);
+    return () => clearTimeout(t);
+  }, [q]);
+  const params = (offset: number) => new URLSearchParams({ offset: String(offset), ...(archived ? { archived: "1" } : {}), ...(search ? { q: search } : {}) }).toString();
+  useEffect(() => {
+    if (!archived && !search && tick === 0) {
+      setRows(v.narrations);
+      setPage(v.narrations_page);
+      return;
+    }
+    get<VoiceState>(`/api/voice?${params(0)}`).then(
+      (d) => {
+        setRows(d.narrations);
+        setPage(d.narrations_page);
+      },
+      (e) => toast.bad(e),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [archived, search, tick, v]);
+  async function more() {
+    setBusy(true);
+    try {
+      const d = await get<VoiceState>(`/api/voice?${params(rows.length)}`);
+      setRows((r) => [...r, ...d.narrations]);
+      setPage(d.narrations_page);
+    } catch (e) {
+      toast.bad(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+  const changed = () => {
+    setTick((n) => n + 1);
+    onChange();
+  };
   return (
-    <section className="section">
+    <section className="section" aria-label="Your voice overs">
       <div className="section-head">
-        <h2>Recent voice overs</h2>
+        <h2>{archived ? "Archived voice overs" : "Your voice overs"}</h2>
+        <button type="button" className="link-btn" onClick={() => setArchived((a) => !a)} aria-pressed={archived} data-show-archived>
+          {archived ? "Back to your voice overs" : `Show archived${page?.archived ? ` (${page.archived})` : ""}`}
+        </button>
       </div>
-      {v.narrations.length === 0 ? (
-        <Empty title="No voice overs yet">Write a script above and press Generate. Each voice over shows up here to listen to, download or attach to a clip.</Empty>
+      <div className="list-tools">
+        <SearchBox value={q} onChange={setQ} label="Search your voice overs" />
+      </div>
+      {rows.length === 0 ? (
+        archived ? (
+          <p className="soft">Nothing archived. Voice overs that failed move here after 14 days, unused ones after 60.</p>
+        ) : search ? (
+          <p className="soft">No voice overs match that.</p>
+        ) : (
+          <Empty title="No voice overs yet">Write a script above and press Generate. Each voice over shows up here to listen to, download or attach to a clip.</Empty>
+        )
       ) : (
         <Card className="flat">
           <div className="list">
-            {v.narrations.map((n) => (
+            {rows.map((n) => (
               <div key={n.id} className="list-row narration" data-narration={n.id}>
                 <div className="grow">
                   <div className="title">
@@ -667,7 +731,7 @@ function Narrations({ v, onChange }: { v: VoiceState; onChange: () => void }) {
                       del(`/api/voice/narrations/${n.id}`).then(
                         () => {
                           toast.ok("Deleted.");
-                          onChange();
+                          changed();
                         },
                         (e) => toast.bad(e),
                       )
@@ -675,12 +739,20 @@ function Narrations({ v, onChange }: { v: VoiceState; onChange: () => void }) {
                   >
                     Delete
                   </button>
+                  {archived ? (
+                    <button type="button" className="btn quiet small" onClick={() => restoreArchived(toast, "voice", n.id, changed)}>
+                      Restore
+                    </button>
+                  ) : (
+                    <DismissButton label="Archive this voice over" onClick={() => archiveWithUndo(toast, "voice", n.id, changed)} />
+                  )}
                 </div>
               </div>
             ))}
           </div>
         </Card>
       )}
+      {page ? <MoreRow shown={rows.length} total={page.total} onMore={more} busy={busy} noun="voice overs" /> : null}
       {attach ? <AttachModal narrationId={attach} onClose={() => setAttach(null)} onDone={onChange} /> : null}
     </section>
   );

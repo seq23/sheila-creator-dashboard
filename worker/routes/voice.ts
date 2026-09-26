@@ -33,6 +33,9 @@ import type { Features } from "@shared/types";
 import { autoVoiceState } from "../domain/autoVoice";
 import { DEFAULT_FEATURES } from "@shared/constants";
 
+/** Voice overs per page on the Voice overs screen (day 358). */
+export const VOICE_PAGE = 10;
+
 export const voice = new Hono<{ Bindings: Env; Variables: Vars }>();
 voice.use("*", requireUser);
 
@@ -73,7 +76,17 @@ async function voiceRow(env: Env): Promise<VoiceDb> {
 
 voice.get("/", async (c) => {
   const v = await voiceRow(c.env);
-  const { results } = await c.env.DB.prepare("SELECT id, script, status, clip_id, engine, duration_s, mix_status, created_at FROM narrations ORDER BY created_at DESC LIMIT 30").all<{
+  // Day 358: a page at a time, search, and archived ones only under "Show archived"; the totals are true.
+  const archived = c.req.query("archived") === "1";
+  const q = (c.req.query("q") ?? "").trim().slice(0, 80);
+  const limit = Math.min(50, Math.max(1, Number(c.req.query("limit") ?? VOICE_PAGE) || VOICE_PAGE));
+  const offset = Math.max(0, Number(c.req.query("offset") ?? 0) || 0);
+  const where = `${archived ? "archived_at IS NOT NULL" : "archived_at IS NULL"}${q ? " AND script LIKE ?" : ""}`;
+  const binds: unknown[] = q ? [`%${q}%`] : [];
+  const total = (await c.env.DB.prepare(`SELECT COUNT(*) AS n FROM narrations WHERE ${where}`).bind(...binds).first<{ n: number }>())?.n ?? 0;
+  const archivedTotal = (await c.env.DB.prepare("SELECT COUNT(*) AS n FROM narrations WHERE archived_at IS NOT NULL").first<{ n: number }>())?.n ?? 0;
+  const { results } = await c.env.DB.prepare(`SELECT id, script, status, clip_id, engine, duration_s, mix_status, created_at, archived_at FROM narrations WHERE ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`).bind(...binds, limit, offset).all<{
+    archived_at: string | null;
     id: string;
     script: string;
     status: "queued" | "generating" | "ready" | "failed";
@@ -109,6 +122,7 @@ voice.get("/", async (c) => {
     hasModel: !!v.model_r2_key,
     owner: c.get("user").role === "owner",
     narrations: results.map((n) => ({ ...n, audio_url: n.status === "ready" ? `/api/voice/narrations/${n.id}/audio` : null })),
+    narrations_page: { total, limit, offset, archived: archivedTotal, q },
   });
 });
 

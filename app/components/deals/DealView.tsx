@@ -2,6 +2,7 @@
 // already written, the deal memo (who, what, money, dates, rights), what the brand sent with its
 // red flags, the negotiation helper, delivery, invoice, and the timeline. Rules live in
 // worker/domain/ (deals, emails, offers, ratecard, memo, delivery); this only shows them.
+import { archiveWithUndo, restoreArchived } from "../../lib/archive";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { PLATFORMS, PLATFORM_LABEL, type DealStage, type Platform } from "@shared/constants";
@@ -51,7 +52,7 @@ interface Deliverable {
   done: boolean;
 }
 export interface DealDetail {
-  deal: { id: string; stage: DealStage; stageLabel: string; outcomeReason: string | null; invoiceNumber: string | null; invoiceDueAt: string | null; paidAt: string | null; paidPartnership: boolean; pitchedAt: string | null; followupsSent: number; followupsTotal: number; nextFollowupAt: string | null };
+  deal: { id: string; stage: DealStage; stageLabel: string; outcomeReason: string | null; invoiceNumber: string | null; invoiceDueAt: string | null; paidAt: string | null; paidPartnership: boolean; pitchedAt: string | null; followupsSent: number; followupsTotal: number; nextFollowupAt: string | null; archivedAt?: string | null };
   brand: { id: string; name: string; kind: "brand" | "agency" | "local"; website: string | null; programUrl: string | null; socials: Record<string, string>; fitReasons: string[]; why: Evidence[]; budget: BudgetSignal; sources: string[]; contacts: Contact[] };
   next: NextAction;
   suggested: string;
@@ -152,8 +153,18 @@ export function DealView({ dealId, onBack, onChanged }: { dealId: string; onBack
                 Creator program
               </a>
             ) : null}
+            {d.deal.archivedAt ? <span className="pill">Archived {fmtDate(d.deal.archivedAt)}</span> : null}
           </div>
         </div>
+        {d.deal.archivedAt ? (
+          <button type="button" className="btn quiet small" onClick={() => restoreArchived(toast, "deal", d.deal.id, refresh)}>
+            Restore
+          </button>
+        ) : (
+          <button type="button" className="btn quiet small" data-archive-deal onClick={() => archiveWithUndo(toast, "deal", d.deal.id, refresh)}>
+            <Icon name="archive" size="sm" /> Archive
+          </button>
+        )}
       </header>
 
       <Card accent className={`next-card${d.next.overdue ? " overdue" : ""}`}>

@@ -258,11 +258,13 @@ export async function viewsSummary(env: Env): Promise<{ count: number; last: str
   return { count: r?.n ?? 0, last: r?.last ?? null, last7: w?.n ?? 0 };
 }
 
-async function ownerView(env: Env, ownerEmail: string) {
+async function ownerView(env: Env, ownerEmail: string, versionLimit = 10) {
   const row = await readKit(env);
   const draft = await readDraft(env);
   const pub = await latestVersion(env);
-  const { results: versions } = await env.DB.prepare("SELECT version, published_at FROM media_kit_versions ORDER BY version DESC LIMIT 20").all<{ version: number; published_at: string }>();
+  // Day 358: 26 versions in a year; the newest 10 here, "Show older" asks for more (versionsTotal is true).
+  const { results: versions } = await env.DB.prepare("SELECT version, published_at FROM media_kit_versions ORDER BY version DESC LIMIT ?").bind(versionLimit).all<{ version: number; published_at: string }>();
+  const versionsTotal = (await env.DB.prepare("SELECT COUNT(*) AS n FROM media_kit_versions").first<{ n: number }>())?.n ?? 0;
   const figures = await kitFigures(env, draft.handles);
   const approved = await approvedClipIds(env);
   const won = await wonDealsNotInKit(env, draft);
@@ -281,6 +283,7 @@ async function ownerView(env: Env, ownerEmail: string) {
     published: pub ? { version: pub.version, publishedAt: pub.published_at } : null,
     draftDiffers: !sameKit(draft, pub?.content ?? null),
     versions,
+    versionsTotal,
     views: await viewsSummary(env),
     figures,
     check: kitCheck({ kit: draft, figures, approvedClipIds: approved, wonDealsNotInKit: won.length, ownerEmail, draftDiffers: !sameKit(draft, pub?.content ?? null), published: !!pub, now: new Date() }),
@@ -299,7 +302,7 @@ async function ownerView(env: Env, ownerEmail: string) {
   };
 }
 
-mediakit.get("/", async (c) => c.json(await ownerView(c.env, c.get("user").email)));
+mediakit.get("/", async (c) => c.json(await ownerView(c.env, c.get("user").email, Math.min(500, Math.max(10, Number(c.req.query("versions") ?? 10) || 10)))));
 
 mediakit.get("/preview", async (c) => {
   const row = await readKit(c.env);

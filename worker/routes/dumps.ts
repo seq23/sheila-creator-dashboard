@@ -12,11 +12,14 @@ import { editorDef } from "../domain/editors";
 import { cleanControls } from "../domain/steer";
 import { confirmUnderstood, readUnderstood, tracksOf, understand } from "../lib/steerStore";
 import type { NotFollowed } from "@shared/steer";
-import type { AssetRow, DumpSummary } from "@shared/types";
+import type { AssetRow, DumpList, DumpSummary } from "@shared/types";
+
+/** Dumps per page on the Dump screen. */
+export const DUMP_PAGE = 20;
 import { dispatchJob } from "../services/github";
 import { pendingRefusal, spaceLine } from "../domain/fullVideo";
 import { PLAN_AHEAD_WEEKS } from "./posts";
-import { getSetting, setSetting } from "../lib/db";
+import { storageUsed } from "../lib/storage";
 
 export const dumps = new Hono<{ Bindings: Env; Variables: Vars }>();
 dumps.use("*", requireUser);
@@ -40,9 +43,10 @@ interface DumpDb {
   steer_notes: string | null;
   not_followed: string | null;
   tried: string | null;
+  archived_at: string | null;
 }
 
-const SELECT = `SELECT d.id, d.door, d.kind, d.notes, d.status, d.error_summary, d.clips_made, d.created_at, d.ready_at, d.steer, d.steer_notes, d.not_followed, d.tried,
+const SELECT = `SELECT d.id, d.door, d.kind, d.notes, d.status, d.error_summary, d.clips_made, d.created_at, d.ready_at, d.steer, d.steer_notes, d.not_followed, d.tried, d.archived_at,
   (SELECT COUNT(*) FROM assets a WHERE a.dump_id = d.id AND a.upload_status != 'aborted') AS files,
   (SELECT j.progress FROM jobs j WHERE j.ref_id = d.id AND j.type = 'cut' ORDER BY j.created_at DESC LIMIT 1) AS progress,
   (SELECT a.source_note FROM assets a WHERE a.dump_id = d.id AND a.source_owner = 'other' LIMIT 1) AS held_note,
@@ -67,10 +71,35 @@ async function pollWhileOpen(c: { env: Env; executionCtx: { waitUntil(p: Promise
   }
 }
 
+/**
+ * Her dumps, newest first, a page at a time (day 358: a year is 50+ dumps). `archived=1` shows the
+ * archived ones instead; `q` searches the notes and file names; `status` filters. `total` is the
+ * true count for what she asked, so "20 of 52" never lies.
+ */
 dumps.get("/", async (c) => {
   await pollWhileOpen(c);
-  const { results } = await c.env.DB.prepare(`${SELECT} ORDER BY d.created_at DESC LIMIT 30`).all<DumpDb>();
-  return c.json(results.map(view));
+  const archived = c.req.query("archived") === "1";
+  const q = (c.req.query("q") ?? "").trim().slice(0, 80);
+  const status = c.req.query("status") ?? "";
+  const limit = Math.min(50, Math.max(1, Number(c.req.query("limit") ?? DUMP_PAGE) || DUMP_PAGE));
+  const offset = Math.max(0, Number(c.req.query("offset") ?? 0) || 0);
+  const where = [archived ? "d.archived_at IS NOT NULL" : "d.archived_at IS NULL"];
+  const binds: unknown[] = [];
+  if (q) {
+    where.push("(d.notes LIKE ? OR EXISTS (SELECT 1 FROM assets a WHERE a.dump_id = d.id AND a.file_name LIKE ?))");
+    binds.push(`%${q}%`, `%${q}%`);
+  }
+  if (status === "held") where.push("EXISTS (SELECT 1 FROM assets a WHERE a.dump_id = d.id AND a.source_owner = 'other')");
+  else if (["uploading", "queued", "cutting", "ready", "reviewed", "failed"].includes(status)) {
+    where.push("d.status = ?");
+    binds.push(status);
+  }
+  const w = where.join(" AND ");
+  const { results } = await c.env.DB.prepare(`${SELECT} WHERE ${w} ORDER BY d.created_at DESC LIMIT ? OFFSET ?`).bind(...binds, limit, offset).all<DumpDb>();
+  const total = (await c.env.DB.prepare(`SELECT COUNT(*) AS n FROM dumps d WHERE ${w}`).bind(...binds).first<{ n: number }>())?.n ?? 0;
+  const archivedCount = (await c.env.DB.prepare("SELECT COUNT(*) AS n FROM dumps WHERE archived_at IS NOT NULL").first<{ n: number }>())?.n ?? 0;
+  const out: DumpList = { items: results.map(view), total, archived: archivedCount, limit, offset };
+  return c.json(out);
 });
 
 /** Which door, as stored: "youtube" is door 'new' with kind 'full_video' (the full-video door). */
@@ -89,27 +118,11 @@ dumps.post("/", async (c) => {
   return c.json({ id });
 });
 
-/** Storage the dashboard uses in R2 (every object, listed), cached 10 minutes; the free tier is 10 GB. */
-export async function storageUsed(env: Env, fresh = false): Promise<number> {
-  const cached = await getSetting<{ bytes: number; at: number } | null>(env.DB, "storage_used", null);
-  if (!fresh && cached && Date.now() - cached.at < 600_000) return cached.bytes;
-  let bytes = 0;
-  let cursor: string | undefined;
-  for (let i = 0; i < 200; i++) {
-    const page = await env.FILES.list({ cursor, limit: 1000 });
-    for (const o of page.objects) bytes += o.size;
-    if (!page.truncated) break;
-    cursor = page.cursor;
-  }
-  await setSetting(env.DB, "storage_used", { bytes, at: Date.now() });
-  return bytes;
-}
-
 /** Before Dump on the full-video door: this video's size and the free space left of 10 GB. */
 dumps.get("/:id/space", async (c) => {
   const up = await c.env.DB.prepare("SELECT COALESCE(SUM(size_bytes), 0) AS n FROM assets WHERE dump_id = ? AND upload_status = 'uploaded'").bind(c.req.param("id")).first<{ n: number }>();
   // The upload is already in storage: what is left after it is kept is what counts.
-  const used = await storageUsed(c.env, true);
+  const used = await storageUsed(c.env);
   const s = spaceLine(up?.n ?? 0, Math.max(0, used - (up?.n ?? 0)));
   return c.json({ upload_bytes: up?.n ?? 0, used_bytes: used, ...s });
 });
@@ -244,7 +257,7 @@ async function dumpFullVideo(c: Context<{ Bindings: Env; Variables: Vars }>, id:
   const refusal = pendingRefusal(pending?.n ?? 0, PLAN_AHEAD_WEEKS);
   if (refusal) return fail(c, 409, refusal, "dump-new-footage");
   const up = await c.env.DB.prepare("SELECT COALESCE(SUM(size_bytes), 0) AS n FROM assets WHERE dump_id = ? AND upload_status = 'uploaded'").bind(id).first<{ n: number }>();
-  const space = spaceLine(up?.n ?? 0, Math.max(0, (await storageUsed(c.env, true)) - (up?.n ?? 0)));
+  const space = spaceLine(up?.n ?? 0, Math.max(0, (await storageUsed(c.env)) - (up?.n ?? 0)));
   if (!space.fits) return fail(c, 409, `${space.line}. Delete a few old videos first, or use a smaller export.`, "dump-new-footage");
   await c.env.DB.prepare("UPDATE dumps SET status = 'queued', dumped_at = ? WHERE id = ?").bind(nowIso(), id).run();
   const r = await dispatchJob(c.env, "fullvideo", id);

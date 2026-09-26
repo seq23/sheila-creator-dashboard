@@ -49,7 +49,7 @@ async function readyDump(request: APIRequestContext, clips = 12): Promise<string
 }
 
 async function clipsOf(request: APIRequestContext, dumpId: string): Promise<Clip[]> {
-  const body = (await (await request.get("/api/clips?tab=new&hidden=1")).json()) as { groups: { dump: { id: string }; clips: Clip[] }[] };
+  const body = (await (await request.get("/api/clips?tab=new&hidden=1&limit=100")).json()) as { groups: { dump: { id: string }; clips: Clip[] }[] };
   return body.groups.find((g) => g.dump.id === dumpId)?.clips ?? [];
 }
 

@@ -1,6 +1,12 @@
+/**
+ * "Sep 14", or "Oct 26, 2025" when it is not this year (day 358: a year in, "Overdue Oct 26" read
+ * as this October). Pass `opts` to choose the parts; the year is added the same way.
+ */
 export function fmtDate(iso: string | null | undefined, opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" }): string {
   if (!iso) return "";
-  return new Date(iso).toLocaleDateString(undefined, opts);
+  const d = new Date(iso);
+  const otherYear = d.getFullYear() !== new Date().getFullYear();
+  return d.toLocaleDateString(undefined, otherYear && opts.month && !opts.year ? { ...opts, year: "numeric" } : opts);
 }
 
 export function fmtTime(iso: string, timeZone?: string): string {

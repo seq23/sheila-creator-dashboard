@@ -7,7 +7,8 @@ import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { get, patch, post } from "../lib/api";
 import { fmtDate } from "../lib/format";
-import { HelpButton, Modal, Notice, PageHead, Skeleton, useLoad, useToast } from "../components/ui";
+import { DismissButton, HelpButton, Modal, MoreRow, Notice, PageHead, SearchBox, Skeleton, useLoad, useToast } from "../components/ui";
+import { archiveWithUndo, restoreArchived } from "../lib/archive";
 import { Icon } from "../components/Icon";
 import { MediaKitEditor } from "./MediaKit";
 import { AddContact, DealView } from "../components/deals/DealView";
@@ -46,12 +47,19 @@ interface DealCard {
   next: NextAction;
   outcomeReason: string | null;
   closedAt: string | null;
+  archivedAt?: string | null;
+  archivedBy?: "her" | "tidy" | null;
 }
 interface DealsData {
   money: MoneyStrip;
   prospects: Prospect[];
   deals: DealCard[];
+  /** Day 358: true counts; `deals` is capped unless all=1, `closed` is a page. */
+  dealsTotal: number;
   closed: DealCard[];
+  closedTotal: number;
+  archived: DealCard[];
+  archivedTotal: number;
   listings: ListingStep[];
   kit: { url: string; published: boolean };
   profileLocked: boolean;
@@ -73,7 +81,28 @@ export function Deals() {
   const [params, setParams] = useSearchParams();
   const tab = params.get("tab") === "kit" ? "kit" : "deals";
   const dealId = params.get("deal");
-  const { data, loading, error, reload } = useLoad(() => get<DealsData>("/api/deals"));
+  // Day 358: Do this next capped (Show all), deals searchable, archived ones under Show archived.
+  const [allNext, setAllNext] = useState(false);
+  const [q, setQ] = useState("");
+  const [search, setSearch] = useState("");
+  const [showArchived, setShowArchived] = useState(false);
+  const [moreClosed, setMoreClosed] = useState<DealCard[]>([]);
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(q.trim()), 300);
+    return () => clearTimeout(t);
+  }, [q]);
+  const dealsQuery = new URLSearchParams({ ...(allNext ? { all: "1" } : {}), ...(search ? { q: search } : {}), ...(showArchived ? { archived: "1" } : {}) }).toString();
+  const { data, loading, error, reload } = useLoad(() => get<DealsData>(`/api/deals?${dealsQuery}`), [dealsQuery]);
+  useEffect(() => setMoreClosed([]), [data]);
+  async function loadMoreClosed() {
+    if (!data) return;
+    try {
+      const next = await get<DealsData>(`/api/deals?${dealsQuery}&closedOffset=${data.closed.length + moreClosed.length}`);
+      setMoreClosed((m) => [...m, ...next.closed]);
+    } catch (e) {
+      toast.bad(e);
+    }
+  }
   const [adding, setAdding] = useState(false);
   const [inbound, setInbound] = useState(false);
   const [contactFor, setContactFor] = useState<string | null>(null);
@@ -221,13 +250,22 @@ export function Deals() {
               <section className="section" aria-label="Do this next">
                 <div className="section-head">
                   <h2>Do this next</h2>
+                  {data.dealsTotal > data.deals.length || allNext ? (
+                    <button type="button" className="link-btn" onClick={() => setAllNext((v) => !v)} aria-expanded={allNext} data-see-all>
+                      {allNext ? "Show fewer" : `Show all (${data.dealsTotal})`}
+                    </button>
+                  ) : null}
+                </div>
+                <div className="list-tools">
+                  <SearchBox value={q} onChange={setQ} label="Search your deals by brand" />
                 </div>
                 {data.deals.length === 0 ? (
-                  <p className="soft">No deals in play yet. Pitch a brand below: the first email is written for you.</p>
+                  <p className="soft">{search ? "No deals match that." : "No deals in play yet. Pitch a brand below: the first email is written for you."}</p>
                 ) : (
                   <div className="deal-cards">
                     {data.deals.map((d) => (
-                      <button key={d.dealId} type="button" className={`deal-card${d.next.overdue ? " overdue" : ""}`} onClick={() => openDeal(d.dealId)}>
+                      <div key={d.dealId} className="deal-card-wrap">
+                      <button type="button" className={`deal-card${d.next.overdue ? " overdue" : ""}`} onClick={() => openDeal(d.dealId)}>
                         <span className="deal-card-top">
                           <span className="deal-card-name">{d.brand}</span>
                           <span className="pill">{d.stageLabel}</span>
@@ -238,9 +276,12 @@ export function Deals() {
                           {d.fee != null ? <span className="nums">{usd(d.fee)}</span> : null}
                         </span>
                       </button>
+                      <DismissButton label={`Archive the ${d.brand} deal`} onClick={() => archiveWithUndo(toast, "deal", d.dealId, reload)} />
+                      </div>
                     ))}
                   </div>
                 )}
+                <p className="hint">Finished deals move to Archived on their own 60 days after they close; an open deal with nothing happening for 90 days does too (never an unpaid invoice).</p>
               </section>
 
               <section className="section" aria-label="Brands to pitch this week">
@@ -334,27 +375,61 @@ export function Deals() {
                 </div>
               </section>
 
-              {data.closed.length ? (
+              {data.closedTotal ? (
                 <section className="section" aria-label="Closed deals">
                   <div className="section-head">
                     <h2>Closed</h2>
                   </div>
                   {data.money.lostReasons.length ? <p className="hint">Why deals closed: {data.money.lostReasons.map((r) => `${r.reason} (${r.n})`).join(", ")}.</p> : null}
                   <div className="list">
-                    {data.closed.map((d) => (
-                      <button key={d.dealId} type="button" className="list-row closed-row" onClick={() => openDeal(d.dealId)}>
-                        <span className="grow">
+                    {[...data.closed, ...moreClosed].map((d) => (
+                      <div key={d.dealId} className="list-row closed-row">
+                        <button type="button" className="grow link-row" onClick={() => openDeal(d.dealId)}>
                           <span className="title">{d.brand}</span>
                           <span className="meta">
                             {d.stageLabel}
                             {d.outcomeReason ? `: ${d.outcomeReason}` : ""}
+                            {d.closedAt ? ` · ${fmtDate(d.closedAt)}` : ""}
                           </span>
-                        </span>
-                      </button>
+                        </button>
+                        <DismissButton label={`Archive the ${d.brand} deal`} onClick={() => archiveWithUndo(toast, "deal", d.dealId, reload)} />
+                      </div>
                     ))}
                   </div>
+                  <MoreRow shown={data.closed.length + moreClosed.length} total={data.closedTotal} onMore={loadMoreClosed} noun="closed deals" />
                 </section>
               ) : null}
+
+              <section className="section" aria-label="Archived deals">
+                <div className="section-head">
+                  <h2>Archived</h2>
+                  <button type="button" className="link-btn" onClick={() => setShowArchived((v) => !v)} aria-pressed={showArchived} data-show-archived>
+                    {showArchived ? "Hide archived" : `Show archived (${data.archivedTotal})`}
+                  </button>
+                </div>
+                {showArchived ? (
+                  data.archived.length ? (
+                    <div className="list">
+                      {data.archived.map((d) => (
+                        <div key={d.dealId} className="list-row closed-row">
+                          <span className="grow">
+                            <span className="title">{d.brand}</span>
+                            <span className="meta">
+                              {d.stageLabel}
+                              {d.archivedAt ? ` · archived ${fmtDate(d.archivedAt)}${d.archivedBy === "tidy" ? " by Tidy up" : ""}` : ""}
+                            </span>
+                          </span>
+                          <button type="button" className="btn quiet small" onClick={() => restoreArchived(toast, "deal", d.dealId, reload)}>
+                            Restore
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="soft">Nothing archived.</p>
+                  )
+                ) : null}
+              </section>
             </>
           ) : null}
         </>

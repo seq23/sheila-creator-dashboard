@@ -55,7 +55,7 @@ async function readyDump(request: APIRequestContext, clips = 10, fake: Record<st
 }
 
 async function clipsOf(request: APIRequestContext, dumpId: string, tab = "new", hidden = true): Promise<Clip[]> {
-  const res = await request.get(`/api/clips?tab=${tab}${hidden ? "&hidden=1" : ""}`);
+  const res = await request.get(`/api/clips?tab=${tab}&limit=100${hidden ? "&hidden=1" : ""}`);
   const body = (await res.json()) as { groups: { dump: { id: string }; clips: Clip[] }[] };
   return body.groups.find((g) => g.dump.id === dumpId)?.clips ?? [];
 }
@@ -240,14 +240,20 @@ test("clips under the quality bar are hidden until she asks", async ({ page }) =
 
 test("approve all clears New and marks the dump reviewed", async ({ page }) => {
   const dumpId = await readyDump(page.request);
+  // Review shows a page at a time (day 358): "Approve all N" when every waiting clip is on screen,
+  // "Approve these N" when more are waiting, so the button never approves clips she has not seen.
+  const waiting = ((await (await page.request.get("/api/clips?tab=new")).json()) as { total: number }).total;
   await page.goto("/review");
   await expect(group(page, dumpId).locator("article.clip-card")).toHaveCount(8);
   await expect(page.locator("[data-primary]")).toHaveCount(1);
-  await expect(page.getByRole("button", { name: /^Approve all \d+$/ })).toHaveAttribute("data-primary", "true");
-  await page.getByRole("button", { name: /^Approve all \d+$/ }).click();
+  const shown = Math.min(12, waiting);
+  const name = waiting > 12 ? `Approve these ${shown}` : `Approve all ${shown}`;
+  await expect(page.getByRole("button", { name, exact: true })).toHaveAttribute("data-primary", "true");
+  await page.getByRole("button", { name, exact: true }).click();
   await expect(page.locator(".toast").first()).toContainText("approved");
   await expect(group(page, dumpId)).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "All caught up" })).toBeVisible();
+  if (waiting <= 12) await expect(page.getByRole("heading", { name: "All caught up" })).toBeVisible();
+  else await expect(page.locator("[data-count]")).toHaveText(`Showing ${Math.min(12, waiting - 12)} of ${waiting - 12} clips`);
   const dump = await (await page.request.get(`/api/dumps/${dumpId}`)).json();
   expect(dump.dump.status).toBe("reviewed");
   expect(await clipsOf(page.request, dumpId, "approved")).toHaveLength(8);

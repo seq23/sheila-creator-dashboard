@@ -44,7 +44,7 @@ async function runCut(request: APIRequestContext, ref: string) {
 }
 
 async function clipsOf(request: APIRequestContext, dumpId: string) {
-  const body = (await (await request.get("/api/clips?tab=new&hidden=1")).json()) as { groups: { dump: { id: string }; clips: { id: string; look: string | null; music_id: string | null; start_s: number; end_s: number; platforms: string[] }[] }[] };
+  const body = (await (await request.get("/api/clips?tab=new&hidden=1&limit=100")).json()) as { groups: { dump: { id: string }; clips: { id: string; look: string | null; music_id: string | null; start_s: number; end_s: number; platforms: string[] }[] }[] };
   return body.groups.find((g) => g.dump.id === dumpId)?.clips ?? [];
 }
 

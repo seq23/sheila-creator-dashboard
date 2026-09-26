@@ -1,0 +1,562 @@
+{
+  "home-phone": {
+    "height": 2429,
+    "viewport": 664,
+    "rows": 8,
+    "screens": 3.7,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      }
+    ]
+  },
+  "dump-phone": {
+    "height": 6585,
+    "viewport": 664,
+    "rows": 30,
+    "screens": 9.9,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/editing",
+        "ms": -1
+      },
+      {
+        "url": "/api/voice",
+        "ms": -1
+      },
+      {
+        "url": "/api/dumps",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      }
+    ]
+  },
+  "review-new-phone": {
+    "height": 63849,
+    "viewport": 664,
+    "rows": 67,
+    "screens": 96.2,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/clips",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      }
+    ]
+  },
+  "review-approved-phone": {
+    "height": 309736,
+    "viewport": 664,
+    "rows": 329,
+    "screens": 466.5,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/clips",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      },
+      {
+        "url": "/api/clips",
+        "ms": -1
+      }
+    ]
+  },
+  "review-rejected-phone": {
+    "height": 5425,
+    "viewport": 664,
+    "rows": 6,
+    "screens": 8.2,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/clips",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      },
+      {
+        "url": "/api/clips",
+        "ms": -1
+      }
+    ]
+  },
+  "calendar-phone": {
+    "height": 7223,
+    "viewport": 664,
+    "rows": 0,
+    "screens": 10.9,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/settings",
+        "ms": -1
+      },
+      {
+        "url": "/api/posts",
+        "ms": -1
+      },
+      {
+        "url": "/api/posts/pool",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      }
+    ]
+  },
+  "deals-phone": {
+    "height": 8299,
+    "viewport": 664,
+    "rows": 45,
+    "screens": 12.5,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/deals",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      }
+    ]
+  },
+  "media-kit-phone": {
+    "height": 8692,
+    "viewport": 664,
+    "rows": 0,
+    "screens": 13.1,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/mediakit",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      },
+      {
+        "url": "/api/deals",
+        "ms": -1
+      }
+    ]
+  },
+  "research-phone": {
+    "height": 2926,
+    "viewport": 664,
+    "rows": 0,
+    "screens": 4.4,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/research",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      }
+    ]
+  },
+  "voice-phone": {
+    "height": 12230,
+    "viewport": 664,
+    "rows": 30,
+    "screens": 18.4,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/voice",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      }
+    ]
+  },
+  "stats-phone": {
+    "height": 4832,
+    "viewport": 664,
+    "rows": 4,
+    "screens": 7.3,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/stats",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      }
+    ]
+  },
+  "settings-phone": {
+    "height": 7003,
+    "viewport": 664,
+    "rows": 12,
+    "screens": 10.5,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/settings",
+        "ms": -1
+      },
+      {
+        "url": "/api/settings/health",
+        "ms": -1
+      },
+      {
+        "url": "/api/voice",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      },
+      {
+        "url": "/api/editing",
+        "ms": -1
+      }
+    ]
+  },
+  "home-desktop": {
+    "height": 1366,
+    "viewport": 820,
+    "rows": 8,
+    "screens": 1.7,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      }
+    ]
+  },
+  "dump-desktop": {
+    "height": 3797,
+    "viewport": 820,
+    "rows": 30,
+    "screens": 4.6,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/editing",
+        "ms": -1
+      },
+      {
+        "url": "/api/dumps",
+        "ms": -1
+      },
+      {
+        "url": "/api/voice",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      }
+    ]
+  },
+  "review-new-desktop": {
+    "height": 30764,
+    "viewport": 820,
+    "rows": 67,
+    "screens": 37.5,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/clips",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      }
+    ]
+  },
+  "review-approved-desktop": {
+    "height": 140765,
+    "viewport": 820,
+    "rows": 329,
+    "screens": 171.7,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/clips",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      },
+      {
+        "url": "/api/clips",
+        "ms": -1
+      }
+    ]
+  },
+  "review-rejected-desktop": {
+    "height": 2441,
+    "viewport": 820,
+    "rows": 6,
+    "screens": 3,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/clips",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      },
+      {
+        "url": "/api/clips",
+        "ms": -1
+      }
+    ]
+  },
+  "calendar-desktop": {
+    "height": 5934,
+    "viewport": 820,
+    "rows": 0,
+    "screens": 7.2,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/settings",
+        "ms": -1
+      },
+      {
+        "url": "/api/posts",
+        "ms": -1
+      },
+      {
+        "url": "/api/posts/pool",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      }
+    ]
+  },
+  "deals-desktop": {
+    "height": 4345,
+    "viewport": 820,
+    "rows": 45,
+    "screens": 5.3,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/deals",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      }
+    ]
+  },
+  "media-kit-desktop": {
+    "height": 5669,
+    "viewport": 820,
+    "rows": 0,
+    "screens": 6.9,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/mediakit",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      },
+      {
+        "url": "/api/deals",
+        "ms": -1
+      }
+    ]
+  },
+  "research-desktop": {
+    "height": 2166,
+    "viewport": 820,
+    "rows": 0,
+    "screens": 2.6,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/research",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      }
+    ]
+  },
+  "voice-desktop": {
+    "height": 7223,
+    "viewport": 820,
+    "rows": 30,
+    "screens": 8.8,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/voice",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      }
+    ]
+  },
+  "stats-desktop": {
+    "height": 3109,
+    "viewport": 820,
+    "rows": 4,
+    "screens": 3.8,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/stats",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      }
+    ]
+  },
+  "settings-desktop": {
+    "height": 4408,
+    "viewport": 820,
+    "rows": 12,
+    "screens": 5.4,
+    "api": [
+      {
+        "url": "/api/me",
+        "ms": -1
+      },
+      {
+        "url": "/api/settings",
+        "ms": -1
+      },
+      {
+        "url": "/api/settings/health",
+        "ms": -1
+      },
+      {
+        "url": "/api/voice",
+        "ms": -1
+      },
+      {
+        "url": "/api/home",
+        "ms": -1
+      },
+      {
+        "url": "/api/editing",
+        "ms": -1
+      }
+    ]
+  }
+}

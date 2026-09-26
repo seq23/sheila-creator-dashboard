@@ -8,7 +8,7 @@ import { PLATFORMS, PLATFORM_LABEL, type Platform } from "@shared/constants";
 import { get, patch, post } from "../../lib/api";
 import { ago, fmtDate } from "../../lib/format";
 import { uploadFile } from "../../lib/upload";
-import { Card, Modal, Notice, Skeleton, useToast } from "../ui";
+import { Card, Modal, MoreRow, Notice, Skeleton, useToast } from "../ui";
 import { Icon } from "../Icon";
 import { KitSheet, asOf, num } from "./KitSheet";
 import { RateCard } from "./RateCard";
@@ -25,6 +25,8 @@ interface OwnerView {
   published: { version: number; publishedAt: string } | null;
   draftDiffers: boolean;
   versions: { version: number; published_at: string }[];
+  /** Day 358: every published version (the list shows the newest; Show older asks for the rest). */
+  versionsTotal: number;
   views: { count: number; last: string | null; last7: number };
   figures: PlatformFigures[];
   check: KitIssue[];
@@ -38,6 +40,7 @@ interface OwnerView {
 export function KitEditor() {
   const toast = useToast();
   const [view, setView] = useState<OwnerView | null>(null);
+  const [olderVersions, setOlderVersions] = useState<OwnerView["versions"] | null>(null);
   const [draft, setDraft] = useState<KitContent | null>(null);
   const [slug, setSlug] = useState("");
   const [saving, setSaving] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -444,13 +447,19 @@ export function KitEditor() {
         <Card className="kit-sec">
           <h2 className="card-title">Versions</h2>
           <ul className="kit-versions">
-            {view.versions.map((v) => (
+            {(olderVersions ?? view.versions).map((v) => (
               <li key={v.version} className="nums">
                 Version {v.version} · published {fmtDate(v.published_at)}
                 {v.version === view.published?.version ? " · live now" : ""}
               </li>
             ))}
           </ul>
+          <MoreRow
+            shown={(olderVersions ?? view.versions).length}
+            total={view.versionsTotal}
+            noun="versions"
+            onMore={() => get<OwnerView>(`/api/mediakit?versions=${view.versionsTotal}`).then((v) => setOlderVersions(v.versions), (e) => toast.bad(e))}
+          />
         </Card>
       ) : null}
 

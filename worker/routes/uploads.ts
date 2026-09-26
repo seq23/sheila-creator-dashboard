@@ -3,6 +3,7 @@
 // resumes: the client keeps the uploadId + finished part etags, and can ask which parts R2
 // already has. Raw files are keyed raw/<dumpId>/<assetId>; nothing about the file name
 // appears in the key or in logs.
+import { storageReport } from "../lib/storage";
 import { Hono } from "hono";
 import type { Env, Vars } from "../env";
 import { requireUser } from "../lib/auth";
@@ -159,10 +160,8 @@ uploads.post("/:id/abort", async (c) => {
   return c.json({ ok: true });
 });
 
-/** Storage used, for the Health panel (10 GB free). Sums the sizes we track. */
+/** Storage used and free (every file, worker/lib/storage.ts): Dump shows it before every upload. */
 uploads.get("/storage", async (c) => {
-  const row = await c.env.DB.prepare(
-    "SELECT (SELECT COALESCE(SUM(size_bytes),0) FROM assets WHERE upload_status = 'uploaded' AND raw_deleted_at IS NULL) + (SELECT COALESCE(SUM(size_bytes),0) FROM brand_docs) AS bytes",
-  ).first<{ bytes: number }>();
-  return c.json({ bytes: row?.bytes ?? 0, limit: 10 * 1024 ** 3, checked_at: nowIso() });
+  const r = await storageReport(c.env);
+  return c.json({ bytes: r.used_bytes, limit: r.limit_bytes, free: r.free_bytes, light: r.light, line: r.line, checked_at: nowIso() });
 });

@@ -1318,3 +1318,97 @@ a.list-row:hover .title {
     transform: none;
   }
 }
+
+/* Day 358 (docs/reviews/2026-09-26-day-358.md): one tap out of the way, one tap back. */
+.toast-action {
+  margin-left: var(--space-xs);
+  min-height: var(--touch);
+  padding: 0 var(--space-xs);
+  border: 1px solid var(--on-dark-soft);
+  border-radius: var(--pill);
+  background: transparent;
+  color: var(--on-dark);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.dismiss-btn {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: var(--touch);
+  height: var(--touch);
+  margin: calc(-1 * var(--space-2xs)) calc(-1 * var(--space-2xs)) calc(-1 * var(--space-2xs)) 0;
+  border: 0;
+  border-radius: var(--pill);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.dismiss-btn:hover,
+.dismiss-btn:focus-visible {
+  background: var(--gold-faint);
+  color: var(--text);
+}
+.see-all {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  font-size: var(--text-sm);
+  color: var(--rose);
+}
+.more-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2xs);
+  padding: var(--space-xs) 0;
+}
+.list-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2xs);
+  margin-bottom: var(--space-xs);
+}
+.search-box {
+  flex: 1 1 14rem;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  min-height: var(--touch);
+  padding: 0 var(--space-xs);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--pill);
+  background: var(--surface-2);
+}
+.search-box input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: var(--text);
+  outline: none;
+}
+.chip-filter {
+  min-height: var(--touch);
+  padding: 0 var(--space-xs);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--pill);
+  background: var(--surface);
+  font: inherit;
+  font-size: var(--text-sm);
+  color: var(--text-soft);
+  cursor: pointer;
+}
+.chip-filter[aria-pressed="true"] {
+  border-color: var(--espresso);
+  background: var(--espresso);
+  color: var(--on-dark);
+}
+.archived-tag {
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+}

@@ -1,6 +1,8 @@
 // Daily lane: supply monitor ("Time to dump" email), retention (raw originals after 7 days,
-// rejected clips after 7 days, clips 30 days after posting), storage light, health recheck,
-// the Voice · ElevenLabs light.
+// rejected clips after 7 days, public links 30 days after posting), the day-358 storage rules
+// (posted clip files after 30 days unless in the kit, drafts after 60 days with the Home warning
+// first, the hard budget), the Storage light from every file, tidy (archive, never delete),
+// health recheck, the Voice · ElevenLabs light.
 import type { Env } from "../env";
 import { runwayLow, runwayWeeks, weeklyNeed } from "../domain/runway";
 import { setHealth } from "../lib/db";
@@ -10,6 +12,7 @@ import { emailFrame, sendEmail } from "../services/email";
 import { serviceHealthRows } from "./buffer-sync";
 import { recheckElevenLabs } from "../lib/premiumVoice";
 import { fullVideoRetention } from "../lib/fullVideo";
+import { clipFileRules, enforceBudget, measureStorage, storageHealth, tidyDaily } from "../lib/storage";
 import { CLIP_RETENTION_AFTER_POST_DAYS, RAW_RETENTION_DAYS, REJECTED_RETENTION_DAYS, TIME_TO_DUMP_REPEAT_DAYS } from "@shared/constants";
 
 export async function dailyMaintenance(env: Env): Promise<void> {
@@ -17,7 +20,13 @@ export async function dailyMaintenance(env: Env): Promise<void> {
   await retention(env);
   // Full videos for YouTube: gone 7 days after posting, or 14 days unapproved (warned on Home first).
   await fullVideoRetention(env);
-  await storageLight(env);
+  // Day 358 (docs/reviews/2026-09-26-day-358.md): measure every file, clear what the rules say
+  // (warning first for anything unposted), hold the 9 GB budget, then the light from the truth.
+  await measureStorage(env);
+  await clipFileRules(env);
+  await enforceBudget(env);
+  await storageHealth(env);
+  await tidyDaily(env);
   // Email + job runner + clip cutting lights exist from the first day, before any hourly run.
   await serviceHealthRows(env);
   // Voice · ElevenLabs: grey not connected, green ok, yellow low credits (< 10% left) or no
@@ -102,15 +111,6 @@ async function retention(env: Env) {
     await env.DB.prepare("UPDATE clips SET media_token = NULL WHERE id = ?").bind(cl.id).run();
   }
   log.info("retention", { raws: raws.length, rejected: rejected.length, expired_links: posted.length - kept, kit_kept: kept });
-}
-
-async function storageLight(env: Env) {
-  const row = await env.DB.prepare(
-    "SELECT (SELECT COALESCE(SUM(size_bytes),0) FROM assets WHERE upload_status = 'uploaded' AND raw_deleted_at IS NULL) + (SELECT COALESCE(SUM(size_bytes),0) FROM brand_docs) + (SELECT COALESCE(SUM(json_extract(youtube, '$.size_bytes')),0) FROM clips WHERE full_video = 1 AND file_deleted_at IS NULL AND status != 'deleted') AS bytes",
-  ).first<{ bytes: number }>();
-  const gb = (row?.bytes ?? 0) / 1024 ** 3;
-  const light = gb > 9 ? "red" : gb > 7 ? "yellow" : "green";
-  await setHealth(env.DB, "Storage", light, `${gb.toFixed(1)} of 10 GB`, light === "green" ? null : "storage-almost-full");
 }
 
 /** Clip ids in a kit's showcase (draft JSON, published content JSON, or a pre-versions kit's featured list). */

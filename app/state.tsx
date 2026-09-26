@@ -47,9 +47,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const refreshCounts = useCallback(async () => {
     if (!me) return;
     try {
-      const h = await get<HomeSummary>("/api/home");
-      setCounts({ reviewCount: h.waiting.clips, followups: h.followups.length });
-      setHealth(h.health);
+      // Home's lists are capped (day 358); the sidebar's light reads every row.
+      const [h, lights] = await Promise.all([get<HomeSummary>("/api/home"), get<HealthItem[]>("/api/settings/health")]);
+      setCounts({ reviewCount: h.waiting.clips, followups: h.followups.total });
+      setHealth(lights);
     } catch {
       /* the page will show its own error */
     }

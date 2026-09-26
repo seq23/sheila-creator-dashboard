@@ -268,6 +268,19 @@ export const MOCKS: Record<string, Frame> = {
     { k: "p", v: "Copy the name that starts with @, or the channel link." },
   ]),
 
+  // YouTube Studio: the two things Buffer can't send (a custom thumbnail, tags), and her own upload
+  "youtube-studio-details": apiPage("YouTube Studio", "studio.youtube.com/video/…/edit", ["Dashboard", "Content", "Analytics"], "Content", "Video details", [
+    { k: "field", label: "Title", value: "Sunday brunch table, start to finish" },
+    { k: "file", v: "Thumbnail", meta: "Upload file: the one you downloaded", hl: true },
+    { k: "field", label: "Tags", value: "tablescape, brunch, hosting" },
+    { k: "btn", v: "Save" },
+  ]),
+  "youtube-upload": apiPage("YouTube Studio", "youtube.com/upload", ["Dashboard", "Content", "Analytics"], "Content", "Upload videos", [
+    { k: "p", v: "Drag and drop the video you downloaded, or pick it." },
+    { k: "btn", v: "Select files", hl: true },
+    { k: "p", v: "Then paste the title and description from the dashboard, pick Public, Unlisted or Private, and publish." },
+  ]),
+
   // ---- editing apps without a connection
   "phone-share-sheet": apiPage("Your phone", "Share", [], "", "Share clip", [
     { k: "row", v: "CapCut", action: "Open in", hl: true },

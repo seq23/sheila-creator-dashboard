@@ -60,7 +60,7 @@ export function sourceVerdict(mark: Pick<SourceMark, "platform" | "handles">, ow
 }
 
 /** The one SQL rule for "this clip may go on the calendar and to Buffer" (alias c = clips). */
-export const POSTABLE_CLIP_SQL = "c.status = 'approved' AND NOT EXISTS (SELECT 1 FROM assets sa WHERE sa.id = c.asset_id AND sa.source_owner = 'other')";
+export const POSTABLE_CLIP_SQL = "c.status = 'approved' AND c.file_deleted_at IS NULL AND NOT EXISTS (SELECT 1 FROM assets sa WHERE sa.id = c.asset_id AND sa.source_owner = 'other')";
 
 export function heldSentence(foreign: string[], platform: string | null): string {
   const where = platform === "tiktok" ? "a TikTok watermark" : platform === "instagram" ? "an Instagram watermark" : "a creator's handle";

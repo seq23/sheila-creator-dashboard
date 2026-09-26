@@ -43,9 +43,17 @@ Type it in the note, like "all 2x4 grids, no music, keep them short".
 
 **Here's what we understood** lists what the note will do. Not right? Change the note or tap a choice.
 
-## See what was tried
+## Voice over for this dump
 
 ![Step 5](/help/screenshots/steer-a-dump-5.png)
+<!-- click: [data-door="new"] -->
+<!-- target: [data-voice-hint] -->
+
+**Voice over** decides for this dump: on quiet clips (your setting, marked), none, or let me pick in Review. The line under it says what will happen.
+
+## See what was tried
+
+![Step 6](/help/screenshots/steer-a-dump-6.png)
 <!-- route: / -->
 <!-- target: main a.list-row >> nth=0 -->
 

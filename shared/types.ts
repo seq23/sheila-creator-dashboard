@@ -33,25 +33,40 @@ export interface HomeSummary {
   today: string;
   runway: { weeks: number; approvedClips: number; thresholdWeeks: number; weeklyNeed: number };
   thisWeek: { posted: number; planned: number; perPlatform: Record<Platform, { posted: number; cap: number }> };
-  waiting: { clips: number; dumpsCutting: number; briefNeedsApproval: boolean; profileUnlocked: boolean };
-  health: HealthItem[];
+  waiting: { clips: number; clipsThisWeek: number; dumpsCutting: number; briefNeedsApproval: boolean; profileUnlocked: boolean };
+  /** every light, worst first, capped (`total` = all of them; Settings lists the rest) */
+  health: HomeSection<HealthItem>;
   /** Deal emails due soon (worker/routes/deals.ts dueDealItems): `what` is the next action, e.g. "Send follow-up 2". */
-  followups: { dealId: string; brand: string; dueAt: string; what: string }[];
-  recentDumps: DumpSummary[];
+  followups: HomeSection<{ key: string; dealId: string; brand: string; dueAt: string; what: string }>;
+  recentDumps: HomeSection<DumpSummary & { key: string }>;
+  /**
+   * "Needs you" at the top, most urgent first, ONE at a time (HOME_CAPS.notices; dismiss shows the
+   * next): profile, storage red, a full video about to go, clips clearing soon, YouTube to-dos, the
+   * new brief, storage yellow.
+   */
+  notices: HomeSection<HomeNotice>;
   /** Home's quiet "Your voice" card (worker/domain/voiceEngine.ts homeVoiceCard). */
   voice: { state: "not_set_up" | "built_in_ready" | "premium_on" | "problem"; line: string; link: { to: string; label: string } };
-  /** Full videos for YouTube that need her: Finish in YouTube Studio, Upload it yourself, or removed soon. */
-  youtube: {
-    kind: "finish_in_studio" | "upload_yourself" | "removal_soon";
-    clip_id: string;
-    title: string;
-    thumbnail_url: string | null;
-    tags: string[];
-    studio_url: string;
-    download_url: string | null;
-    delete_on: string | null;
-  }[];
 }
+
+/** A full video for YouTube that needs her: Finish in YouTube Studio, Upload it yourself, or removed soon. */
+export interface HomeYoutubeCard {
+  key: string;
+  kind: "finish_in_studio" | "upload_yourself" | "removal_soon";
+  clip_id: string;
+  title: string;
+  thumbnail_url: string | null;
+  tags: string[];
+  studio_url: string;
+  download_url: string | null;
+  delete_on: string | null;
+}
+
+export type HomeNotice =
+  | { key: string; kind: "profile" | "brief" }
+  | { key: string; kind: "storage"; light: "yellow" | "red"; line: string }
+  | ({ kind: "clearing" } & ClearingSoon)
+  | { key: string; kind: "youtube"; card: HomeYoutubeCard };
 
 export interface DumpSummary {
   id: string;
@@ -74,6 +89,56 @@ export interface DumpSummary {
   not_followed: NotFollowed[];
   /** "What we tried: …" (one line, Surprise me). */
   tried: string | null;
+  /** Archived (by her or by the tidy rules): out of the list unless "Show archived". */
+  archived_at?: string | null;
+}
+
+/** A page of a long list: the rows, and the TRUE count for what she asked (day 358). */
+export interface Page<T> {
+  items: T[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface DumpList extends Page<DumpSummary> {
+  /** how many dumps are archived (the "Show archived (N)" button) */
+  archived: number;
+}
+
+/** A Home section: at most its cap in `items` (shared/constants.ts HOME_CAPS), `total` for "See all (N)". */
+export interface HomeSection<T> {
+  items: T[];
+  total: number;
+}
+
+/** One file kind on the storage meter (worker/lib/storage.ts storageReport). */
+export interface StorageKindView {
+  key: string;
+  label: string;
+  bytes: number;
+  count: number;
+  rule: string;
+}
+
+export interface StorageView {
+  used_bytes: number;
+  limit_bytes: number;
+  budget_bytes: number;
+  free_bytes: number;
+  light: "green" | "yellow" | "red";
+  line: string;
+  kinds: StorageKindView[];
+  measured_at: string | null;
+  tidy_on: boolean;
+}
+
+/** Home's "Clearing soon": unapproved drafts whose file goes after the warning (worker/domain/tidy.ts). */
+export interface ClearingSoon {
+  key: string;
+  drafts: number;
+  first_on: string;
+  bytes: number;
 }
 
 export interface AssetRow {

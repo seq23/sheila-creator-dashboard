@@ -10,6 +10,7 @@ import { plural } from "../lib/format";
 import { Empty, HelpButton, Modal, PageHead, Skeleton, useLoad, useToast } from "../components/ui";
 import { PLATFORMS, PLATFORM_LABEL, RECIPES, type Platform } from "@shared/constants";
 import { Icon } from "../components/Icon";
+import { CalendarHistory } from "../components/CalendarHistory";
 import "../styles/calendar.css";
 
 type PoolClip = Pick<ClipRow, "id" | "hook_text" | "cover_url" | "recipe" | "door" | "platforms" | "score">;
@@ -42,7 +43,11 @@ function timeIn(iso: string, tz: string): string {
   return new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", timeZone: tz });
 }
 
+/** The approved-not-scheduled list shows this many, then "Show all (N)" (day 358: 92 clips was 10 phone screens). */
+const POOL_SHOWN = 8;
+
 export function Calendar() {
+  const [poolAll, setPoolAll] = useState(false);
   const toast = useToast();
   const settings = useLoad(() => get<SettingsShape>("/api/settings"));
   const tz = settings.data?.audience_timezone ?? "America/New_York";
@@ -284,7 +289,7 @@ export function Calendar() {
               Every approved clip is on the calendar. <Link to="/review">Review new clips</Link>
             </div>
           ) : null}
-          {(pool.data ?? []).map((c) => (
+          {(pool.data ?? []).slice(0, poolAll ? undefined : POOL_SHOWN).map((c) => (
             <div
               key={c.id}
               className="cal-pool-item"
@@ -305,8 +310,15 @@ export function Calendar() {
               </button>
             </div>
           ))}
+          {(pool.data?.length ?? 0) > POOL_SHOWN ? (
+            <button type="button" className="link-btn" onClick={() => setPoolAll((v) => !v)} aria-expanded={poolAll}>
+              {poolAll ? "Show fewer" : `Show all (${pool.data!.length})`}
+            </button>
+          ) : null}
         </aside>
       </div>
+
+      <CalendarHistory onChanged={reload} />
 
       {inView.some((p) => p.status === "failed") ? (
         <div className="notice bad">

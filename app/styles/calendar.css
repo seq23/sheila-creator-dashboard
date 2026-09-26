@@ -389,3 +389,12 @@
     gap: 2px;
   }
 }
+
+/* Day 358: History (everything that already happened) */
+.cal-history-cover {
+  width: var(--space-xl);
+  height: var(--space-xl);
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  flex: none;
+}

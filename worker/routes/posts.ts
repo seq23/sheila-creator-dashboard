@@ -129,13 +129,64 @@ posts.get("/", async (c) => {
   return c.json(out);
 });
 
+/** Posts per page in Calendar → History (day 358). */
+export const HISTORY_PAGE = 20;
+
+/**
+ * Calendar → History (day 358): everything that already happened, newest first, a page at a time:
+ * posted (with its link), failed (Retry / Let go) and taken off. Filter by what happened and by
+ * platform, search the hook. `counts` are true totals, so "21 failed" is never a guess.
+ */
+posts.get("/history", async (c) => {
+  const status = c.req.query("status") ?? "all";
+  const platform = c.req.query("platform") ?? "";
+  const q = (c.req.query("q") ?? "").trim().slice(0, 80);
+  const limit = Math.min(50, Math.max(1, Number(c.req.query("limit") ?? HISTORY_PAGE) || HISTORY_PAGE));
+  const offset = Math.max(0, Number(c.req.query("offset") ?? 0) || 0);
+  const now = new Date().toISOString();
+  const where = ["(p.status IN ('posted','failed') OR (p.status = 'unscheduled' AND p.scheduled_at < ?))"];
+  const binds: unknown[] = [now];
+  if (["posted", "failed", "unscheduled"].includes(status)) {
+    where.push("p.status = ?");
+    binds.push(status);
+  }
+  if ((PLATFORMS as readonly string[]).includes(platform)) {
+    where.push("p.platform = ?");
+    binds.push(platform);
+  }
+  if (q) {
+    where.push("c.hook_text LIKE ?");
+    binds.push(`%${q}%`);
+  }
+  const w = where.join(" AND ");
+  const { results } = await c.env.DB.prepare(
+    `SELECT p.id, p.clip_id, p.platform, p.scheduled_at, p.status, p.url, p.error, p.posted_at, c.hook_text, c.recipe, c.media_token, c.cover_r2_key, c.file_deleted_at, d.door
+     FROM posts p JOIN clips c ON c.id = p.clip_id JOIN dumps d ON d.id = c.dump_id WHERE ${w} ORDER BY p.scheduled_at DESC LIMIT ? OFFSET ?`,
+  )
+    .bind(...binds, limit, offset)
+    .all<Omit<PostRow, "cover_url"> & { media_token: string | null; cover_r2_key: string | null; file_deleted_at: string | null; posted_at: string | null }>();
+  const total = (await c.env.DB.prepare(`SELECT COUNT(*) AS n FROM posts p JOIN clips c ON c.id = p.clip_id WHERE ${w}`).bind(...binds).first<{ n: number }>())?.n ?? 0;
+  const counts = await c.env.DB.prepare(
+    "SELECT SUM(CASE WHEN status = 'posted' THEN 1 ELSE 0 END) AS posted, SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failed, SUM(CASE WHEN status = 'unscheduled' AND scheduled_at < ? THEN 1 ELSE 0 END) AS unscheduled FROM posts",
+  )
+    .bind(now)
+    .first<{ posted: number | null; failed: number | null; unscheduled: number | null }>();
+  return c.json({
+    items: results.map(({ media_token, cover_r2_key, file_deleted_at, ...r }) => ({ ...r, cover_url: media_token ? coverUrl(media_token, cover_r2_key) : cover_r2_key ? `/api/clips/${r.clip_id}/cover` : null, file_cleared: !!file_deleted_at })),
+    total,
+    limit,
+    offset,
+    counts: { posted: counts?.posted ?? 0, failed: counts?.failed ?? 0, unscheduled: counts?.unscheduled ?? 0 },
+  });
+});
+
 /** Approved clips that are not on the calendar (the "Approved, not scheduled" column). */
 posts.get("/pool", async (c) => {
   const { results } = await c.env.DB.prepare(
     `SELECT c.id, c.hook_text, c.recipe, c.platforms, c.score, c.media_token, c.cover_r2_key, d.door
      FROM clips c JOIN dumps d ON d.id = c.dump_id
      WHERE ${POSTABLE_CLIP_SQL} AND NOT EXISTS (SELECT 1 FROM posts p WHERE p.clip_id = c.id AND p.status IN ${ACTIVE_SQL})
-     ORDER BY c.score DESC LIMIT 100`,
+     ORDER BY c.score DESC LIMIT 500`,
   ).all<{ id: string; hook_text: string; recipe: ClipRow["recipe"]; platforms: string; score: number; media_token: string | null; cover_r2_key: string | null; door: "new" | "recycle" }>();
   const out: PoolClip[] = results.map((r) => ({ id: r.id, hook_text: r.hook_text, recipe: r.recipe, door: r.door, score: r.score, platforms: parseJson<Platform[]>(r.platforms, [...PLATFORMS]), cover_url: coverUrl(r.media_token, r.cover_r2_key) }));
   return c.json(out);
@@ -249,7 +300,9 @@ posts.post("/:id/retry", async (c) => {
   const post = await c.env.DB.prepare("SELECT status FROM posts WHERE id = ?").bind(id).first<{ status: string }>();
   if (!post) return fail(c, 404, "That post is gone. Refresh the calendar.");
   if (post.status !== "failed") return fail(c, 409, "Only a failed post can be tried again.");
-  await c.env.DB.prepare("UPDATE posts SET status = 'planned', buffer_post_id = NULL, error = NULL, retries = 0 WHERE id = ?").bind(id).run();
+  // A post that failed long ago goes out within the hour, not at its old date (day 358: History → Retry).
+  const soon = new Date(Date.now() + 3600_000).toISOString();
+  await c.env.DB.prepare("UPDATE posts SET status = 'planned', buffer_post_id = NULL, error = NULL, retries = 0, scheduled_at = MAX(scheduled_at, ?) WHERE id = ?").bind(soon, id).run();
   await recordEvent(c.env.DB, "post.retry", id, {}, c.get("user").email);
   return c.json({ ok: true });
 });

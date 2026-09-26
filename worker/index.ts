@@ -24,6 +24,7 @@ import { help } from "./routes/help";
 import { media } from "./routes/media";
 import { oauth } from "./routes/oauth";
 import { editing } from "./routes/editing";
+import { archive } from "./routes/archive";
 import { publicRoutes } from "./routes/public";
 import { kitPage } from "./routes/kitpage";
 import { runCron } from "./crons/index";
@@ -63,6 +64,7 @@ app.route("/api/public", publicRoutes);
 app.route("/media", media);
 app.route("/api/oauth", oauth);
 app.route("/api/editing", editing);
+app.route("/api/archive", archive);
 app.route("/kit", kitPage);
 
 app.notFound((c) => {
