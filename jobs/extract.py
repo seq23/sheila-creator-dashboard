@@ -25,7 +25,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-from common import WORK, Job, download_input, log, run
+from common import WORK, Job, download_input, json_object_in, log, openrouter_content, run
 
 MIN_DOC_CHARS = 20
 # pypdf warns on odd files; its messages stay out of the public log (section 13).
@@ -126,22 +126,15 @@ def extract_text(path: Path, mime: str, ext: str, min_chars_per_page: int = 50) 
 # ---------- OpenRouter (profile draft) ----------
 
 def llm_json(key: str, model: str, system: str, user: str, max_tokens: int = 2500) -> dict[str, Any]:
-    body = json.dumps({
+    payload = {
         "model": model,
         "max_tokens": max_tokens,
         "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
         "response_format": {"type": "json_object"},
-    }).encode()
-    req = urllib.request.Request("https://openrouter.ai/api/v1/chat/completions", data=body, method="POST", headers={
-        "Authorization": f"Bearer {key}",
-        "Content-Type": "application/json",
-        "X-Title": "Sheila Studio",
-    })
+    }
     for attempt in range(5):
         try:
-            with urllib.request.urlopen(req, timeout=180) as res:
-                data = json.loads(res.read().decode())
-            content = data["choices"][0]["message"]["content"] or ""
+            content, _ = openrouter_content(key, payload, usable=json_object_in)
             start, end = content.find("{"), content.rfind("}")
             if start < 0 or end < 0:
                 raise ValueError("no json in answer")

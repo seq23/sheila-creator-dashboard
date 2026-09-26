@@ -19,20 +19,20 @@ sys.stdout.write(v or "")
 `;
 
 const vaultCache = new Map<string, string>();
-/** A vault credential by its id (e.g. `resend-app-18f24eb6`). */
+/**
+ * A vault credential by its id (e.g. `resend-app-18f24eb6`), read from the Keychain service the
+ * vault RECORDS for it (`vault inspect` → KEYCHAIN SERVICE); ids do not all follow one pattern
+ * (`openrouter-ai-c4dc6108` lives under `repo-operator-provider-openrouter`).
+ */
 export function vaultSecret(id: string): string {
   const hit = vaultCache.get(id);
   if (hit) return hit;
-  const envName = `LIVE_SECRET_${id.replace(/[^A-Za-z0-9]/g, "_").toUpperCase()}`;
-  const v =
-    process.env[envName] ??
-    execFileSync("python3", ["-c", VAULT_READ, `repo-operator-credential-${id}`], {
-      cwd: `${process.env.HOME}/repo-tools/agent`,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-      timeout: 20_000,
-    }).trim();
-  if (!v) throw new Error(`the vault has no credential ${id}`);
+  const cwd = `${process.env.HOME}/repo-tools/agent`;
+  const inspect = execFileSync("python3", ["-m", "repo_operator.cli", "vault", "inspect", id], { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 20_000 });
+  const service = inspect.match(/^KEYCHAIN SERVICE\s+(\S+)/m)?.[1];
+  if (!service) throw new Error(`the vault records no Keychain service for ${id}`);
+  const v = execFileSync("python3", ["-c", VAULT_READ, service], { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 20_000 }).trim();
+  if (!v) throw new Error(`the vault has no value for ${id}`);
   vaultCache.set(id, v);
   return v;
 }
