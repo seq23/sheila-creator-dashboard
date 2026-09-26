@@ -4,7 +4,7 @@
 //     (partnerships@, pr@ …) at a business domain, always with the page it was found on;
 //     never a personal or free-mail address, never a guess;
 //   * follow-up scheduling after she marks a pitch sent.
-import { nextFollowup } from "./deals";
+import { FOLLOWUP_DAYS, nextFollowup } from "./deals";
 
 // ---------- off-limits ----------
 
@@ -160,20 +160,21 @@ export function clampFit(n: unknown): number {
 
 // ---------- follow-ups ----------
 
-/** How many follow-ups she has already sent, read back from the stored next date. */
-export function followupsDone(sentAt: string, nextAt: string | null): 0 | 1 | 2 {
-  if (!nextAt) return 2;
-  if (nextAt === nextFollowup(sentAt, 0)) return 0;
-  if (nextAt === nextFollowup(sentAt, 1)) return 1;
-  // A date that matches neither (e.g. moved by hand): treat before day 12 as the first one pending.
-  return new Date(nextAt).getTime() < new Date(nextFollowup(sentAt, 1)!).getTime() ? 0 : 1;
+/** How many follow-ups she has already sent (0–3), read back from the stored next date. */
+export function followupsDone(sentAt: string, nextAt: string | null): number {
+  if (!nextAt) return FOLLOWUP_DAYS.length;
+  for (let i = 0; i < FOLLOWUP_DAYS.length; i++) if (nextAt === nextFollowup(sentAt, i)) return i;
+  // A date that matches none (moved by hand): the pending one is the first whose next day it is still before.
+  const t = new Date(nextAt).getTime();
+  for (let i = 0; i < FOLLOWUP_DAYS.length - 1; i++) if (t < new Date(nextFollowup(sentAt, i + 1)!).getTime()) return i;
+  return FOLLOWUP_DAYS.length - 1;
 }
 
-/** After she sends the follow-up that is due, the next one (day 12) or none. */
+/** After she sends the follow-up that is due, the next one (day 12, then day 19), or none: stop after 3. */
 export function afterFollowupSent(sentAt: string, nextAt: string | null): string | null {
   const done = followupsDone(sentAt, nextAt);
-  if (done === 2) return null;
-  return nextFollowup(sentAt, (done + 1) as 1 | 2);
+  if (done >= FOLLOWUP_DAYS.length) return null;
+  return nextFollowup(sentAt, done + 1);
 }
 
 /** "When did you send it?" must be a real date, not in the future, within the last 60 days. */

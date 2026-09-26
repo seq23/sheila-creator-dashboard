@@ -11,6 +11,7 @@ import { bufferSync } from "./buffer-sync";
 import { dailyMaintenance } from "./daily";
 import { weekly } from "./weekly";
 import { briefDraftNotice, monthlyBriefRefresh, weeklyBriefAdjust } from "./brief";
+import { dailyBrandRefresh } from "./deals";
 import { refreshPublicStats } from "../lib/publicStats";
 
 export async function runCron(env: Env, cron: string): Promise<void> {
@@ -25,6 +26,7 @@ export async function runCron(env: Env, cron: string): Promise<void> {
       await monthlyBriefRefresh(env);
       // No-login stats, daily: YouTube's public numbers; Instagram's at most once a day.
       await refreshPublicStats(env);
+      await dailyBrandRefresh(env);
     } else if (lane === "weekly") {
       await weekly(env);
       await weeklyBriefAdjust(env);

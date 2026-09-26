@@ -1,105 +1,168 @@
-// Brand deals (section 12b): brand cards with fit reasons and links, the public contact and the
-// page it was found on, pitch drafts she edits and sends herself (Open in Gmail / Copy / Open
-// form; the dashboard never sends), the deal tracker with follow-ups, deliverables on won deals,
-// TikTok One eligibility, and her media kit (second tab).
-import { useEffect, useMemo, useRef, useState } from "react";
+// Brand deals, as a talent manager runs them (docs/reviews/agency-pov.md). Money first: the
+// money strip; then every open deal with the one thing to do next and when (overdue on top);
+// then "Brands to pitch this week", ranked by expected money with the arithmetic and a source on
+// every claim, one tap to Pitch; then the marketplaces worth joining. A deal opens full-width
+// (DealView). The Media kit is the second tab. She sends every email herself from Gmail.
+import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import type { BrandCard, PitchView } from "@shared/types";
-import { DEAL_STAGES, PLATFORMS, PLATFORM_LABEL, type DealStage, type Platform } from "@shared/constants";
-import { del, get, patch, post } from "../lib/api";
+import { get, patch, post } from "../lib/api";
 import { fmtDate } from "../lib/format";
-import { gmailComposeUrl, pitchAsText } from "../lib/gmail";
-import { Card, HelpButton, Modal, Notice, PageHead, Skeleton, useLoad, useToast } from "../components/ui";
+import { HelpButton, Modal, Notice, PageHead, Skeleton, useLoad, useToast } from "../components/ui";
 import { Icon } from "../components/Icon";
 import { MediaKitEditor } from "./MediaKit";
+import { AddContact, DealView } from "../components/deals/DealView";
+import type { NextAction, MoneyStrip } from "../../worker/domain/deals";
+import type { BudgetSignal, Evidence } from "../../worker/domain/prospects";
+import type { ListingStep } from "../../worker/domain/marketplaces";
+import type { DealStage } from "@shared/constants";
 import "../styles/deals.css";
 
-interface Deliverable {
+interface Prospect {
   id: string;
-  clip_id: string | null;
-  platform: Platform;
-  due_at: string;
-  note: string;
-  done: boolean;
+  name: string;
+  kind: "brand" | "agency" | "local";
+  website: string | null;
+  fit: number;
+  fitReasons: string[];
+  why: Evidence[];
+  budget: BudgetSignal;
+  budgetLabel: string;
+  sources: string[];
+  score: number;
+  math: string;
+  aboveLine: boolean;
+  reach: string;
+  bestContact: { id: string; kind: string; value: string; found_on_url: string } | null;
+  origin: string;
 }
-type Card2 = BrandCard & { deal_detail: { terms_note: string; deliverables: Deliverable[]; paid_partnership: boolean } | null };
+interface DealCard {
+  dealId: string;
+  brandId: string;
+  brand: string;
+  kind: string;
+  stage: DealStage;
+  stageLabel: string;
+  fee: number | null;
+  next: NextAction;
+  outcomeReason: string | null;
+  closedAt: string | null;
+}
 interface DealsData {
-  brands: Card2[];
-  stages: Record<DealStage, number>;
-  marketplace: { marketplace: string; eligible: boolean; hasData: boolean; summary: string; checks: { label: string; have: number | null; need: number; ok: boolean }[] };
-  kit_url: string;
-  kit_path: string;
-  profile_locked: boolean;
-  finder: { status: string; started_at: string | null; finished_at: string | null; running: boolean; error: string | null };
-  hunter: { connected: boolean; credits_left: number | null };
+  money: MoneyStrip;
+  prospects: Prospect[];
+  deals: DealCard[];
+  closed: DealCard[];
+  listings: ListingStep[];
+  kit: { url: string; published: boolean };
+  profileLocked: boolean;
+  finder: { status: string; startedAt: string | null; finishedAt: string | null; running: boolean; error: string | null };
+  hunter: { connected: boolean; creditsLeft: number | null };
 }
 
-const STAGE_LABEL: Record<DealStage, string> = { found: "Found", drafted: "Drafted", sent: "Sent", replied: "Replied", negotiating: "Negotiating", won: "Won", passed: "Passed" };
-const CONTACT_LABEL = { form: "Application form", role_email: "Email", agency: "Their agency" } as const;
+const usd = (n: number) => `$${n.toLocaleString("en-US")}`;
+const KIND = { brand: "Brand", agency: "Agency", local: "Local" } as const;
+function host(u: string) {
+  try {
+    return new URL(u).hostname.replace(/^www\./, "");
+  } catch {
+    return u;
+  }
+}
 
 export function Deals() {
   const [params, setParams] = useSearchParams();
-  const tab = params.get("tab") === "kit" ? "kit" : "brands";
-  const [showHidden, setShowHidden] = useState(false);
-  const { data, loading, error, reload } = useLoad(() => get<DealsData>(`/api/deals${showHidden ? "?hidden=1" : ""}`), [showHidden]);
-  const [selected, setSelected] = useState<string | null>(params.get("brand"));
+  const tab = params.get("tab") === "kit" ? "kit" : "deals";
+  const dealId = params.get("deal");
+  const { data, loading, error, reload } = useLoad(() => get<DealsData>("/api/deals"));
   const [adding, setAdding] = useState(false);
+  const [inbound, setInbound] = useState(false);
+  const [contactFor, setContactFor] = useState<string | null>(null);
+  const [showUnproven, setShowUnproven] = useState(false);
+  const [pitching, setPitching] = useState<string | null>(null);
+  const [joinedNow, setJoinedNow] = useState<Record<string, boolean>>({});
   const toast = useToast();
 
-  const brands = data?.brands ?? [];
-  const current = brands.find((b) => b.id === selected) ?? null;
-
-  // While the finder runs, check back every 15 seconds.
   useEffect(() => {
     if (!data?.finder.running) return;
     const t = setInterval(reload, 15_000);
     return () => clearInterval(t);
   }, [data?.finder.running, reload]);
 
+  const openDeal = (id: string | null) => {
+    const next = new URLSearchParams();
+    if (id) next.set("deal", id);
+    setParams(next);
+  };
+
   async function runFinder() {
     try {
       await post("/api/deals/finder/run");
-      toast.ok("Looking for brands. New cards show up here in a few minutes.");
+      toast.ok("Looking for brands with money for creators like you. New cards show up here in a few minutes.");
       reload();
     } catch (e) {
       toast.bad(e);
     }
   }
 
-  function pick(id: string | null) {
-    setSelected(id);
-    const next = new URLSearchParams(params);
-    if (id) next.set("brand", id);
-    else next.delete("brand");
-    setParams(next, { replace: true });
+  async function pitch(p: Prospect) {
+    setPitching(p.id);
+    try {
+      const r = await post<{ dealId: string; note: string | null }>(`/api/deals/brands/${p.id}/pitch`);
+      if (r.note) toast.ok(r.note);
+      openDeal(r.dealId);
+      reload();
+    } catch (e) {
+      toast.bad(e);
+    } finally {
+      setPitching(null);
+    }
   }
 
-  const suggestedCount = brands.filter((b) => b.status !== "hidden").length;
+  async function hide(p: Prospect) {
+    try {
+      await patch(`/api/deals/brands/${p.id}`, { status: "hidden" });
+      toast.ok("Hidden. It won't be suggested again.");
+      reload();
+    } catch (e) {
+      toast.bad(e);
+    }
+  }
+
+  async function joined(key: string, on: boolean) {
+    setJoinedNow((j) => ({ ...j, [key]: on }));
+    try {
+      await patch("/api/deals/listings", { key, joined: on });
+      reload();
+    } catch (e) {
+      toast.bad(e);
+    }
+  }
+
+  const above = data?.prospects.filter((p) => p.aboveLine) ?? [];
+  const below = data?.prospects.filter((p) => !p.aboveLine) ?? [];
 
   return (
     <div className="page deals">
-      <PageHead title="Brand deals" lede={tab === "kit" ? "The one link that goes in every pitch: your photo, numbers and best clips." : "Brands that fit you, a pitch in your words, and every deal you’re working on."}>
-        {tab === "brands" ? (
+      <PageHead
+        title="Brand deals"
+        lede={tab === "kit" ? "The link in every pitch: your numbers, your best work and your rates, published when you say so." : "Brands with money for creators like you, the next email for every deal, written and ready."}
+      >
+        {tab === "deals" && !dealId ? (
           <>
-            <button type="button" className="btn" data-primary onClick={runFinder} disabled={!data || data.finder.running || !data.profile_locked}>
-              {data?.finder.running ? "Looking for brands…" : "Find brands now"}
+            <button type="button" className="btn quiet small" onClick={() => setInbound(true)}>
+              A brand wrote to me
             </button>
             <button type="button" className="btn quiet small" onClick={() => setAdding(true)}>
               <Icon name="plus" size="sm" />
               Add a brand I love
             </button>
-            {data ? (
-              <a className="btn quiet small" href={data.kit_path} target="_blank" rel="noreferrer">
-                View my media kit
-              </a>
-            ) : null}
           </>
         ) : null}
       </PageHead>
 
       <div className="deals-tabs" role="tablist" aria-label="Deals sections">
-        <button type="button" role="tab" aria-selected={tab === "brands"} className={tab === "brands" ? "on" : ""} onClick={() => setParams({}, { replace: true })}>
-          Brands
+        <button type="button" role="tab" aria-selected={tab === "deals"} className={tab === "deals" ? "on" : ""} onClick={() => setParams({}, { replace: true })}>
+          Deals
         </button>
         <button type="button" role="tab" aria-selected={tab === "kit"} className={tab === "kit" ? "on" : ""} onClick={() => setParams({ tab: "kit" }, { replace: true })}>
           Media kit
@@ -108,97 +171,190 @@ export function Deals() {
 
       {tab === "kit" ? (
         <MediaKitEditor />
+      ) : dealId ? (
+        <DealView dealId={dealId} onBack={() => openDeal(null)} onChanged={reload} />
       ) : (
         <>
           {loading && !data ? <Skeleton blocks={4} columns={2} /> : null}
           {error ? <Notice tone="bad">Brand deals did not load. Check your connection and try again.</Notice> : null}
           {data ? (
             <>
-              {!data.profile_locked ? (
+              <section className="money-strip" aria-label="Money">
+                <div className="money">
+                  <strong className="nums">{data.money.pitchedThisMonth}</strong>
+                  <span>Pitched this month</span>
+                </div>
+                <div className="money">
+                  <strong className="nums">{data.money.replies}</strong>
+                  <span>Replies{data.money.replyRate != null ? ` (${data.money.replyRate}%)` : ""}</span>
+                </div>
+                <div className="money">
+                  <strong className="nums">{data.money.won}</strong>
+                  <span>Deals won</span>
+                </div>
+                <div className="money">
+                  <strong className="nums">{usd(data.money.dollarsAgreed)}</strong>
+                  <span>Agreed</span>
+                </div>
+                <div className="money">
+                  <strong className="nums">{usd(data.money.dollarsPaid)}</strong>
+                  <span>Paid</span>
+                </div>
+              </section>
+              {data.money.averageFee != null ? <p className="hint money-note nums">Average fee {usd(data.money.averageFee)} across {data.money.won} won {data.money.won === 1 ? "deal" : "deals"}.</p> : null}
+
+              {!data.profileLocked ? (
                 <Notice tone="info">
                   <span>
-                    <strong>Lock your Brand Profile first.</strong> The finder and your pitches read it. <Link to="/brain">Open Client Brain</Link>
+                    <strong>Lock your Brand Profile first.</strong> The finder and your emails read it. <Link to="/brain">Open Client Brain</Link>
+                  </span>
+                </Notice>
+              ) : null}
+              {!data.kit.published ? (
+                <Notice tone="warn">
+                  <span>
+                    <strong>Your media kit isn't published.</strong> Every pitch links to it. <Link to="/deals?tab=kit">Finish and publish it</Link>
                   </span>
                 </Notice>
               ) : null}
 
-              <div className="stage-strip" aria-label="Deal stages">
-                {DEAL_STAGES.filter((s) => s !== "passed").map((s) => (
-                  <div key={s} className={`stage${data.stages[s] ? " has" : ""}`}>
-                    <strong className="nums">{data.stages[s]}</strong>
-                    <span>{STAGE_LABEL[s]}</span>
-                  </div>
-                ))}
-              </div>
-
-              <Marketplace m={data.marketplace} />
-
-              <div className="deals-split">
-                <section className={`brand-list${current ? " has-current" : ""}`} aria-label="Brands">
-                  <div className="section-head">
-                    <h2>Suggested this week · {suggestedCount} brands</h2>
-                  </div>
-                  <div className="finder-bar">
-                    <span className="hint">
-                      {data.finder.finished_at ? `Last search ${fmtDate(data.finder.finished_at)}` : data.finder.running ? "This takes a few minutes." : "Runs every Monday on its own."}
-                      {data.hunter.connected ? ` · Hunter: ${data.hunter.credits_left ?? "?"} lookups left` : ""}
-                    </span>
-                  </div>
-                  {data.finder.status === "failed" ? (
-                    <Notice tone="bad">
-                      <span>
-                        The last brand search did not finish. <Link to="/help/reconnect-firecrawl">How to fix</Link>
-                      </span>
-                    </Notice>
-                  ) : null}
-                  {brands.length === 0 ? (
-                    <div className="empty">
-                      <h3>No brands yet</h3>
-                      <p className="soft">{data.profile_locked ? "Tap Find brands now at the top, or add a brand you already use and love. Those make the strongest pitches." : "Lock your Brand Profile first, then tap Find brands now. Or add a brand you already use and love."}</p>
-                      <div className="btn-row">
-                        {data.profile_locked ? null : (
-                          <Link className="btn quiet" to="/brain">
-                            Open Client Brain
-                          </Link>
-                        )}
-                        <button type="button" className="btn quiet" onClick={() => setAdding(true)}>
-                          <Icon name="plus" size="sm" />
-                          Add a brand you love
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    brands.map((b) => (
-                      <button key={b.id} type="button" className={`brand-card${b.id === selected ? " on" : ""}${b.status === "hidden" ? " hidden-brand" : ""}`} onClick={() => pick(b.id)} aria-pressed={b.id === selected}>
-                        <span className="brand-top">
-                          <span className="brand-logo" aria-hidden="true">
-                            {b.name.slice(0, 1)}
-                          </span>
-                          <span className="brand-card-name">{b.name}</span>
-                          {b.deal && b.deal.stage !== "found" ? <span className="pill">{STAGE_LABEL[b.deal.stage]}</span> : null}
-                          <span className="pill ok nums">Fit {Math.round(b.fit_score * 100)}</span>
+              <section className="section" aria-label="Do this next">
+                <div className="section-head">
+                  <h2>Do this next</h2>
+                </div>
+                {data.deals.length === 0 ? (
+                  <p className="soft">No deals in play yet. Pitch a brand below: the first email is written for you.</p>
+                ) : (
+                  <div className="deal-cards">
+                    {data.deals.map((d) => (
+                      <button key={d.dealId} type="button" className={`deal-card${d.next.overdue ? " overdue" : ""}`} onClick={() => openDeal(d.dealId)}>
+                        <span className="deal-card-top">
+                          <span className="deal-card-name">{d.brand}</span>
+                          <span className="pill">{d.stageLabel}</span>
                         </span>
-                        <span className="brand-why">{b.origin === "her_list" ? "You listed it as a brand you use" : b.why_now ?? b.fit_reasons.slice(0, 2).join(" · ")}</span>
-                        {b.deal?.next_followup_at && new Date(b.deal.next_followup_at).getTime() <= Date.now() + 86400_000 ? <span className="pill warn">Follow-up due {fmtDate(b.deal.next_followup_at)}</span> : null}
+                        <span className="deal-card-next">{d.next.label}</span>
+                        <span className="deal-card-meta">
+                          {d.next.dueAt ? <span className={`pill ${d.next.overdue ? "bad" : "warn"}`}>{d.next.overdue ? `Overdue ${fmtDate(d.next.dueAt)}` : `Due ${fmtDate(d.next.dueAt)}`}</span> : null}
+                          {d.fee != null ? <span className="nums">{usd(d.fee)}</span> : null}
+                        </span>
                       </button>
-                    ))
-                  )}
-                  <label className="check switch-line">
-                    <input type="checkbox" checked={showHidden} onChange={(e) => setShowHidden(e.target.checked)} />
-                    Show brands I hid
-                  </label>
-                </section>
+                    ))}
+                  </div>
+                )}
+              </section>
 
-                <section className="brand-detail" aria-label="Brand">
-                  {current ? (
-                    <BrandDetail key={current.id} b={current} kitUrl={data.kit_url} onChange={reload} onBack={() => pick(null)} />
-                  ) : (
-                    <div className="pick-hint">
-                      <p className="soft">Pick a brand to see why it fits, who to contact and your pitch.</p>
-                    </div>
-                  )}
+              <section className="section" aria-label="Brands to pitch this week">
+                <div className="section-head">
+                  <h2>Brands to pitch this week</h2>
+                  <button type="button" className="btn small" data-primary={data.prospects.length === 0 || undefined} onClick={runFinder} disabled={data.finder.running || !data.profileLocked}>
+                    {data.finder.running ? "Looking…" : "Find brands now"}
+                  </button>
+                </div>
+                <p className="hint">
+                  Ranked by expected money: how sure we are they pay creators × how well they fit you × how reachable they are.{" "}
+                  {data.finder.finishedAt ? `Last search ${fmtDate(data.finder.finishedAt)}; it refreshes every day on its own.` : "It refreshes every day on its own."}
+                  {data.hunter.connected ? ` Hunter: ${data.hunter.creditsLeft ?? "?"} lookups left.` : ""}
+                </p>
+                {data.finder.status === "failed" ? (
+                  <Notice tone="bad">
+                    <span>
+                      The last brand search did not finish. It tries again tomorrow on its own. <Link to="/help/pitch-a-brand">More</Link>
+                    </span>
+                  </Notice>
+                ) : null}
+                {above.length === 0 && below.length === 0 ? (
+                  <div className="empty">
+                    <h3>No brands yet</h3>
+                    <p className="soft">Tap Find brands now, or add a brand you already use and love. Those make the strongest pitches.</p>
+                  </div>
+                ) : null}
+                <div className="prospects">
+                  {above.map((p) => (
+                    <ProspectCard key={p.id} p={p} busy={pitching === p.id} onPitch={() => pitch(p)} onHide={() => hide(p)} onContact={() => setContactFor(p.id)} />
+                  ))}
+                </div>
+                {below.length ? (
+                  <div className="below-line">
+                    <button type="button" className="link-btn" onClick={() => setShowUnproven((v) => !v)} aria-expanded={showUnproven}>
+                      {showUnproven ? "Hide" : "Show"} {below.length} {below.length === 1 ? "brand" : "brands"} with no sign yet that they pay
+                    </button>
+                    {showUnproven ? (
+                      <div className="prospects unproven">
+                        {below.map((p) => (
+                          <ProspectCard key={p.id} p={p} busy={pitching === p.id} onPitch={() => pitch(p)} onHide={() => hide(p)} onContact={() => setContactFor(p.id)} />
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </section>
+
+              <section className="section" aria-label="Get listed here">
+                <div className="section-head">
+                  <h2>Get listed here</h2>
+                </div>
+                <p className="hint">
+                  Places where brands with budgets look for creators. Checked 25 Sep 2026; each links to its source. <Link to="/help/pitch-a-brand">More</Link>
+                </p>
+                <div className="listings">
+                  {data.listings.map((l) => (
+                    <details key={l.key} className={`listing ${l.status}${l.joined ? " joined" : ""}`}>
+                      <summary>
+                        <span className="grow">
+                          <strong>{l.name}</strong>
+                          <span className="hint"> · {l.payoff}</span>
+                        </span>
+                        <span className={`pill ${l.joined ? "ok" : l.status === "ready" ? "ok" : l.status === "not_yet" ? "" : "warn"}`}>{l.joined ? "Joined" : l.status === "ready" ? "You can join" : l.status === "not_yet" ? "Not yet" : "Check"}</span>
+                      </summary>
+                      <p>
+                        <strong>Pays:</strong> {l.pays}
+                      </p>
+                      <p>
+                        <strong>Who:</strong> {l.why}
+                      </p>
+                      <p>
+                        <strong>How:</strong> {l.apply}
+                      </p>
+                      <div className="btn-row">
+                        {l.applyUrl ? (
+                          <a className="btn quiet small" href={l.applyUrl} target="_blank" rel="noreferrer">
+                            Open it
+                          </a>
+                        ) : null}
+                        <label className="check">
+                          <input type="checkbox" checked={joinedNow[l.key] ?? l.joined} onChange={(e) => joined(l.key, e.target.checked)} />
+                          I'm on it
+                        </label>
+                        <a className="hint" href={l.sourceUrl} target="_blank" rel="noreferrer">
+                          Source
+                        </a>
+                      </div>
+                    </details>
+                  ))}
+                </div>
+              </section>
+
+              {data.closed.length ? (
+                <section className="section" aria-label="Closed deals">
+                  <div className="section-head">
+                    <h2>Closed</h2>
+                  </div>
+                  {data.money.lostReasons.length ? <p className="hint">Why deals closed: {data.money.lostReasons.map((r) => `${r.reason} (${r.n})`).join(", ")}.</p> : null}
+                  <div className="list">
+                    {data.closed.map((d) => (
+                      <button key={d.dealId} type="button" className="list-row closed-row" onClick={() => openDeal(d.dealId)}>
+                        <span className="grow">
+                          <span className="title">{d.brand}</span>
+                          <span className="meta">
+                            {d.stageLabel}
+                            {d.outcomeReason ? `: ${d.outcomeReason}` : ""}
+                          </span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
                 </section>
-              </div>
+              ) : null}
             </>
           ) : null}
         </>
@@ -207,455 +363,107 @@ export function Deals() {
       {adding ? (
         <AddBrand
           onClose={() => setAdding(false)}
-          onAdded={(id) => {
+          onAdded={() => {
             setAdding(false);
-            setParams({ brand: id }, { replace: true });
-            setSelected(id);
             reload();
           }}
         />
       ) : null}
-      <HelpButton guide="send-a-pitch" />
-    </div>
-  );
-}
-
-function Marketplace({ m }: { m: DealsData["marketplace"] }) {
-  return (
-    <Card className={`flat marketplace${m.eligible ? " ok" : ""}`}>
-      <div className="row between wrap">
-        <div>
-          <div className="card-label">{m.marketplace}</div>
-          <div>{m.summary}</div>
-        </div>
-        {m.hasData ? (
-          <div className="mk-checks">
-            {m.checks.map((c) => (
-              <span key={c.label} className={`pill nums${c.ok ? " ok" : ""}`} title={`${c.label}: ${c.have ?? 0} of ${c.need}`}>
-                {c.ok ? <Icon name="check" size="sm" /> : null}
-                {c.label}
-              </span>
-            ))}
-          </div>
-        ) : (
-          <Link className="btn quiet small" to="/settings/connections">
-            Connect stats
-          </Link>
-        )}
-      </div>
-    </Card>
-  );
-}
-
-function BrandDetail({ b, kitUrl, onChange, onBack }: { b: Card2; kitUrl: string; onChange: () => void; onBack: () => void }) {
-  const toast = useToast();
-  const [busy, setBusy] = useState(false);
-  const [contactId, setContactId] = useState<string | null>(b.pitch?.contact_id ?? b.contacts[0]?.id ?? null);
-  const [part, setPart] = useState<"email" | "dm" | "f1" | "f2">("email");
-  const [draft, setDraft] = useState<PitchView | null>(b.pitch);
-  const [sending, setSending] = useState(false);
-  const [addContact, setAddContact] = useState(false);
-  const contact = b.contacts.find((x) => x.id === contactId) ?? b.contacts[0] ?? null;
-  const top = useRef<HTMLDivElement>(null);
-  // Phone: the list gives way to the brand she opened; bring it into view.
-  useEffect(() => {
-    if (window.innerWidth < 900) top.current?.scrollIntoView({ block: "start" });
-  }, []);
-  // A reload that changes the pitch itself (a new draft, sent, replied, a follow-up sent) brings
-  // the saved pitch back; take it. Her edits are NOT in this signature: every field she types is
-  // saved on blur and kept in `draft`, and the reload `draftPitch` starts can answer after her
-  // first edit with the pre-edit text, which used to overwrite it (25 Sep 2026). A redraft comes
-  // back through `draftPitch` itself, so it needs no reload to land.
-  const pitchSig = b.pitch ? `${b.pitch.id}|${b.pitch.status}|${b.pitch.next_followup_at}` : "";
-  useEffect(() => setDraft(b.pitch), [pitchSig]); // eslint-disable-line react-hooks/exhaustive-deps
-  const stage = b.deal?.stage ?? "found";
-
-  async function draftPitch() {
-    setBusy(true);
-    try {
-      const r = await post<{ pitch: PitchView; note: string | null }>(`/api/deals/brands/${b.id}/pitch`, { contact_id: contact?.id });
-      setDraft(r.pitch);
-      if (r.note) toast.ok(r.note);
-      onChange();
-    } catch (e) {
-      toast.bad(e);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function saveField(k: keyof Pick<PitchView, "subject" | "body" | "dm_text" | "followup_1" | "followup_2">, v: string) {
-    if (!draft || draft[k] === v) return;
-    setDraft({ ...draft, [k]: v });
-    try {
-      await patch(`/api/deals/pitches/${draft.id}`, { [k]: v });
-    } catch (e) {
-      toast.bad(e);
-    }
-  }
-
-  async function hide() {
-    try {
-      await patch(`/api/deals/brands/${b.id}`, { status: b.status === "hidden" ? "suggested" : "hidden" });
-      toast.ok(b.status === "hidden" ? "Back in your list." : "Hidden. It won’t be suggested again.");
-      onBack();
-      onChange();
-    } catch (e) {
-      toast.bad(e);
-    }
-  }
-
-  async function act(path: string, body: unknown, ok: string) {
-    try {
-      await post(path, body);
-      toast.ok(ok);
-      onChange();
-    } catch (e) {
-      toast.bad(e);
-    }
-  }
-
-  const text = draft ? { email: draft.body, dm: draft.dm_text, f1: draft.followup_1, f2: draft.followup_2 }[part] : "";
-  const subject = draft ? (part === "email" ? draft.subject : part === "dm" ? "" : `Re: ${draft.subject}`) : "";
-  const emailTo = contact && contact.kind !== "form" && contact.value.includes("@") ? contact.value : null;
-  const gmail = draft && emailTo && part !== "dm" ? gmailComposeUrl(emailTo, subject, text) : null;
-
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(part === "dm" ? text : pitchAsText(subject, text));
-      toast.ok("Copied. Paste it wherever you’re sending it.");
-    } catch {
-      toast.bad(new Error("Your browser blocked copying. Select the text and copy it by hand."));
-    }
-  }
-
-  return (
-    <Card accent className="detail">
-      <div ref={top} />
-      <button type="button" className="btn quiet small back-btn" onClick={onBack}>
-        <Icon name="left" size="sm" />
-        All brands
-      </button>
-      <div className="row between wrap detail-head">
-        <h2>{b.name}</h2>
-        <div className="row wrap links">
-          {b.website ? (
-            <a className="link-btn" href={b.website} target="_blank" rel="noreferrer">
-              Website
-            </a>
-          ) : null}
-          {b.program_url ? (
-            <a className="link-btn" href={b.program_url} target="_blank" rel="noreferrer">
-              Creator program
-            </a>
-          ) : null}
-          {Object.entries(b.socials).map(([k, v]) => (
-            <a key={k} className="link-btn" href={v} target="_blank" rel="noreferrer">
-              Their {k === "tiktok" ? "TikTok" : k === "instagram" ? "Instagram" : k === "youtube" ? "YouTube" : k}
-            </a>
-          ))}
-        </div>
-      </div>
-
-      <div className="why">
-        <p>
-          <strong>Why it fits:</strong> {b.fit_reasons.length ? `${b.fit_reasons.map((r) => r.replace(/\.$/, "")).join("; ")}.` : "You added it."}
-        </p>
-        {b.why_now ? (
-          <p>
-            <strong>Why now:</strong> {b.why_now.replace(/\.$/, "")}.
-          </p>
-        ) : null}
-        {b.contacts.length ? (
-          <p className="contact-line">
-            <strong>Contact:</strong>{" "}
-            {b.contacts.length > 1 ? (
-              <select className="select inline" aria-label="Contact" value={contact?.id ?? ""} onChange={(e) => setContactId(e.target.value)}>
-                {b.contacts.map((ct) => (
-                  <option key={ct.id} value={ct.id}>
-                    {CONTACT_LABEL[ct.kind]}: {ct.value}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <span className="mono">{contact!.value}</span>
-            )}{" "}
-            · found on{" "}
-            <a href={contact!.found_on_url} target="_blank" rel="noreferrer">
-              {hostOf(contact!.found_on_url)}
-            </a>
-          </p>
-        ) : (
-          <p className="contact-line">
-            <strong>Contact:</strong> none found yet. The finder only keeps public business contacts.{" "}
-            <button type="button" className="link-btn" onClick={() => setAddContact(true)}>
-              Add one you found
-            </button>
-          </p>
-        )}
-        {b.source_links.length ? (
-          <div className="hint">
-            Sources:{" "}
-            {b.source_links.map((s, i) => (
-              <a key={s} href={s} target="_blank" rel="noreferrer">
-                {i ? " · " : ""}
-                {hostOf(s)}
-              </a>
-            ))}
-          </div>
-        ) : null}
-      </div>
-
-      {!draft ? (
-        <div className="btn-row">
-          <button type="button" className="btn big" onClick={draftPitch} disabled={busy}>
-            {busy ? "Writing…" : "Draft a pitch"}
-          </button>
-          <button type="button" className="link-btn" onClick={hide}>
-            {b.status === "hidden" ? "Show it again" : "Not a fit — hide"}
-          </button>
-        </div>
-      ) : (
-        <>
-          <div className="pitch-parts" role="tablist" aria-label="Pitch parts">
-            {(
-              [
-                ["email", "Email"],
-                ["dm", "DM"],
-                ["f1", "Follow-up day 5"],
-                ["f2", "Follow-up day 12"],
-              ] as const
-            ).map(([k, label]) => (
-              <button key={k} type="button" role="tab" aria-selected={part === k} className={part === k ? "on" : ""} onClick={() => setPart(k)}>
-                {label}
-              </button>
-            ))}
-          </div>
-          {part === "email" ? (
-            <label className="field">
-              <span className="label">Subject</span>
-              <input className="input" defaultValue={draft.subject} key={`s-${draft.id}-${draft.subject}`} onBlur={(e) => saveField("subject", e.target.value)} disabled={draft.status !== "drafted"} />
-            </label>
-          ) : null}
-          <label className="field">
-            <span className="label">{part === "email" ? "Email" : part === "dm" ? "DM" : part === "f1" ? "Follow-up (day 5)" : "Follow-up (day 12)"}</span>
-            <textarea
-              className="textarea pitch-text"
-              key={`${part}-${draft.id}`}
-              defaultValue={text}
-              onBlur={(e) => saveField(part === "email" ? "body" : part === "dm" ? "dm_text" : part === "f1" ? "followup_1" : "followup_2", e.target.value)}
-            />
-          </label>
-
-          <div className="btn-row send-row">
-            {contact?.kind === "form" && part === "email" ? (
-              <a className="btn big" href={contact.value} target="_blank" rel="noreferrer" onClick={copy}>
-                Open form
-              </a>
-            ) : gmail ? (
-              <a className="btn big" href={gmail} target="_blank" rel="noreferrer">
-                Open in Gmail
-              </a>
-            ) : null}
-            <button type="button" className="btn quiet" onClick={copy}>
-              Copy
-            </button>
-            {draft.status === "drafted" ? (
-              <button type="button" className="btn quiet" onClick={() => setSending(true)}>
-                Mark as sent
-              </button>
-            ) : null}
-            {draft.status === "drafted" ? (
-              <button type="button" className="link-btn" onClick={draftPitch} disabled={busy}>
-                {busy ? "Writing…" : "Redraft"}
-              </button>
-            ) : null}
-            <span className="grow" />
-            <button type="button" className="link-btn" onClick={hide}>
-              {b.status === "hidden" ? "Show it again" : "Not a fit — hide"}
-            </button>
-          </div>
-          {contact?.kind === "form" && part === "email" ? <div className="hint">Open form copies your pitch too, so you can paste your answers.</div> : null}
-          {!contact ? <div className="hint">No contact yet: use Copy, or send the DM version on their profile.</div> : null}
-
-          <Tracker b={b} stage={stage} pitch={draft} onAct={act} onChange={onChange} />
-        </>
-      )}
-
-      {sending && draft ? (
-        <SentModal
-          onClose={() => setSending(false)}
-          onSent={async (sentAt) => {
-            try {
-              await post(`/api/deals/pitches/${draft.id}/sent`, { sent_at: sentAt });
-              toast.ok("Marked as sent. We’ll remind you to follow up on day 5.");
-              setSending(false);
-              onChange();
-            } catch (e) {
-              toast.bad(e);
-            }
+      {inbound ? (
+        <Inbound
+          onClose={() => setInbound(false)}
+          onDone={(id) => {
+            setInbound(false);
+            openDeal(id);
+            reload();
           }}
         />
       ) : null}
-      {addContact ? <AddContact brandId={b.id} onClose={() => setAddContact(false)} onAdded={() => { setAddContact(false); onChange(); }} /> : null}
-      <p className="hint kit-line">
-        Your media kit link goes in every pitch: <span className="mono">{kitUrl}</span>
-      </p>
-    </Card>
-  );
-}
-
-function Tracker({ b, stage, pitch, onAct, onChange }: { b: Card2; stage: DealStage; pitch: PitchView; onAct: (path: string, body: unknown, ok: string) => Promise<void>; onChange: () => void }) {
-  const deal = b.deal;
-  if (!deal) return null;
-  const move = (to: DealStage, ok: string) => onAct(`/api/deals/deals/${deal.id}/stage`, { stage: to }, ok);
-  return (
-    <div className="tracker">
-      <div className="tracker-head">
-        <span className="pill">{STAGE_LABEL[stage]}</span>
-        {pitch.sent_at ? <span className="hint">Sent {fmtDate(pitch.sent_at)}</span> : null}
-        {pitch.next_followup_at ? <span className="pill warn">Follow up {fmtDate(pitch.next_followup_at)}</span> : null}
-      </div>
-      <div className="btn-row">
-        {stage === "sent" ? (
-          <>
-            <button type="button" className="btn" onClick={() => onAct(`/api/deals/deals/${deal.id}/reply`, {}, "Nice! Follow-up reminders are off for this one.")}>
-              They replied
-            </button>
-            {pitch.next_followup_at ? (
-              <button type="button" className="btn quiet" onClick={() => onAct(`/api/deals/pitches/${pitch.id}/followup-sent`, {}, "Follow-up marked as sent.")}>
-                I sent the follow-up
-              </button>
-            ) : null}
-          </>
-        ) : null}
-        {stage === "replied" ? (
-          <button type="button" className="btn" onClick={() => move("negotiating", "Moved to negotiating.")}>
-            We’re talking terms
-          </button>
-        ) : null}
-        {stage === "replied" || stage === "negotiating" ? (
-          <button type="button" className="btn quiet" onClick={() => move("won", "Won! Add what you owe them below.")}>
-            We have a deal
-          </button>
-        ) : null}
-        {stage !== "won" && stage !== "passed" && stage !== "found" ? (
-          <button type="button" className="link-btn" onClick={() => move("passed", "Closed. It won’t be suggested again.")}>
-            Pass on it
-          </button>
-        ) : null}
-        {stage === "won" || stage === "passed" ? (
-          <button type="button" className="link-btn" onClick={() => move("negotiating", "Reopened.")}>
-            Reopen
-          </button>
-        ) : null}
-      </div>
-      {stage === "won" && b.deal_detail ? <Deliverables dealId={deal.id} detail={b.deal_detail} onAct={onAct} onChange={onChange} /> : null}
+      {contactFor ? <AddContact brandId={contactFor} onClose={() => setContactFor(null)} onAdded={() => { setContactFor(null); reload(); }} /> : null}
+      <HelpButton guide={tab === "kit" ? "media-kit" : dealId ? "reply-to-a-brand-offer" : "pitch-a-brand"} />
     </div>
   );
 }
 
-function Deliverables({ dealId, detail, onAct, onChange }: { dealId: string; detail: NonNullable<Card2["deal_detail"]>; onAct: (path: string, body: unknown, ok: string) => Promise<void>; onChange: () => void }) {
-  const toast = useToast();
-  const [platform, setPlatform] = useState<Platform>("tiktok");
-  const [due, setDue] = useState("");
-  const [note, setNote] = useState("");
-  async function toggle(d: Deliverable) {
-    try {
-      await patch(`/api/deals/deals/${dealId}/deliverables/${d.id}`, { done: !d.done });
-      onChange();
-    } catch (e) {
-      toast.bad(e);
-    }
-  }
-  async function remove(d: Deliverable) {
-    try {
-      await del(`/api/deals/deals/${dealId}/deliverables/${d.id}`);
-      toast.ok("Removed.");
-      onChange();
-    } catch (e) {
-      toast.bad(e);
-    }
-  }
+function ProspectCard({ p, busy, onPitch, onHide, onContact }: { p: Prospect; busy: boolean; onPitch: () => void; onHide: () => void; onContact: () => void }) {
   return (
-    <div className="deliverables">
-      <h3>What you owe them</h3>
-      <Notice tone="info">
-        <span>
-          Sponsored clips are flagged <strong>Paid partnership</strong> in Review: the caption gets #ad, and remember to switch on the platform’s paid-partnership label when it posts. <Link to="/help/mark-a-paid-partnership">How</Link>
+    <article className={`prospect${p.aboveLine ? "" : " unproven"}`} aria-label={p.name}>
+      <div className="prospect-top">
+        <span className="brand-logo" aria-hidden="true">
+          {p.name.slice(0, 1)}
         </span>
-      </Notice>
-      {detail.deliverables.length ? (
-        <div className="list">
-          {detail.deliverables.map((d) => (
-            <div key={d.id} className="list-row">
-              <label className="check">
-                <input type="checkbox" aria-label={`Done: ${PLATFORM_LABEL[d.platform]} due ${fmtDate(d.due_at)}`} checked={d.done} onChange={() => toggle(d)} />
-              </label>
-              <div className="grow">
-                <div className="title">
-                  {PLATFORM_LABEL[d.platform]} · due {fmtDate(d.due_at)}
-                </div>
-                {d.note ? <div className="meta">{d.note}</div> : null}
-              </div>
-              <button type="button" className="link-btn" onClick={() => remove(d)}>
-                Remove
-              </button>
-            </div>
-          ))}
+        <div className="grow">
+          <h3>{p.name}</h3>
+          <div className="row wrap prospect-tags">
+            <span className="pill">{KIND[p.kind]}</span>
+            <span className={`pill ${p.budget.level === "paying" ? "ok" : p.budget.level === "likely" ? "warn" : ""}`}>{p.budgetLabel}</span>
+            {p.origin === "her_list" ? <span className="pill">You love it</span> : null}
+          </div>
         </div>
+      </div>
+      {p.budget.evidence[0] ? (
+        <p className="prospect-line">
+          <strong>Money:</strong> {p.budget.evidence[0].text}{" "}
+          <a className="src" href={p.budget.evidence[0].url} target="_blank" rel="noreferrer">
+            ({host(p.budget.evidence[0].url)})
+          </a>
+        </p>
       ) : null}
-      <div className="row wrap deliverable-add">
-        <select className="select" aria-label="Platform" value={platform} onChange={(e) => setPlatform(e.target.value as Platform)}>
-          {PLATFORMS.map((p) => (
-            <option key={p} value={p}>
-              {PLATFORM_LABEL[p]}
-            </option>
-          ))}
-        </select>
-        <input className="input" type="date" aria-label="Due date" value={due} onChange={(e) => setDue(e.target.value)} />
-        <input className="input" aria-label="Note" placeholder="What they asked for" value={note} onChange={(e) => setNote(e.target.value)} />
-        <button
-          type="button"
-          className="btn"
-          disabled={!due}
-          onClick={async () => {
-            await onAct(`/api/deals/deals/${dealId}/deliverables`, { platform, due_at: `${due}T17:00:00`, note }, "Added.");
-            setDue("");
-            setNote("");
-          }}
-        >
-          Add
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function SentModal({ onClose, onSent }: { onClose: () => void; onSent: (sentAt: string) => void }) {
-  const today = new Date().toISOString().slice(0, 10);
-  const [day, setDay] = useState(today);
-  const min = useMemo(() => new Date(Date.now() - 60 * 86400_000).toISOString().slice(0, 10), []);
-  return (
-    <Modal title="Mark as sent" onClose={onClose}>
-      <p>We’ll remind you to follow up on day 5 and day 12, on Home and in your Monday email.</p>
-      <label className="field">
-        <span className="label">When did you send it?</span>
-        <input className="input" type="date" value={day} min={min} max={today} onChange={(e) => setDay(e.target.value)} />
-      </label>
+      {p.why[0] ? (
+        <p className="prospect-line">
+          <strong>Why now:</strong> {p.why[0].text}{" "}
+          <a className="src" href={p.why[0].url} target="_blank" rel="noreferrer">
+            ({host(p.why[0].url)})
+          </a>
+        </p>
+      ) : p.fitReasons.length ? (
+        <p className="prospect-line">
+          <strong>Fit:</strong> {p.fitReasons.slice(0, 2).join("; ")}
+          {p.sources[0] ? (
+            <>
+              {" "}
+              <a className="src" href={p.sources[0]} target="_blank" rel="noreferrer">
+                ({host(p.sources[0])})
+              </a>
+            </>
+          ) : null}
+        </p>
+      ) : null}
+      <p className="prospect-line">
+        <strong>Contact:</strong>{" "}
+        {p.bestContact ? (
+          <>
+            <span className="mono">{p.bestContact.kind === "form" ? "their creator form" : p.bestContact.value}</span>{" "}
+            <a className="src" href={p.bestContact.found_on_url} target="_blank" rel="noreferrer">
+              (found on {host(p.bestContact.found_on_url)})
+            </a>
+          </>
+        ) : (
+          <>
+            none yet.{" "}
+            <button type="button" className="link-btn" onClick={onContact}>
+              Add one you found
+            </button>
+          </>
+        )}
+      </p>
+      <details className="math">
+        <summary>How it ranked</summary>
+        <span className="nums">{p.math}</span>
+      </details>
       <div className="btn-row">
-        <button type="button" className="btn" onClick={() => onSent(day === today ? new Date().toISOString() : `${day}T12:00:00.000Z`)}>
-          Yes, I sent it
+        <button type="button" className="btn" onClick={onPitch} disabled={busy}>
+          {busy ? "Writing…" : p.kind === "agency" ? "Pitch to be on their list" : "Pitch"}
         </button>
-        <button type="button" className="btn quiet" onClick={onClose}>
-          Not yet
+        <button type="button" className="link-btn" onClick={onHide}>
+          Not a fit
         </button>
       </div>
-    </Modal>
+    </article>
   );
 }
 
-function AddBrand({ onClose, onAdded }: { onClose: () => void; onAdded: (id: string) => void }) {
+function AddBrand({ onClose, onAdded }: { onClose: () => void; onAdded: () => void }) {
   const toast = useToast();
   const [name, setName] = useState("");
   const [website, setWebsite] = useState("");
@@ -664,7 +472,7 @@ function AddBrand({ onClose, onAdded }: { onClose: () => void; onAdded: (id: str
     try {
       const r = await post<{ id: string; existed?: boolean }>("/api/deals/brands", { name, website: website || undefined, note: note || undefined });
       toast.ok(r.existed ? "Already in your list. Saved it to the top." : "Added. The finder looks up their public contact on its next run.");
-      onAdded(r.id);
+      onAdded();
     } catch (e) {
       toast.bad(e);
     }
@@ -696,42 +504,42 @@ function AddBrand({ onClose, onAdded }: { onClose: () => void; onAdded: (id: str
   );
 }
 
-function AddContact({ brandId, onClose, onAdded }: { brandId: string; onClose: () => void; onAdded: () => void }) {
+function Inbound({ onClose, onDone }: { onClose: () => void; onDone: (dealId: string) => void }) {
   const toast = useToast();
-  const [kind, setKind] = useState<"role_email" | "form" | "agency">("role_email");
-  const [value, setValue] = useState("");
-  const [page, setPage] = useState("");
+  const [name, setName] = useState("");
+  const [website, setWebsite] = useState("");
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
   async function save() {
+    setBusy(true);
     try {
-      await post(`/api/deals/brands/${brandId}/contacts`, { kind, value, found_on_url: page });
-      toast.ok("Contact added.");
-      onAdded();
+      const r = await post<{ dealId: string }>("/api/deals/inbound", { name, website: website || undefined, text });
+      toast.ok("Read. Your reply is one tap away on the deal.");
+      onDone(r.dealId);
     } catch (e) {
       toast.bad(e);
+    } finally {
+      setBusy(false);
     }
   }
   return (
-    <Modal title="Add a public contact" onClose={onClose}>
-      <p className="soft">Only business contacts the brand publishes, like partnerships@ or an application form. Never a personal address.</p>
+    <Modal title="A brand wrote to me" onClose={onClose}>
+      <p className="soft">Paste their email. We read the terms, flag anything risky, and write your reply.</p>
       <label className="field">
-        <span className="label">Type</span>
-        <select className="select" value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}>
-          <option value="role_email">Business email (partnerships@, pr@ …)</option>
-          <option value="form">Application form link</option>
-          <option value="agency">Their agency</option>
-        </select>
+        <span className="label">Brand name</span>
+        <input className="input" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
       </label>
       <label className="field">
-        <span className="label">{kind === "form" ? "Form link" : "Email"}</span>
-        <input className="input" value={value} onChange={(e) => setValue(e.target.value)} />
+        <span className="label">Their website (optional)</span>
+        <input className="input" inputMode="url" placeholder="brand.com" value={website} onChange={(e) => setWebsite(e.target.value)} />
       </label>
       <label className="field">
-        <span className="label">The page you found it on</span>
-        <input className="input" inputMode="url" placeholder="https://brand.com/contact" value={page} onChange={(e) => setPage(e.target.value)} />
+        <span className="label">Paste what the brand sent</span>
+        <textarea className="textarea" value={text} onChange={(e) => setText(e.target.value)} />
       </label>
       <div className="btn-row">
-        <button type="button" className="btn" onClick={save} disabled={!value || !page}>
-          Add contact
+        <button type="button" className="btn" data-primary onClick={save} disabled={busy || !name.trim() || text.trim().length < 20}>
+          {busy ? "Reading…" : "Read it"}
         </button>
         <button type="button" className="btn quiet" onClick={onClose}>
           Cancel
@@ -739,12 +547,4 @@ function AddContact({ brandId, onClose, onAdded }: { brandId: string; onClose: (
       </div>
     </Modal>
   );
-}
-
-function hostOf(u: string): string {
-  try {
-    return new URL(u).hostname.replace(/^www\./, "");
-  } catch {
-    return u;
-  }
 }

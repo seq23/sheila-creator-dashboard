@@ -59,16 +59,21 @@ describe("approval", () => {
 });
 
 describe("deals", () => {
-  it("moves one step at a time along the funnel", () => {
-    expect(canMove("found", "drafted")).toBe(true);
-    expect(canMove("found", "sent")).toBe(false);
-    expect(canMove("negotiating", "won")).toBe(true);
-    expect(canMove("drafted", "passed")).toBe(true);
-    expect(canMove("won", "passed")).toBe(false);
+  it("moves one step at a time along the pipeline; skipping is refused", () => {
+    expect(canMove("find_contact", "pitch")).toBe(true);
+    expect(canMove("find_contact", "follow_up")).toBe(false);
+    expect(canMove("pitch", "follow_up")).toBe(true);
+    expect(canMove("negotiating", "agreed")).toBe(true);
+    expect(canMove("pitch", "agreed")).toBe(false);
+    expect(canMove("agreed", "paid")).toBe(false);
+    expect(canMove("pitch", "declined")).toBe(true);
+    expect(canMove("paid", "lost")).toBe(false);
+    expect(canMove("done", "declined")).toBe(false);
   });
-  it("follow-ups land on day 5 and day 12", () => {
+  it("follow-ups land on day 5, day 12 and day 19, then stop", () => {
     expect(nextFollowup("2026-09-01T12:00:00.000Z", 0)).toBe("2026-09-06T12:00:00.000Z");
     expect(nextFollowup("2026-09-01T12:00:00.000Z", 1)).toBe("2026-09-13T12:00:00.000Z");
-    expect(nextFollowup("2026-09-01T12:00:00.000Z", 2)).toBeNull();
+    expect(nextFollowup("2026-09-01T12:00:00.000Z", 2)).toBe("2026-09-20T12:00:00.000Z");
+    expect(nextFollowup("2026-09-01T12:00:00.000Z", 3)).toBeNull();
   });
 });

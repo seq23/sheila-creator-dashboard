@@ -151,9 +151,16 @@ test.describe("home and dump", () => {
 });
 
 test.describe("public", () => {
-  test("the media kit page needs no login", async ({ page }) => {
-    await page.goto("/kit/sheila");
-    await expect(page.getByRole("heading", { name: "Sheila Bruce" })).toBeVisible();
+  test("the media kit page needs no login, and shows only what she published", async ({ page, browser }) => {
+    const pub = await (await browser.newContext({ storageState: { cookies: [], origins: [] }, viewport: page.viewportSize() ?? undefined })).newPage();
+    sql("DELETE FROM media_kit_versions");
+    await pub.goto("/kit/sheila");
+    await expect(pub.getByRole("heading", { name: "No media kit here" })).toBeVisible();
+    expect((await page.request.post("/api/mediakit/publish")).ok()).toBe(true); // as the signed-in owner
+    await pub.goto("/kit/sheila");
+    await expect(pub.getByRole("heading", { name: "Sheila Bruce", level: 1 })).toBeVisible();
+    sql("DELETE FROM media_kit_versions");
+    await pub.context().close();
   });
   test("a media link with a bad token is a 404, not a crash", async ({ page }) => {
     const res = await page.request.get("/media/notavalidtokenatall000000000000000000");

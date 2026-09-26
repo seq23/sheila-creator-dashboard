@@ -89,7 +89,7 @@ describe("summarizeWeek + weeklyClaim", () => {
 });
 
 function liveBrief(over: Partial<LiveBrief> = {}): LiveBrief {
-  const { body, sources } = buildFakeBrief({ stats: { tiktok: { videos: 4 } }, uploads: [{ id: "u1", title: "Deep research.pdf" }], webSkipped: false });
+  const { body, sources } = buildFakeBrief({ stats: { tiktok: { videos: 4 } }, uploads: [{ id: "u1", title: "Deep research.pdf" }] });
   // one web claim, so "never touches web claims" has something to protect
   body.hooks.push({ text: "Open on the payoff in the first second.", source_ids: ["b_buffer_all"], basis: "web", confidence: "solid" });
   return { version: 7, status: "approved", approved_at: "2026-09-02T12:00:00.000Z", adjusted_at: null, body, sources, ...over };

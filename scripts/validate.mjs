@@ -18,6 +18,7 @@ export const REGISTER = {
   "jobs-no-direct-storage": "a job holding storage keys needs an R2 token the owner cannot mint and a public repo can leak; jobs reach storage only through the Worker",
   "jobs-one-openrouter-client": "three hand-rolled OpenRouter clients in jobs each lost the end of a reasoning model's answer (live test 25 Sep 2026); one client in common.py asks again with more room",
   "jobs-registered": "every job type in the schema must have a handler or dispatch silently does nothing",
+  "mediakit-deals": "a kit figure without its as-of date and source tells a brand something unverifiable; an email scenario without a template or a test, a benchmark without a source, or an undocumented marketplace is a made-up claim",
   "no-content-in-logs": "public repo: a console.* outside worker/lib/log.ts can leak her content into Actions logs (section 13)",
   "nothing-hidden": "the owner's rule: nothing hidden, nothing switched off; a screen behind a flag, or a feature defaulting off, is a thing she cannot find",
   "no-secrets": "a key in the repo is public the moment it is pushed",
@@ -26,6 +27,7 @@ export const REGISTER = {
   "stats-no-login": "the owner's rule (25 Sep 2026): Stats never needs a Google or Meta sign-in; TikTok's zip export was refused as Excel, and a sign-in-only path left the panel blank",
   "voice-engines": "a narration row without its engine, or an ElevenLabs call that drops a 401 / 402 / 429, shows her the wrong voice tag or a failure with no fallback",
   "voice-script": "the read-aloud script must stay about 3 minutes with a question and a number, and the Voice screen must show it, or her sample makes a thin voice",
+  "web-research-optional": "the brand finder and the Research Brief must work with no web-research key (Firecrawl is an optional speed-up, owner 26 Sep 2026); a job or route that needs it goes silent without it",
   "workflows-dispatchable": "every job type must have an Actions workflow listening for its repository_dispatch event",
 };
 
