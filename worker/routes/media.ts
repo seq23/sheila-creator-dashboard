@@ -65,15 +65,25 @@ export async function voicedKey(env: Env, clipId: string): Promise<string | null
 media.get("/:token", async (c) => {
   const token = c.req.param("token");
   if (!/^[a-z0-9]{30,64}$/.test(token)) return c.text("Not found", 404);
-  const kind = c.req.query("cover") === "1" ? "cover" : "clip";
-  const row = await c.env.DB.prepare("SELECT id, r2_key, cover_r2_key FROM clips WHERE media_token = ? AND status != 'deleted'").bind(token).first<{ id: string; r2_key: string; cover_r2_key: string | null }>();
+  const thumb = Number(c.req.query("thumb"));
+  const kind = c.req.query("cover") === "1" || thumb ? "cover" : "clip";
+  const row = await c.env.DB.prepare("SELECT id, r2_key, cover_r2_key, youtube, file_deleted_at FROM clips WHERE media_token = ? AND status != 'deleted'").bind(token).first<{ id: string; r2_key: string; cover_r2_key: string | null; youtube: string | null; file_deleted_at: string | null }>();
   if (!row) return c.text("Not found", 404);
+  // A full video's three thumbnail choices (?thumb=1..3); "Download thumbnail" saves the one she picked.
+  if (thumb) {
+    const t = (JSON.parse(row.youtube ?? "{}") as { thumbnails?: { key: string }[] }).thumbnails?.[thumb - 1];
+    if (!t || !Number.isInteger(thumb)) return c.text("Not found", 404);
+    return stream(c, c.env.FILES, t.key, "image/jpeg", c.req.query("download") === "1" ? 'attachment; filename="youtube-thumbnail.jpg"' : undefined);
+  }
+  // The storage rule removed this full video's file (7 days after it posted, or unapproved for 14 days).
+  if (kind === "clip" && row.file_deleted_at) return c.text("This video file was removed to save space. Its thumbnail and words are kept.", 410);
   // A voice over attached and mixed in: Review plays it and Buffer posts it through this same link.
   const voiced = kind === "clip" ? await voicedKey(c.env, row.id) : null;
   const key = kind === "cover" ? row.cover_r2_key : (voiced ?? row.r2_key);
   if (!key) return c.text("Not found", 404);
   // "Save the clip" (Edit in CapCut): the same file, saved to her phone or computer.
-  if (kind === "clip" && c.req.query("download") === "1") return stream(c, c.env.FILES, key, "video/mp4", 'attachment; filename="sheila-studio-clip.mp4"');
+  // "Download for YouTube" (a full video she uploads herself) is the same link.
+  if (kind === "clip" && c.req.query("download") === "1") return stream(c, c.env.FILES, key, "video/mp4", `attachment; filename="${row.youtube ? "sheila-studio-youtube" : "sheila-studio-clip"}.mp4"`);
   const range = c.req.header("range");
   const obj = await c.env.FILES.get(key, range ? { range: c.req.raw.headers } : undefined);
   if (!obj) return c.text("Not found", 404);

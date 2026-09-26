@@ -84,6 +84,9 @@ export async function writeEditorCheckLight(env: Env, editor: ApiEditorId, ok: b
 
 /** Dump pressed: the built-in cut job, or each video to her connected cutting editor. */
 export async function startDumpCut(env: Env, dumpId: string, sourceBase: string): Promise<{ dispatched: boolean; jobId: string | null; editor: "built-in" | ApiEditorId; error: string | null }> {
+  // A full video for YouTube is never cut, by us or a connected editor (validator full-video-uncut).
+  const kind = await env.DB.prepare("SELECT kind FROM dumps WHERE id = ?").bind(dumpId).first<{ kind: string }>();
+  if (kind?.kind === "full_video") return { dispatched: false, jobId: null, editor: "built-in", error: "A full video for YouTube goes up whole; it is never cut." };
   const choice = await editorChoice(env);
   const editor = effectiveEditor(choice, "cut_from_source", await connectedEditors(env));
   if (editor !== "built-in") {

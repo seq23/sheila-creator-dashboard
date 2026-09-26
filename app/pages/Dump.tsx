@@ -1,4 +1,5 @@
-// Dump (section 7): two doors, drop files, notes, the Dump button, progress, recent dumps.
+// Dump (section 7): three doors (new videos, old posts, a full video for YouTube), drop files,
+// notes, the Dump button, progress, recent dumps.
 // Phone-first: "Choose from camera roll", many files at once, resumable chunked uploads.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -14,7 +15,7 @@ import { NotFollowedList, SteerPanel, UnderstoodNote, type SteerLook, type Steer
 import type { SteerControls, Understood } from "@shared/steer";
 import "../styles/dump.css";
 
-type Door = "new" | "recycle";
+type Door = "new" | "recycle" | "youtube";
 
 // Which videos she is dumping, in her words (owner, 26 Sep 2026: "super clear which door u r
 // choosing"). Nothing is picked until she taps one; the Dump button repeats her choice.
@@ -33,7 +34,17 @@ const DOORS: Record<Door, { title: string; line: string; hint: string; picked: s
     picked: "Old posts to reuse",
     noun: ["old post", "old posts"],
   },
+  // The full-video door (owner, 26 Sep 2026): the whole video, uncut, as a normal YouTube video.
+  youtube: {
+    title: "A full video for YouTube",
+    line: "We post it whole, not cut up.",
+    hint: "Pick this for one long video that goes on YouTube as it is: no cutting, no vertical crop. We write the title, description, chapters and tags from what you say, and give you three thumbnails to pick from. You approve it in Review.",
+    picked: "A full video for YouTube",
+    noun: ["full video", "full videos"],
+  },
 };
+
+const DOOR_ICON: Record<Door, "plus" | "arrow" | "review"> = { new: "plus", recycle: "arrow", youtube: "review" };
 
 interface Local {
   file: File;
@@ -68,6 +79,9 @@ export function Dump() {
   reloadRef.current = current.reload;
   const reloadCurrent = useCallback(() => reloadRef.current(), []);
   const dumpStatus = current.data?.dump.status;
+  // The full-video door: this video's size and what's left of the free 10 GB, before Dump.
+  const uploadedIds = (current.data?.assets ?? []).filter((a) => a.upload_status === "uploaded").map((a) => a.id).join(",");
+  const space = useLoad(() => (dumpId && door === "youtube" && uploadedIds ? get<{ line: string; fits: boolean }>(`/api/dumps/${dumpId}/space`) : Promise.resolve(null)), [dumpId, door, uploadedIds]);
 
   useEffect(() => {
     if (current.data) {
@@ -87,7 +101,7 @@ export function Dump() {
 
   const ensureDump = useCallback(async (): Promise<string> => {
     if (dumpId) return dumpId;
-    if (!door) throw new Error("First pick which videos these are: new videos you just filmed, or old posts to reuse.");
+    if (!door) throw new Error("First pick which videos these are: new videos you just filmed, old posts to reuse, or a full video for YouTube.");
     const r = await post<{ id: string }>("/api/dumps", { door, notes });
     setDumpId(r.id);
     nav(`/dump/${r.id}`, { replace: true });
@@ -226,11 +240,11 @@ export function Dump() {
           {editable ? (
             <>
               <div className="door-pick" role="radiogroup" aria-label="Which videos are these?">
-                {(["new", "recycle"] as Door[]).map((d) => (
+                {(["new", "recycle", "youtube"] as Door[]).map((d) => (
                   <div key={d} className="door-wrap">
                     <button type="button" role="radio" aria-checked={door === d} className={`door-card${door === d ? " on" : ""}`} data-door={d} onClick={() => pickDoor(d)}>
                       <span className="door-icon" aria-hidden="true">
-                        <Icon name={door === d ? "check" : d === "new" ? "plus" : "arrow"} />
+                        <Icon name={door === d ? "check" : DOOR_ICON[d]} />
                       </span>
                       <span className="door-text">
                         <span className="door-title">{DOORS[d].title}</span>
@@ -280,8 +294,8 @@ export function Dump() {
                 tabIndex={0}
                 onKeyDown={(e) => (e.key === "Enter" && door ? inputRef.current?.click() : undefined)}
               >
-                <div className="dropzone-title">Drop videos here</div>
-                <div className="hint">or choose from your camera roll · any size · many at once</div>
+                <div className="dropzone-title">{door === "youtube" ? "Drop your video here" : "Drop videos here"}</div>
+                <div className="hint">{door === "youtube" ? "one video, landscape or any shape · it goes up whole" : "or choose from your camera roll · any size · many at once"}</div>
                 {hasVideos ? (
                   <span className="btn quiet dump-choose">
                     <Icon name="plus" size="sm" /> Choose videos
@@ -291,7 +305,7 @@ export function Dump() {
                     Choose videos
                   </span>
                 )}
-                <input ref={inputRef} type="file" accept="video/*" multiple hidden onChange={(e) => e.target.files && addFiles(e.target.files)} />
+                <input ref={inputRef} type="file" accept="video/*" multiple={door !== "youtube"} hidden onChange={(e) => e.target.files && addFiles(e.target.files)} />
               </div>
             </>
           ) : (
@@ -343,13 +357,29 @@ export function Dump() {
                 {assets
                   .filter((a) => !local.some((l) => l.assetId === a.id))
                   .map((a) => (
-                    <AssetLine key={a.id} asset={a} door={door ?? "new"} dumpId={dumpId!} editable={editable} onRemove={() => removeAsset(a.id)} onSaved={reloadCurrent} />
+                    <AssetLine key={a.id} asset={a} door={door === "recycle" ? "recycle" : "new"} dumpId={dumpId!} editable={editable} onRemove={() => removeAsset(a.id)} onSaved={reloadCurrent} />
                   ))}
               </div>
             </Card>
           )}
 
-          {editable ? (
+          {editable && door === "youtube" && space.data ? (
+            <p className={`hint space-line${space.data.fits ? "" : " look-error"}`} data-space-line>
+              {space.data.line}
+              {space.data.fits ? "" : ". It won't fit: delete a few old videos first, or use a smaller export."}
+            </p>
+          ) : null}
+
+          {editable && door === "youtube" ? (
+            <div className="row wrap">
+              <button className="btn big" data-primary={hasVideos ? true : undefined} disabled={sending || uploading || uploadedCount !== 1 || space.data?.fits === false} onClick={send} data-dump-button>
+                {sending ? "Sending…" : "Dump 1 full video"}
+              </button>
+              <span className="hint">{uploadedCount > 1 ? "A full video is one video. Remove the others, or dump them as new videos." : "No cutting, no vertical crop: we draft the title, description, chapters, tags and three thumbnails. We'll email you when it's ready to approve."}</span>
+            </div>
+          ) : null}
+
+          {editable && door !== "youtube" ? (
             <>
               <div className="field">
                 <label htmlFor="notes">Notes for this dump</label>
@@ -395,7 +425,7 @@ export function Dump() {
                   <Link key={d.id} to={d.status === "ready" ? "/review" : `/dump/${d.id}`} className="list-row">
                     <div className="grow">
                       <div className="title">
-                        {fmtDate(d.created_at)} · {d.door === "new" ? "New videos" : "Old posts"} · {plural(d.files, "video")}
+                        {fmtDate(d.created_at)} · {d.door === "new" ? "New videos" : d.door === "youtube" ? "Full video for YouTube" : "Old posts"} · {plural(d.files, "video")}
                       </div>
                       <div className="meta">{d.clips_made ? `${plural(d.clips_made, "clip")} made` : d.status === "cutting" && d.progress ? `${d.progress.step}…` : ""}</div>
                     </div>
@@ -415,7 +445,7 @@ export function Dump() {
   );
 }
 
-function AssetLine({ asset, door, dumpId, editable, onRemove, onSaved }: { asset: AssetRow; door: Door; dumpId: string; editable: boolean; onRemove: () => void; onSaved: () => void }) {
+function AssetLine({ asset, door, dumpId, editable, onRemove, onSaved }: { asset: AssetRow; door: "new" | "recycle"; dumpId: string; editable: boolean; onRemove: () => void; onSaved: () => void }) {
   const [open, setOpen] = useState(false);
   const [platform, setPlatform] = useState(asset.original_platform ?? "");
   const [posted, setPosted] = useState(asset.original_posted_at?.slice(0, 10) ?? "");

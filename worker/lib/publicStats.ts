@@ -17,6 +17,7 @@ import { readInstagramPublic, type InstagramPublicVia, type InstagramWall } from
 import { getBuffer, type BufferChannel } from "../services/buffer";
 import { recentAverageViews } from "../domain/tiktokImport";
 import { upsertVideos, updateLearnedSlots } from "../jobs/metrics";
+import { matchHandoffs } from "./fullVideo";
 
 export const YT_HEALTH = "YouTube stats";
 export const IG_HEALTH = "Instagram stats";
@@ -173,6 +174,8 @@ export async function refreshYouTubePublic(env: Env): Promise<YouTubePublicSetti
       .bind(newId("acs"), nowIso(), ch.subscribers, recentAverageViews(videos.map((v) => ({ posted_at: v.published_at, views: v.views }))))
       .run();
     if (videos.length) await updateLearnedSlots(env);
+    // A full video she uploaded herself (Buffer wouldn't take it) is found by its title: marked Posted.
+    if (videos.length) await matchHandoffs(env);
     await recordEvent(env.DB, "stats.youtube.public", null, { videos: videos.length });
     return done({ state: "ok", checked_at: nowIso(), subscribers: ch.subscribers, views: ch.views, videos: ch.videos, read: videos.length }, "green", `Public numbers · ${ch.subscribers.toLocaleString()} subscribers · ${ch.videos.toLocaleString()} videos`);
   } catch (e) {

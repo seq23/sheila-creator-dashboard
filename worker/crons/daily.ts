@@ -9,11 +9,14 @@ import { readSettings } from "../routes/settings";
 import { emailFrame, sendEmail } from "../services/email";
 import { serviceHealthRows } from "./buffer-sync";
 import { recheckElevenLabs } from "../lib/premiumVoice";
+import { fullVideoRetention } from "../lib/fullVideo";
 import { CLIP_RETENTION_AFTER_POST_DAYS, RAW_RETENTION_DAYS, REJECTED_RETENTION_DAYS, TIME_TO_DUMP_REPEAT_DAYS } from "@shared/constants";
 
 export async function dailyMaintenance(env: Env): Promise<void> {
   await supplyMonitor(env);
   await retention(env);
+  // Full videos for YouTube: gone 7 days after posting, or 14 days unapproved (warned on Home first).
+  await fullVideoRetention(env);
   await storageLight(env);
   // Email + job runner + clip cutting lights exist from the first day, before any hourly run.
   await serviceHealthRows(env);
@@ -103,7 +106,7 @@ async function retention(env: Env) {
 
 async function storageLight(env: Env) {
   const row = await env.DB.prepare(
-    "SELECT (SELECT COALESCE(SUM(size_bytes),0) FROM assets WHERE upload_status = 'uploaded' AND raw_deleted_at IS NULL) + (SELECT COALESCE(SUM(size_bytes),0) FROM brand_docs) AS bytes",
+    "SELECT (SELECT COALESCE(SUM(size_bytes),0) FROM assets WHERE upload_status = 'uploaded' AND raw_deleted_at IS NULL) + (SELECT COALESCE(SUM(size_bytes),0) FROM brand_docs) + (SELECT COALESCE(SUM(json_extract(youtube, '$.size_bytes')),0) FROM clips WHERE full_video = 1 AND file_deleted_at IS NULL AND status != 'deleted') AS bytes",
   ).first<{ bytes: number }>();
   const gb = (row?.bytes ?? 0) / 1024 ** 3;
   const light = gb > 9 ? "red" : gb > 7 ? "yellow" : "green";

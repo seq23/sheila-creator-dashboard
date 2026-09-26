@@ -65,6 +65,14 @@ export function jobStorageScope(type: JobRow["type"], jobId: string, refId: stri
         scope.write.push(`voice/mixed/${refId}`);
       }
       break;
+    case "fullvideo":
+      // The full-video door: its one upload in, the whole-video copy and its thumbnails out
+      // (worker/jobs/fullvideo.ts accepts exactly full/<dumpId>/…).
+      if (refId && /^[A-Za-z0-9_]{1,64}$/.test(refId)) {
+        scope.read.push(`raw/${refId}/`);
+        scope.write.push(`full/${refId}/`);
+      }
+      break;
     default:
       break;
   }

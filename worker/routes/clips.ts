@@ -23,7 +23,7 @@ import type { Env, Vars } from "../env";
 import { requireUser } from "../lib/auth";
 import { getSetting, parseJson, recordEvent } from "../lib/db";
 import { fail, readJson } from "../lib/http";
-import { addDays, nowIso } from "../lib/ids";
+import { addDays, newId, nowIso } from "../lib/ids";
 import { log } from "../lib/log";
 import { canTransition, type ClipStatus } from "../domain/approval";
 import { PLATFORMS, RECIPES, REJECT_REASONS, REJECTED_RETENTION_DAYS, type Platform, type Recipe } from "@shared/constants";
@@ -36,9 +36,25 @@ import { dispatchJob } from "../services/github";
 import { checkEdit, editorName, isHandoffApp, HANDOFF } from "../domain/editors";
 import { editingNote, pollEditorJobs, startHandback } from "../lib/editorJobs";
 import { probeR2 } from "../lib/mp4";
+import { FULL_VIDEO_PRIVACY, cleanTags, cleanTitle, composeDescription, studioLink, DESCRIPTION_MAX, type FullVideoDetails, type FullVideoPrivacy } from "../domain/fullVideo";
 
 export const clips = new Hono<{ Bindings: Env; Variables: Vars }>();
 clips.use("*", requireUser);
+
+// A full video for YouTube is the whole video: it is never cut, restyled, re-rendered, given
+// music or a voice over (validator full-video-uncut). Those buttons don't show on its card; a
+// call that asks anyway gets a plain answer, never a re-render.
+const CUT_ACTIONS = new Set(["look", "music", "another", "replace", "cells", "voice-over"]);
+clips.use("/:id/:action/*", fullVideoGuard);
+clips.use("/:id/:action", fullVideoGuard);
+async function fullVideoGuard(c: Context<{ Bindings: Env; Variables: Vars }>, next: () => Promise<void>) {
+  const action = c.req.param("action");
+  if (action && CUT_ACTIONS.has(action)) {
+    const row = await c.env.DB.prepare("SELECT full_video FROM clips WHERE id = ?").bind(c.req.param("id")).first<{ full_video: number }>();
+    if (row?.full_video) return c.json({ error: "This is your full video for YouTube: it goes up whole, so it isn't cut, restyled or voiced over. Edit its title, description, tags or thumbnail instead.", fix_guide: "review-and-approve-clips" }, 409);
+  }
+  await next();
+}
 
 // ---------------------------------------------------------------- pure rules (unit-tested)
 
@@ -107,10 +123,19 @@ export interface ReviewClip extends ClipRow {
   /** Her voice over's script (Edit the script in Review) and whether it was made automatically. */
   voice_script: string | null;
   voice_auto: boolean;
+  /** The full-video door: its YouTube details, thumbnail links, and where it is (worker/domain/fullVideo.ts). */
+  full_video: FullVideoView | null;
+}
+export interface FullVideoView extends Omit<FullVideoDetails, "thumbnails"> {
+  thumbnails: { url: string; t: number }[];
+  file_deleted: boolean;
+  /** Its YouTube post: planned / in Buffer / posted (with the link) / failed, and YouTube Studio's page for it. */
+  post: { status: string; url: string | null; scheduled_at: string } | null;
+  studio_url: string;
 }
 export interface ReviewGroup {
   /** held_note: "Looks like someone else's video" (worker/domain/sourceCheck.ts), or null. */
-  dump: { id: string; door: "new" | "recycle"; created_at: string; ready_at: string | null; status: string; held_note: string | null };
+  dump: { id: string; door: "new" | "recycle" | "youtube"; created_at: string; ready_at: string | null; status: string; held_note: string | null };
   clips: ReviewClip[];
 }
 export interface ReviewList {
@@ -162,6 +187,10 @@ interface ClipDb {
   pending_music: string | null;
   voice_script: string | null;
   voice_auto: number | null;
+  full_video: number;
+  youtube: string | null;
+  file_deleted_at: string | null;
+  yt_post: string | null;
 }
 
 /** "?v=<file version>.<voice over>": changes when the file is swapped or a voice over is mixed in. */
@@ -212,6 +241,20 @@ function toView(r: ClipDb): ReviewClip {
     pending_music: r.pending_music,
     voice_script: r.voice_script,
     voice_auto: !!r.voice_auto,
+    full_video: r.full_video ? fullVideoView(r) : null,
+  };
+}
+
+function fullVideoView(r: ClipDb): FullVideoView {
+  const d = parseJson<FullVideoDetails | null>(r.youtube, null);
+  const post = parseJson<{ status: string; url: string | null; scheduled_at: string } | null>(r.yt_post, null);
+  const base = d ?? ({ title: r.hook_text, description: r.caption, chapters: [], tags: [], thumbnails: [], thumb_pick: 0, privacy: "public", width: 0, height: 0, duration_s: r.end_s, size_bytes: 0, studio_done_at: null, handoff: false } as FullVideoDetails);
+  return {
+    ...base,
+    thumbnails: base.thumbnails.map((t, i) => ({ url: r.media_token ? `/media/${r.media_token}?thumb=${i + 1}` : "", t: t.t })),
+    file_deleted: !!r.file_deleted_at,
+    post,
+    studio_url: studioLink(post?.url ?? null),
   };
 }
 
@@ -224,7 +267,10 @@ const CLIP_SELECT = `SELECT c.id, c.asset_id, c.dump_id, c.start_s, c.end_s, c.r
   (SELECT n.mix_status FROM narrations n WHERE n.clip_id = c.id AND n.mix_status IS NOT NULL ORDER BY n.created_at DESC LIMIT 1) AS voice_mix,
   (SELECT n.id FROM narrations n WHERE n.clip_id = c.id AND n.mix_status IS NOT NULL ORDER BY n.created_at DESC LIMIT 1) AS voice_nid,
   (SELECT n.script FROM narrations n WHERE n.clip_id = c.id AND n.mix_status IS NOT NULL ORDER BY n.created_at DESC LIMIT 1) AS voice_script,
-  (SELECT n.auto FROM narrations n WHERE n.clip_id = c.id AND n.mix_status IS NOT NULL ORDER BY n.created_at DESC LIMIT 1) AS voice_auto, d.door, d.created_at AS dump_created_at, d.ready_at AS dump_ready_at, d.status AS dump_status
+  (SELECT n.auto FROM narrations n WHERE n.clip_id = c.id AND n.mix_status IS NOT NULL ORDER BY n.created_at DESC LIMIT 1) AS voice_auto,
+  c.full_video, c.youtube, c.file_deleted_at,
+  (SELECT json_object('status', p.status, 'url', p.url, 'scheduled_at', p.scheduled_at) FROM posts p WHERE p.clip_id = c.id AND c.full_video = 1 ORDER BY p.created_at DESC LIMIT 1) AS yt_post,
+  CASE WHEN d.kind = 'full_video' THEN 'youtube' ELSE d.door END AS door, d.created_at AS dump_created_at, d.ready_at AS dump_ready_at, d.status AS dump_status
   FROM clips c JOIN assets a ON a.id = c.asset_id JOIN dumps d ON d.id = c.dump_id`;
 
 clips.get("/", async (c) => {
@@ -452,6 +498,89 @@ clips.patch("/:id", async (c) => {
   log.info("clip.edit", { fields: fields.length });
   const row = await c.env.DB.prepare(`${CLIP_SELECT} WHERE c.id = ?`).bind(id).first<ClipDb>();
   return c.json(row ? toView(row) : { ok: true });
+});
+
+// ---------------------------------------------------------------- a full video for YouTube
+
+async function fullRow(env: Env, id: string) {
+  return env.DB.prepare("SELECT id, status, youtube, full_video FROM clips WHERE id = ?").bind(id).first<{ id: string; status: ClipStatus; youtube: string | null; full_video: number }>();
+}
+
+/**
+ * Her edits to a full video: title, description body, tags, which of the three thumbnails, and
+ * the privacy (Public / Unlisted / Private; Buffer sends it to YouTube). The description YouTube
+ * gets is rebuilt with the chapters and hashtags (composeDescription).
+ */
+clips.patch("/:id/youtube", async (c) => {
+  const id = c.req.param("id");
+  const body = await readJson<{ title?: string; description?: string; tags?: unknown; thumb_pick?: number; privacy?: string; chapters?: unknown }>(c);
+  const row = await fullRow(c.env, id);
+  if (!row || row.status === "deleted" || !row.full_video) return fail(c, 404, "That video is gone.");
+  if (await lockedByBuffer(c.env, id)) return fail(c, 409, "This video is already loaded into Buffer. Remove it from the Calendar first, then edit.", "move-or-remove-a-post");
+  const d = parseJson<FullVideoDetails | null>(row.youtube, null);
+  if (!d) return fail(c, 404, "That video is gone.");
+  if (body?.title !== undefined) {
+    if (!String(body.title).trim()) return fail(c, 422, "The title can't be empty.", "review-and-approve-clips");
+    d.title = cleanTitle(body.title, d.title);
+  }
+  if (body?.description !== undefined) d.description = String(body.description).slice(0, DESCRIPTION_MAX - 1500);
+  if (body?.tags !== undefined) d.tags = cleanTags(body.tags);
+  if (body?.thumb_pick !== undefined) {
+    const n = Number(body.thumb_pick);
+    if (!Number.isInteger(n) || n < 0 || n >= d.thumbnails.length) return fail(c, 422, "Pick one of the three thumbnails.");
+    d.thumb_pick = n;
+  }
+  if (body?.privacy !== undefined) {
+    if (!(FULL_VIDEO_PRIVACY as readonly string[]).includes(String(body.privacy))) return fail(c, 422, "Pick Public, Unlisted or Private.");
+    d.privacy = body.privacy as FullVideoPrivacy;
+  }
+  if (Array.isArray(body?.chapters)) {
+    d.chapters = (body!.chapters as { t?: unknown; title?: unknown }[])
+      .map((x) => ({ t: Math.max(0, Math.floor(Number(x.t) || 0)), title: String(x.title ?? "").replace(/\s+/g, " ").trim().slice(0, 80) }))
+      .filter((x) => x.title)
+      .sort((a, b) => a.t - b.t)
+      .slice(0, 30);
+  }
+  const cover = d.thumbnails[d.thumb_pick]?.key ?? null;
+  await c.env.DB.prepare("UPDATE clips SET youtube = ?, hook_text = ?, caption = ?, cover_r2_key = COALESCE(?, cover_r2_key) WHERE id = ?")
+    .bind(JSON.stringify(d), d.title, composeDescription(d.description, d.chapters, d.tags), cover, id)
+    .run();
+  await recordEvent(c.env.DB, "fullvideo.edited", id, { fields: Object.keys(body ?? {}) }, c.get("user").email);
+  const r = await c.env.DB.prepare(`${CLIP_SELECT} WHERE c.id = ?`).bind(id).first<ClipDb>();
+  return c.json(r ? toView(r) : { ok: true });
+});
+
+/** "Finish in YouTube Studio": she set the thumbnail and tags there (Buffer can't); the Home card goes away. */
+clips.post("/:id/youtube/studio-done", async (c) => {
+  const id = c.req.param("id");
+  const row = await fullRow(c.env, id);
+  if (!row?.full_video) return fail(c, 404, "That video is gone.");
+  const d = parseJson<FullVideoDetails>(row.youtube, {} as FullVideoDetails);
+  d.studio_done_at = nowIso();
+  await c.env.DB.prepare("UPDATE clips SET youtube = ? WHERE id = ?").bind(JSON.stringify(d), id).run();
+  await recordEvent(c.env.DB, "fullvideo.studio_done", id, {}, c.get("user").email);
+  return c.json({ ok: true });
+});
+
+/**
+ * The last resort, when Buffer won't take it: she uploads it herself ("Download for YouTube",
+ * then YouTube Studio) and pastes the link here; without a link, the daily public-stats read
+ * finds it by its title and marks it posted.
+ */
+clips.post("/:id/youtube/posted", async (c) => {
+  const id = c.req.param("id");
+  const body = await readJson<{ url?: string }>(c);
+  const url = String(body?.url ?? "").trim();
+  const vid = url.match(/(?:v=|youtu\.be\/|shorts\/|studio\.youtube\.com\/video\/)([\w-]{11})/)?.[1];
+  if (!vid) return fail(c, 422, "Paste the video's YouTube link (it has watch?v= or youtu.be in it).", "move-or-remove-a-post");
+  const row = await fullRow(c.env, id);
+  if (!row?.full_video) return fail(c, 404, "That video is gone.");
+  const link = `https://www.youtube.com/watch?v=${vid}`;
+  const post = await c.env.DB.prepare("SELECT id FROM posts WHERE clip_id = ? AND platform = 'youtube' ORDER BY created_at DESC LIMIT 1").bind(id).first<{ id: string }>();
+  if (post) await c.env.DB.prepare("UPDATE posts SET status = 'posted', url = ?, posted_at = ?, error = NULL WHERE id = ?").bind(link, nowIso(), post.id).run();
+  else await c.env.DB.prepare("INSERT INTO posts (id, clip_id, platform, scheduled_at, status, url, posted_at) VALUES (?, ?, 'youtube', ?, 'posted', ?, ?)").bind(newId("pst"), id, nowIso(), link, nowIso()).run();
+  await recordEvent(c.env.DB, "fullvideo.posted_by_hand", id, {}, c.get("user").email);
+  return c.json({ ok: true, url: link });
 });
 
 // ---------------------------------------------------------------- Change look (re-render one clip)

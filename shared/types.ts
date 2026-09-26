@@ -40,11 +40,23 @@ export interface HomeSummary {
   recentDumps: DumpSummary[];
   /** Home's quiet "Your voice" card (worker/domain/voiceEngine.ts homeVoiceCard). */
   voice: { state: "not_set_up" | "built_in_ready" | "premium_on" | "problem"; line: string; link: { to: string; label: string } };
+  /** Full videos for YouTube that need her: Finish in YouTube Studio, Upload it yourself, or removed soon. */
+  youtube: {
+    kind: "finish_in_studio" | "upload_yourself" | "removal_soon";
+    clip_id: string;
+    title: string;
+    thumbnail_url: string | null;
+    tags: string[];
+    studio_url: string;
+    download_url: string | null;
+    delete_on: string | null;
+  }[];
 }
 
 export interface DumpSummary {
   id: string;
-  door: "new" | "recycle";
+  /** Which door: new videos, old posts, or "youtube" (a full video for YouTube: dumps.kind = 'full_video'). */
+  door: "new" | "recycle" | "youtube";
   notes: string;
   status: "uploading" | "queued" | "cutting" | "ready" | "reviewed" | "failed";
   files: number;
@@ -100,7 +112,7 @@ export interface ClipRow {
   media_url: string;
   cover_url: string | null;
   source_file: string;
-  door: "new" | "recycle";
+  door: "new" | "recycle" | "youtube";
 }
 
 export interface PostRow {
@@ -247,7 +259,7 @@ export interface HelpGuideMeta {
 
 export interface JobRow {
   id: string;
-  type: "cut" | "extract" | "research" | "brand_finder" | "voice" | "help_screenshots" | "metrics";
+  type: "cut" | "extract" | "research" | "brand_finder" | "voice" | "help_screenshots" | "metrics" | "fullvideo";
   status: "queued" | "dispatched" | "running" | "done" | "failed";
   ref_id: string | null;
   safe_error: string | null;

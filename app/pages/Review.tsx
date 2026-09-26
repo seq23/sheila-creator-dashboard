@@ -14,6 +14,7 @@ import { HeldNotice } from "../components/HeldNotice";
 import { LookModal } from "../components/LookPicker";
 import { HandoffModal } from "../components/HandoffModal";
 import { maxWords } from "@shared/autoVoice";
+import { FullVideoBody, type FullVideo } from "../components/FullVideoCard";
 import "../styles/review.css";
 
 type Tab = "new" | "approved" | "rejected";
@@ -38,10 +39,12 @@ export interface ReviewClip extends ClipRow {
   /** The words of that voice over (Redo opens them to edit), and whether it was made automatically. */
   voice_script: string | null;
   voice_auto: boolean;
+  /** A full video for YouTube (the third door): never cut; its own card body. */
+  full_video: FullVideo | null;
 }
 interface ReviewGroup {
   /** held_note: "Looks like someone else's video" (worker/domain/sourceCheck.ts), or null. */
-  dump: { id: string; door: "new" | "recycle"; created_at: string; ready_at: string | null; status: string; held_note: string | null };
+  dump: { id: string; door: "new" | "recycle" | "youtube"; created_at: string; ready_at: string | null; status: string; held_note: string | null };
   clips: ReviewClip[];
 }
 interface ReviewList {
@@ -233,7 +236,7 @@ export function Review() {
       {list.data?.groups.map((g) => (
         <section key={g.dump.id} className="review-group" data-dump-id={g.dump.id} aria-label={`Dump from ${fmtDate(g.dump.created_at)}`}>
           <h2 className="review-group-head">
-            Dump: {fmtDate(g.dump.created_at)} · {g.dump.door === "new" ? "New videos" : "Old posts"} <span className="hint">· {plural(g.clips.length, "clip")} · best first</span>
+            Dump: {fmtDate(g.dump.created_at)} · {g.dump.door === "new" ? "New videos" : g.dump.door === "youtube" ? "Full video for YouTube" : "Old posts"} <span className="hint">· {plural(g.clips.length, "clip")} · best first</span>
           </h2>
           {g.dump.held_note ? <HeldNotice dumpId={g.dump.id} note={g.dump.held_note} onDone={list.reload} /> : null}
           <div className="review-grid">
@@ -268,6 +271,7 @@ export function Review() {
                 }
                 onDelete={() => setDeleting(c)}
                 onPlatform={(p) => togglePlatform(c, p)}
+                onFullChanged={(u) => (u && typeof u === "object" && "id" in u ? replaceClip(u as ReviewClip) : list.reload())}
               />
             ))}
           </div>
@@ -411,9 +415,11 @@ function ClipCard(props: {
   onVoiceRemove: () => void;
   onDelete: () => void;
   onPlatform: (p: Platform) => void;
+  onFullChanged: (u: unknown) => void;
 }) {
   const { clip: c, tab, busy } = props;
   const seconds = c.end_s - c.start_s;
+  if (c.full_video) return <FullVideoCardShell {...props} />;
   return (
     <article className={`clip-card${props.selected ? " selected" : ""}${c.hidden ? " is-hidden" : ""}`} data-clip-id={c.id} aria-label={`Clip: ${c.hook_text}`}>
       <div className="clip-media">
@@ -553,6 +559,57 @@ function ClipCard(props: {
           ) : null}
           <button className="link-btn danger-text" onClick={props.onDelete}>
             Delete this clip
+          </button>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+/** A full video for YouTube: 16:9 player, its YouTube details, Approve / Reject / Delete. */
+function FullVideoCardShell(props: Parameters<typeof ClipCard>[0]) {
+  const { clip: c, tab, busy } = props;
+  const v = c.full_video!;
+  return (
+    <article className={`clip-card full${props.selected ? " selected" : ""}`} data-clip-id={c.id} aria-label={`Full video: ${v.title}`}>
+      <div className="clip-media wide" style={v.width && v.height ? { aspectRatio: `${v.width} / ${v.height}` } : undefined}>
+        {c.media_url && !v.file_deleted ? <video src={c.media_url} poster={v.thumbnails[v.thumb_pick]?.url || undefined} controls playsInline preload="none" aria-label="Play this video" /> : <div className="clip-gone">File removed</div>}
+        <label className="clip-select">
+          <input type="checkbox" checked={props.selected} onChange={props.onSelect} aria-label="Select this video" />
+        </label>
+      </div>
+      <div className="clip-body">
+        <FullVideoBody clip={c} tab={tab} busy={busy} onChanged={props.onFullChanged} />
+        <div className="clip-actions">
+          {tab === "new" ? (
+            <>
+              <button className="btn quiet" disabled={busy} onClick={props.onReject}>
+                Reject
+              </button>
+              <button className="btn" disabled={busy} onClick={props.onApprove}>
+                Approve
+              </button>
+            </>
+          ) : (
+            <>
+              <button className="btn quiet" disabled={busy || v.post?.status === "posted"} onClick={props.onRestore}>
+                Back to New
+              </button>
+              {tab === "approved" ? (
+                <button className="btn quiet" disabled={busy || v.post?.status === "posted"} onClick={props.onReject}>
+                  Reject
+                </button>
+              ) : (
+                <button className="btn" disabled={busy} onClick={props.onApprove}>
+                  Approve
+                </button>
+              )}
+            </>
+          )}
+        </div>
+        <div className="clip-links">
+          <button className="link-btn danger-text" onClick={props.onDelete}>
+            Delete this video
           </button>
         </div>
       </div>

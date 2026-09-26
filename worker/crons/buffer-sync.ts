@@ -137,6 +137,29 @@ async function connectionNeedsYouEmail(env: Env, name: string) {
 
 // ---------------------------------------------------------------- the run
 
+/** A full video's post: its title and the privacy she picked (the description is its caption). */
+function fullVideoArgs(row: { full_video: number; youtube: string | null }): { privacy?: "public" | "unlisted" | "private" } {
+  if (!row.full_video) return {};
+  const d = parseJson<{ privacy?: "public" | "unlisted" | "private" } | null>(row.youtube, null);
+  return { privacy: d?.privacy ?? "public" };
+}
+
+/**
+ * Buffer would not take a full video (too big or too long for it, or refused): the last resort is
+ * hers to do in two taps. Home shows "Download for YouTube" and YouTube Studio's upload page; the
+ * daily public-stats read (or the link she pastes) marks it posted. No Google sign-in is needed.
+ */
+export async function fullVideoHandoff(env: Env, clipId: string): Promise<void> {
+  const row = await env.DB.prepare("SELECT youtube FROM clips WHERE id = ? AND full_video = 1").bind(clipId).first<{ youtube: string | null }>();
+  if (!row) return;
+  const d = parseJson<Record<string, unknown>>(row.youtube, {});
+  if (d.handoff) return;
+  d.handoff = true;
+  await env.DB.prepare("UPDATE clips SET youtube = ? WHERE id = ?").bind(JSON.stringify(d), clipId).run();
+  await recordEvent(env.DB, "fullvideo.handoff", clipId, {});
+  log.info("fullvideo.handoff", {});
+}
+
 export async function bufferSync(env: Env, opts: { force?: boolean } = {}): Promise<void> {
   // Requests actually sent (checkKey is two: account + channels), not client method calls: the
   // log undercounted by one per check until the Phase 0 live test (25 Sep 2026).
@@ -164,9 +187,9 @@ export async function bufferSync(env: Env, opts: { force?: boolean } = {}): Prom
   const used = queueUsed(local, buf.remoteQueue);
   const { results: plannedRows } = await env.DB.prepare(
     `SELECT p.id, p.platform, p.scheduled_at, p.retries, c.id AS clip_id, c.caption, c.hashtags, c.media_token, c.hook_text,
-            (SELECT COUNT(*) FROM narrations n WHERE n.clip_id = c.id AND n.mix_status = 'ready' AND n.ai_generated = 1) AS ai_voice
+            (SELECT COUNT(*) FROM narrations n WHERE n.clip_id = c.id AND n.mix_status = 'ready' AND n.ai_generated = 1) AS ai_voice, c.full_video, c.youtube
      FROM posts p JOIN clips c ON c.id = p.clip_id WHERE p.status = 'planned' AND ${POSTABLE_CLIP_SQL}`,
-  ).all<{ id: string; platform: Platform; scheduled_at: string; retries: number; clip_id: string; caption: string; hashtags: string; media_token: string | null; hook_text: string; ai_voice: number }>();
+  ).all<{ id: string; platform: Platform; scheduled_at: string; retries: number; clip_id: string; caption: string; hashtags: string; media_token: string | null; hook_text: string; ai_voice: number; full_video: number; youtube: string | null }>();
   const loadPlan = choosePostsToLoad(plannedRows, used, ready, now);
   const byId = new Map(plannedRows.map((r) => [r.id, r]));
   let loaded = 0;
@@ -180,7 +203,7 @@ export async function bufferSync(env: Env, opts: { force?: boolean } = {}): Prom
       token = (await env.DB.prepare("SELECT media_token FROM clips WHERE id = ?").bind(row.clip_id).first<{ media_token: string }>())?.media_token ?? token;
     }
     const text = [row.caption, row.hashtags].filter((x) => x && x.trim()).join("\n\n");
-    const r = await client.createPost({ channelId: buf.channels[row.platform]!.id, platform: row.platform, title: row.hook_text, text, mediaUrl: `${env.PUBLIC_BASE_URL}/media/${token}`, scheduledAt: bufferDueAt(row.scheduled_at, now), aiGenerated: row.ai_voice > 0 });
+    const r = await client.createPost({ channelId: buf.channels[row.platform]!.id, platform: row.platform, title: row.hook_text, text, mediaUrl: `${env.PUBLIC_BASE_URL}/media/${token}`, scheduledAt: bufferDueAt(row.scheduled_at, now), aiGenerated: row.ai_voice > 0, ...fullVideoArgs(row) });
     if (r.ok && r.id) {
       await env.DB.prepare("UPDATE posts SET status = 'in_buffer', buffer_post_id = ?, error = NULL WHERE id = ?").bind(r.id, row.id).run();
       loaded++;
@@ -190,14 +213,15 @@ export async function bufferSync(env: Env, opts: { force?: boolean } = {}): Prom
     const d = createFailureDecision(row.retries, await alreadyEmailed(env, "posting_problem", row.id));
     await env.DB.prepare("UPDATE posts SET status = ?, retries = ?, error = ? WHERE id = ?").bind(d.status, d.retries, r.error, row.id).run();
     if (d.email) await postingProblemEmail(env, { id: row.id, platform: row.platform, scheduled_at: row.scheduled_at, hook_text: row.hook_text, error: r.error });
+    if (row.full_video && d.status === "failed") await fullVideoHandoff(env, row.clip_id);
   }
 
   // 4. read back posts whose time has come
   const { results: waiting } = await env.DB.prepare(
-    `SELECT p.id, p.platform, p.scheduled_at, p.retries, p.buffer_post_id, c.caption, c.hashtags, c.media_token, c.hook_text,
-            (SELECT COUNT(*) FROM narrations n WHERE n.clip_id = c.id AND n.mix_status = 'ready' AND n.ai_generated = 1) AS ai_voice
+    `SELECT p.id, p.platform, p.scheduled_at, p.retries, p.buffer_post_id, c.id AS clip_id, c.caption, c.hashtags, c.media_token, c.hook_text,
+            (SELECT COUNT(*) FROM narrations n WHERE n.clip_id = c.id AND n.mix_status = 'ready' AND n.ai_generated = 1) AS ai_voice, c.full_video, c.youtube
      FROM posts p JOIN clips c ON c.id = p.clip_id WHERE p.status = 'in_buffer'`,
-  ).all<{ id: string; platform: Platform; scheduled_at: string; retries: number; buffer_post_id: string | null; caption: string; hashtags: string; media_token: string | null; hook_text: string; ai_voice: number }>();
+  ).all<{ id: string; platform: Platform; scheduled_at: string; retries: number; buffer_post_id: string | null; clip_id: string; caption: string; hashtags: string; media_token: string | null; hook_text: string; ai_voice: number; full_video: number; youtube: string | null }>();
   let posted = 0;
   let retried = 0;
   let failed = 0;
@@ -219,7 +243,7 @@ export async function bufferSync(env: Env, opts: { force?: boolean } = {}): Prom
       if (d.next === "retry") {
         retried++;
         const ch = buf.channels[p.platform];
-        const again = ready[p.platform] && ch && p.media_token ? await client.createPost({ channelId: ch.id, platform: p.platform, title: p.hook_text, text: [p.caption, p.hashtags].filter((x) => x && x.trim()).join("\n\n"), mediaUrl: `${env.PUBLIC_BASE_URL}/media/${p.media_token}`, scheduledAt: bufferDueAt(p.scheduled_at, now), aiGenerated: p.ai_voice > 0 }) : null;
+        const again = ready[p.platform] && ch && p.media_token ? await client.createPost({ channelId: ch.id, platform: p.platform, title: p.hook_text, text: [p.caption, p.hashtags].filter((x) => x && x.trim()).join("\n\n"), mediaUrl: `${env.PUBLIC_BASE_URL}/media/${p.media_token}`, scheduledAt: bufferDueAt(p.scheduled_at, now), aiGenerated: p.ai_voice > 0, ...fullVideoArgs(p) }) : null;
         if (again?.ok && again.id) await env.DB.prepare("UPDATE posts SET buffer_post_id = ?, retries = ?, error = ? WHERE id = ?").bind(again.id, d.retries, st.error, p.id).run();
         else await env.DB.prepare("UPDATE posts SET status = 'planned', buffer_post_id = NULL, retries = ?, error = ? WHERE id = ?").bind(d.retries, again?.error ?? st.error, p.id).run();
         continue;
@@ -227,6 +251,7 @@ export async function bufferSync(env: Env, opts: { force?: boolean } = {}): Prom
       failed++;
       await env.DB.prepare("UPDATE posts SET status = 'failed', buffer_post_id = NULL, error = ? WHERE id = ?").bind(st.error ?? "The post did not go out.", p.id).run();
       await recordEvent(env.DB, "post.failed", p.id, { platform: p.platform });
+      if (p.full_video) await fullVideoHandoff(env, p.clip_id);
       if (d.email) await postingProblemEmail(env, { id: p.id, platform: p.platform, scheduled_at: p.scheduled_at, hook_text: p.hook_text, error: st.error });
     }
   }
