@@ -24,6 +24,7 @@ export const REGISTER = {
   "jobs-no-direct-storage": "a job holding storage keys needs an R2 token the owner cannot mint and a public repo can leak; jobs reach storage only through the Worker",
   "jobs-one-openrouter-client": "three hand-rolled OpenRouter clients in jobs each lost the end of a reasoning model's answer (live test 25 Sep 2026); one client in common.py asks again with more room",
   "jobs-registered": "every job type in the schema must have a handler or dispatch silently does nothing",
+  "legal-pages": "Google will not publish the Connect YouTube sign-in without a public privacy policy and terms linked from every screen; a path the React app answers shows the login page to Google's reviewers (owner, 26 Sep 2026: full videos straight to her channel)",
   "lists-paged": "on day 358 Review drew 329 video players and Dump and Voice overs cut their lists at 30 without saying so: every long list pages with a true total (owner, 26 Sep 2026)",
   "looks": "a Look without a description, a preview picture or test coverage is an option she picks blind, or one nothing proves renders (owner, 25 Sep 2026: clips must vary)",
   "mediakit-deals": "a kit figure without its as-of date and source tells a brand something unverifiable; an email scenario without a template or a test, a benchmark without a source, or an undocumented marketplace is a made-up claim",

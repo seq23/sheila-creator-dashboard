@@ -39,6 +39,18 @@ export interface ShellCounts {
   followups: number;
 }
 
+/** Privacy and Terms (public pages served by the Worker, worker/routes/legal.ts), in the footer of
+ *  every screen: the desktop sidebar's foot, the phone Menu sheet, the login card. Plain links, not
+ *  router links: the pages are not part of the app. Validator legal-pages checks all three. */
+export function LegalLinks() {
+  return (
+    <footer className="legal-links" aria-label="Privacy and terms">
+      <a href="/privacy">Privacy</a>
+      <a href="/terms">Terms</a>
+    </footer>
+  );
+}
+
 export function Shell() {
   const { me, counts, health } = useApp();
   const loc = useLocation();
@@ -98,6 +110,7 @@ export function Shell() {
           <div className="who" title={me?.email}>
             {me?.email}
           </div>
+          <LegalLinks />
         </div>
       </aside>
       <main className="main" id="main">
@@ -107,6 +120,7 @@ export function Shell() {
       {menuOpen ? <button type="button" className="more-back" aria-label="Close the menu" onClick={() => setMenuOpen(false)} /> : null}
       <div className="more-sheet" id="more-sheet" hidden={!menuOpen}>
         <nav aria-label="More screens">{menuItems.map(link)}</nav>
+        <LegalLinks />
       </div>
       <nav className="tabbar" aria-label="Main">
         {items.filter((n) => TABS.includes(n.to)).map(link)}

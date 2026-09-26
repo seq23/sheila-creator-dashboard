@@ -27,6 +27,7 @@ import { editing } from "./routes/editing";
 import { archive } from "./routes/archive";
 import { publicRoutes } from "./routes/public";
 import { kitPage } from "./routes/kitpage";
+import { legal } from "./routes/legal";
 import { runCron } from "./crons/index";
 
 const app = new Hono<{ Bindings: Env; Variables: Vars }>();
@@ -66,6 +67,7 @@ app.route("/api/oauth", oauth);
 app.route("/api/editing", editing);
 app.route("/api/archive", archive);
 app.route("/kit", kitPage);
+app.route("/", legal);
 
 app.notFound((c) => {
   if (c.req.path.startsWith("/api/")) return c.json({ error: "Not found." }, 404);

@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { post } from "../lib/api";
 import { useApp } from "../state";
 import { useToast } from "../components/ui";
+import { LegalLinks } from "../components/Shell";
 
 export function Login() {
   const { refreshMe } = useApp();
@@ -80,6 +81,7 @@ export function Login() {
             </button>
           </form>
         )}
+        <LegalLinks />
       </div>
     </div>
   );
