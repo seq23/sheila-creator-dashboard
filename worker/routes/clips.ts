@@ -68,7 +68,8 @@ export interface ReviewClip extends ClipRow {
   purge_at: string | null;
 }
 export interface ReviewGroup {
-  dump: { id: string; door: "new" | "recycle"; created_at: string; ready_at: string | null; status: string };
+  /** held_note: "Looks like someone else's video" (worker/domain/sourceCheck.ts), or null. */
+  dump: { id: string; door: "new" | "recycle"; created_at: string; ready_at: string | null; status: string; held_note: string | null };
   clips: ReviewClip[];
 }
 export interface ReviewList {
@@ -103,6 +104,8 @@ interface ClipDb {
   dump_created_at: string;
   dump_ready_at: string | null;
   dump_status: string;
+  source_owner: string | null;
+  source_note: string | null;
 }
 
 function toView(r: ClipDb): ReviewClip {
@@ -135,7 +138,7 @@ function toView(r: ClipDb): ReviewClip {
 
 const CLIP_SELECT = `SELECT c.id, c.asset_id, c.dump_id, c.start_s, c.end_s, c.recipe, c.hook_text, c.hook_alt, c.caption, c.hashtags,
   c.platforms, c.score, c.status, c.reject_reason, c.paid_partnership, c.hidden, c.created_at, c.reviewed_at, c.media_token, c.cover_r2_key,
-  a.file_name AS source_file, d.door, d.created_at AS dump_created_at, d.ready_at AS dump_ready_at, d.status AS dump_status
+  a.file_name AS source_file, a.source_owner, a.source_note, d.door, d.created_at AS dump_created_at, d.ready_at AS dump_ready_at, d.status AS dump_status
   FROM clips c JOIN assets a ON a.id = c.asset_id JOIN dumps d ON d.id = c.dump_id`;
 
 clips.get("/", async (c) => {
@@ -172,10 +175,11 @@ clips.get("/", async (c) => {
   for (const r of results) {
     let g = byDump.get(r.dump_id);
     if (!g) {
-      g = { dump: { id: r.dump_id, door: r.door, created_at: r.dump_created_at, ready_at: r.dump_ready_at, status: r.dump_status }, clips: [] };
+      g = { dump: { id: r.dump_id, door: r.door, created_at: r.dump_created_at, ready_at: r.dump_ready_at, status: r.dump_status, held_note: null }, clips: [] };
       byDump.set(r.dump_id, g);
       groups.push(g);
     }
+    if (r.source_owner === "other" && !g.dump.held_note) g.dump.held_note = r.source_note;
     g.clips.push(toView(r));
   }
 
