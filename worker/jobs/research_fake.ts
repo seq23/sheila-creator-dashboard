@@ -5,12 +5,11 @@
 // claims without evidence are marked uncertain, exactly as a real brief must.
 import { LAUNCH_SLOTS, PLATFORMS, PLATFORM_LABEL, type Platform } from "@shared/constants";
 import type { BriefBody, BriefSource, Claim } from "@shared/types";
-import { BASELINE_SOURCES, WEB_SKIPPED_SOURCE_ID } from "../domain/brief";
+import { BASELINE_SOURCES } from "../domain/brief";
 
 export interface FakeBriefInput {
   stats: Partial<Record<Platform, { videos: number }>>;
   uploads: { id: string; title: string }[];
-  webSkipped: boolean;
 }
 
 const DAY = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -23,7 +22,6 @@ export function buildFakeBrief(input: FakeBriefInput): { body: BriefBody; source
     if (s && s.videos > 0) sources.push({ id: `her_${p}`, url: null, title: `Your ${PLATFORM_LABEL[p]} results (${s.videos} videos)`, kind: "her_data" });
   }
   for (const u of input.uploads) sources.push({ id: `up_${u.id}`, url: null, title: u.title, kind: "upload" });
-  if (input.webSkipped) sources.push({ id: WEB_SKIPPED_SOURCE_ID, url: null, title: "Web search was skipped: Firecrawl is not connected", kind: "web" });
 
   const solid = (text: string, source_ids: string[], basis: Claim["basis"]): Claim => ({ text, source_ids, basis, confidence: "solid" });
   const unsure = (text: string, source_ids: string[], basis: Claim["basis"]): Claim => ({ text, source_ids, basis, confidence: "uncertain" });

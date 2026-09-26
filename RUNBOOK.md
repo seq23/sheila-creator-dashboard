@@ -81,6 +81,7 @@ curl -X POST http://localhost:8787/api/jobs/<job_id>/run-fake -H 'Cookie: ss_ses
 | `0 * * * *` (same run) | brief draft notice | emails "New brief draft ready" once, when a draft newer than the approved brief lands |
 | `30 13 * * *` (same run) | monthly brief refresh | on the 1st (retries the 2nd, 3rd) starts the research job for a new draft; the approved brief stays live, nothing waits for approval |
 | `0 12 * * 1` | weekly | recap email, metrics + brand-finder jobs |
+| `30 13 * * *` (same run) | daily brand refresh | a light brand-finder run (mode `daily`, 8 searches, one source group per day) unless one ran in the last 20 hours; health row `Daily brand refresh` |
 | `0 12 * * 1` (same run) | weekly brief adjustment | rewrites the live brief's `her_week` claims from the last 7 days, stamps `adjusted_at`; never approval, never web claims |
 
 Each lane writes a health row `Last <lane> run`; red = the lane threw, note has the safe error.
@@ -194,6 +195,45 @@ service. Every clip is rendered in a **Look**, a named preset of the built-in ed
   Homebrew `ffmpeg-full`). Validator `looks` (`npm run validate:looks`): every Look has a
   description, a WebP preview, the mirror entry, unit coverage, and each grid a picture in the
   `grid-looks` guide.
+
+## Brand deals and the media kit
+
+How it works, where the rules live, and what to check (review: `docs/reviews/2026-09-25-mediakit-deals.md`;
+the talent-manager view: `docs/reviews/agency-pov.md`).
+
+| Thing | Where |
+| --- | --- |
+| Pipeline stages, next action, follow-ups (day 5, 12, 19, then stop), money strip | `worker/domain/deals.ts` |
+| Email scenarios (18), starter drafts, the AI check (no invented dollar figures, kit link kept) | `worker/domain/emails.ts`, `shared/emailcheck.ts` |
+| Inbound offers: terms, red flags, verdict | `worker/domain/offers.ts` |
+| Rate helper, benchmarks with sources, add-ons, counters, lever scripts | `worker/domain/ratecard.ts` |
+| Prospect ranking (budget signal × fit × reachability) | `worker/domain/prospects.ts` |
+| Marketplaces ("Get listed here"), must match `docs/BRAND-SOURCES.md` | `worker/domain/marketplaces.ts` |
+| Kit content, public view (private rates stripped), Kit check | `worker/domain/kit.ts` |
+| QR code | `worker/domain/qr.ts` |
+| Web search + reading for jobs (Firecrawl optional) | `jobs/common.py` `Web` |
+
+- **The public kit is the newest published version** (`media_kit_versions`); her edits are a draft
+  (`media_kit.draft`) until she taps Publish. Old link names live in `kit_slugs` and forward.
+  Views: `kit_views` (no IP or user agent stored; her Preview and link-preview bots are not counted).
+- **Figures are live from Stats** with their as-of date and source; a figure older than 30 days
+  shows in the Kit check with a one-tap refresh. Numbers she types are marked self-reported.
+- **Benchmarks** (checked 25 Sep 2026): Later's 2026 pricing guide (nano and micro ranges), Collabstr's
+  2026 report (average paid by platform), impact.com and Later on usage and exclusivity, Digiday on
+  payment terms, Socialinsider on TikTok engagement. Re-check them yearly: update `SOURCES` and the
+  ranges in `ratecard.ts`; the unit tests pin the dates.
+- **Web research needs no key.** Without Firecrawl, jobs search DuckDuckGo's HTML page and read pages
+  through the Jina reader (`r.jina.ai`, about 20 a minute, no key); Jina's search needs a key
+  (401 without one, checked 25 Sep 2026) and is used only if `JINA_API_KEY` is set on the runner.
+  A Firecrawl key that is refused or out of credits falls back to the free path and turns the
+  `Brand finder` light yellow with the reason.
+
+```bash
+# the pipeline at a glance
+npx wrangler d1 execute sheila-creator-dashboard-db --remote --command "SELECT stage, COUNT(*) FROM deals GROUP BY stage"
+# kit versions and views
+npx wrangler d1 execute sheila-creator-dashboard-db --remote --command "SELECT version, published_at FROM media_kit_versions ORDER BY version DESC LIMIT 5; SELECT COUNT(*) FROM kit_views"
+```
 
 ## Staging
 

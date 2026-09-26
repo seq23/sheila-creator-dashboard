@@ -7,6 +7,7 @@ import { listHealth, parseJson } from "../lib/db";
 import { runwayWeeks, weeklyNeed } from "../domain/runway";
 import { weekBounds } from "../domain/slotting";
 import { readSettings } from "./settings";
+import { dueDealItems } from "./deals";
 import { PLATFORMS, type Platform } from "@shared/constants";
 import type { DumpSummary, HomeSummary } from "@shared/types";
 import { chooseEngine, homeVoiceCard } from "../domain/voiceEngine";
@@ -37,12 +38,9 @@ home.get("/", async (c) => {
   const briefDraft = await db.prepare("SELECT version FROM research_briefs WHERE status = 'draft' ORDER BY version DESC LIMIT 1").first();
   const profileLocked = await db.prepare("SELECT version FROM brand_profile WHERE locked = 1 LIMIT 1").first();
 
-  const { results: followups } = await db
-    .prepare(
-      "SELECT d.id AS dealId, b.name AS brand, p.next_followup_at AS dueAt FROM deals d JOIN brands b ON b.id = d.brand_id JOIN pitches p ON p.brand_id = d.brand_id WHERE d.stage IN ('sent','replied','negotiating') AND p.next_followup_at IS NOT NULL AND p.next_followup_at <= ? ORDER BY p.next_followup_at LIMIT 5",
-    )
-    .bind(new Date(Date.now() + 2 * 86400_000).toISOString())
-    .all<{ dealId: string; brand: string; dueAt: string }>();
+  // Deal emails due in the next two days (follow-ups, replies, reports, invoices, rebooks): the
+  // same list the Monday recap reads (worker/routes/deals.ts dueDealItems).
+  const followups = (await dueDealItems(c.env, new Date(Date.now() + 2 * 86400_000))).slice(0, 5);
 
   const { results: recent } = await db
     .prepare(

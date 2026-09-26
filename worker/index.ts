@@ -25,6 +25,7 @@ import { media } from "./routes/media";
 import { oauth } from "./routes/oauth";
 import { editing } from "./routes/editing";
 import { publicRoutes } from "./routes/public";
+import { kitPage } from "./routes/kitpage";
 import { runCron } from "./crons/index";
 
 const app = new Hono<{ Bindings: Env; Variables: Vars }>();
@@ -62,6 +63,7 @@ app.route("/api/public", publicRoutes);
 app.route("/media", media);
 app.route("/api/oauth", oauth);
 app.route("/api/editing", editing);
+app.route("/kit", kitPage);
 
 app.notFound((c) => {
   if (c.req.path.startsWith("/api/")) return c.json({ error: "Not found." }, 404);

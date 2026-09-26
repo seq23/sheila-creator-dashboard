@@ -45,7 +45,7 @@ export function allGuides(): { entry: IndexGuide; parsed: ParsedGuide | null }[]
   return INDEX.map((entry) => ({ entry, parsed: guide(entry.slug) }));
 }
 
-/** Bundled URL for a screenshot path like /help/screenshots/send-a-pitch-2.png, or null if not made yet. */
+/** Bundled URL for a screenshot path like /help/screenshots/pitch-a-brand-2.png, or null if not made yet. */
 export function shotUrl(path: string | null, phone = false): string | null {
   if (!path) return null;
   // A Look's own picture (public/looks/<id>.webp, made by the cut self-test): one image for both sizes.

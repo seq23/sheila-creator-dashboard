@@ -22,7 +22,7 @@ type Service = ConnectionView["service"];
 const KEY_SERVICES: { service: Service; title: string; name: string; why: string; steps: string[]; guide: string; optional?: boolean }[] = [
   { service: "buffer", title: "Posting · Buffer", name: "Buffer", why: "Buffer publishes your clips to TikTok, Instagram and YouTube.", steps: ["Open Buffer → Settings → API", "Click Create key, then copy it", "Paste it here"], guide: "connect-buffer" },
   { service: "openrouter", title: "AI · OpenRouter", name: "OpenRouter", why: "Writes captions, hooks, your Research Brief and pitch drafts. Free models by default.", steps: ["Open openrouter.ai → Keys", "Create key, copy it", "Paste it here"], guide: "connect-openrouter" },
-  { service: "firecrawl", title: "Web research · Firecrawl", name: "Firecrawl", why: "Searches the web for your Research Brief and brand finder. 1,000 free credits a month.", steps: ["Open firecrawl.dev → API Keys", "Copy your key", "Paste it here"], guide: "connect-firecrawl" },
+  { service: "firecrawl", title: "Web research · Firecrawl", name: "Firecrawl", why: "Optional, faster web research for your Research Brief and brand finder. 1,000 free credits a month. Without it the dashboard searches the web for free.", steps: ["Open firecrawl.dev → API Keys", "Copy your key", "Paste it here"], guide: "connect-firecrawl" },
   { service: "hunter", title: "Brand deals · Hunter.io", name: "Hunter.io", why: "Finds public partnership emails on brand websites. Free account: 50 lookups a month.", steps: ["Create a free Hunter account", "Open API → copy key", "Paste it here"], guide: "connect-hunter", optional: true },
   {
     service: "elevenlabs",

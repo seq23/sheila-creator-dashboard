@@ -83,11 +83,22 @@ async function retention(env: Env) {
   )
     .bind(postCutoff)
     .all<{ id: string; r2_key: string }>();
+  // Clips in her media kit showcase (the published version or her draft) keep their link: the
+  // kit embeds them through /media/<token>, and clearing it emptied the showcase 30 days after
+  // posting (review K2, docs/reviews/2026-09-25-mediakit-deals.md).
+  const kit = await env.DB.prepare("SELECT draft FROM media_kit WHERE id = 1").first<{ draft: string | null }>();
+  const pub = await env.DB.prepare("SELECT content FROM media_kit_versions ORDER BY version DESC LIMIT 1").first<{ content: string }>();
+  const keep = new Set<string>([...showcaseIds(kit?.draft ?? null), ...showcaseIds(pub?.content ?? null)]);
+  let kept = 0;
   for (const cl of posted) {
-    // keep the file for the media kit / stats; the public media link expires (section 13)
+    if (keep.has(cl.id)) {
+      kept++;
+      continue;
+    }
+    // keep the file for stats; the public media link expires (section 13)
     await env.DB.prepare("UPDATE clips SET media_token = NULL WHERE id = ?").bind(cl.id).run();
   }
-  log.info("retention", { raws: raws.length, rejected: rejected.length, expired_links: posted.length });
+  log.info("retention", { raws: raws.length, rejected: rejected.length, expired_links: posted.length - kept, kit_kept: kept });
 }
 
 async function storageLight(env: Env) {
@@ -97,4 +108,16 @@ async function storageLight(env: Env) {
   const gb = (row?.bytes ?? 0) / 1024 ** 3;
   const light = gb > 9 ? "red" : gb > 7 ? "yellow" : "green";
   await setHealth(env.DB, "Storage", light, `${gb.toFixed(1)} of 10 GB`, light === "green" ? null : "storage-almost-full");
+}
+
+/** Clip ids in a kit's showcase (draft JSON, published content JSON, or a pre-versions kit's featured list). */
+export function showcaseIds(json: string | null): string[] {
+  if (!json) return [];
+  try {
+    const v = JSON.parse(json) as { showcase?: unknown; featured_clip_ids?: unknown };
+    const list = Array.isArray(v.showcase) ? v.showcase : Array.isArray(v.featured_clip_ids) ? v.featured_clip_ids : [];
+    return list.map(String);
+  } catch {
+    return [];
+  }
 }

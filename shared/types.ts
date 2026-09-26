@@ -34,7 +34,8 @@ export interface HomeSummary {
   thisWeek: { posted: number; planned: number; perPlatform: Record<Platform, { posted: number; cap: number }> };
   waiting: { clips: number; dumpsCutting: number; briefNeedsApproval: boolean; profileUnlocked: boolean };
   health: HealthItem[];
-  followups: { dealId: string; brand: string; dueAt: string }[];
+  /** Deal emails due soon (worker/routes/deals.ts dueDealItems): `what` is the next action, e.g. "Send follow-up 2". */
+  followups: { dealId: string; brand: string; dueAt: string; what: string }[];
   recentDumps: DumpSummary[];
   /** Home's quiet "Your voice" card (worker/domain/voiceEngine.ts homeVoiceCard). */
   voice: { state: "not_set_up" | "built_in_ready" | "premium_on" | "problem"; line: string; link: { to: string; label: string } };

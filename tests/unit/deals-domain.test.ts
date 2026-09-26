@@ -5,9 +5,10 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { canMove, followupsDueLine, nextFollowup } from "@worker/domain/deals";
+import { cleanBudget } from "@worker/domain/prospects";
 import { afterFollowupSent, brandKey, clampFit, contactProblem, followupsDone, isRoleEmail, offLimitsTerms, sortContacts, validSentAt, violatesOffLimits } from "@worker/domain/brandfit";
-import { TIKTOK_ONE, tiktokOneEligibility, views30d } from "@worker/domain/marketplace";
-import { compact, parsePitch, starterPitch, type PitchInput } from "@worker/domain/pitch";
+import { MARKETPLACES, TIKTOK_ONE, listingSteps } from "@worker/domain/marketplaces";
+import { compact } from "@worker/domain/emails";
 import { fakeBrands, normaliseBrand } from "@worker/jobs/brand_finder";
 import { toneWav } from "@worker/jobs/voice";
 import { gmailComposeUrl, pitchAsText } from "../../app/lib/gmail";
@@ -16,36 +17,42 @@ import { parseGuide, parseInline, SCREEN_ROUTES } from "../../app/lib/markdown";
 const SENT = "2026-09-01T12:00:00.000Z";
 
 describe("weekly recap: follow-ups due", () => {
-  it("lists every due follow-up as brand (date), earliest first, in her timezone", () => {
+  it("lists every deal email due as brand (what, date), earliest first, in her timezone", () => {
     const line = followupsDueLine(
       [
-        { brand: "Velvet & Vine Wraps", dueAt: "2026-10-02T03:30:00.000Z" }, // 1 Oct, 11:30 pm New York
-        { brand: "Cedar & Salt Kitchen", dueAt: "2026-09-28T12:00:00.000Z" },
+        { brand: "Velvet & Vine Wraps", dueAt: "2026-10-02T03:30:00.000Z", what: "Send follow-up 2" }, // 1 Oct, 11:30 pm New York
+        { brand: "Cedar & Salt Kitchen", dueAt: "2026-09-28T12:00:00.000Z", what: "Send the invoice" },
       ],
       "America/New_York",
     );
-    expect(line).toBe("Follow-ups due: Cedar & Salt Kitchen (Mon, Sep 28), Velvet & Vine Wraps (Thu, Oct 1).");
+    expect(line).toBe("Deal emails due: Cedar & Salt Kitchen (Send the invoice, Mon, Sep 28), Velvet & Vine Wraps (Send follow-up 2, Thu, Oct 1).");
+    expect(followupsDueLine([{ brand: "B", dueAt: "2026-09-28T12:00:00.000Z" }], "UTC")).toBe("Deal emails due: B (Mon, Sep 28).");
   });
   it("is no line at all when nothing is due", () => {
     expect(followupsDueLine([], "America/New_York")).toBeNull();
   });
 });
 
-describe("pitch follow-ups (day 5, then day 12)", () => {
+describe("pitch follow-ups (day 5, day 12, day 19, then stop)", () => {
   it("a fresh send is waiting on the day-5 follow-up", () => {
     expect(followupsDone(SENT, nextFollowup(SENT, 0))).toBe(0);
   });
-  it("sending the day-5 follow-up schedules day 12, then nothing", () => {
+  it("each follow-up sent schedules the next, and the third is the last", () => {
     const d5 = nextFollowup(SENT, 0);
     const d12 = afterFollowupSent(SENT, d5);
     expect(d12).toBe("2026-09-13T12:00:00.000Z");
     expect(followupsDone(SENT, d12)).toBe(1);
-    expect(afterFollowupSent(SENT, d12)).toBeNull();
+    const d19 = afterFollowupSent(SENT, d12);
+    expect(d19).toBe("2026-09-20T12:00:00.000Z");
+    expect(followupsDone(SENT, d19)).toBe(2);
+    expect(afterFollowupSent(SENT, d19)).toBeNull();
+    expect(followupsDone(SENT, null)).toBe(3);
     expect(afterFollowupSent(SENT, null)).toBeNull();
   });
-  it("a hand-moved date before day 12 still counts as the first follow-up", () => {
+  it("a hand-moved date counts as the follow-up whose next day it is still before", () => {
     expect(followupsDone(SENT, "2026-09-08T09:00:00.000Z")).toBe(0);
-    expect(followupsDone(SENT, "2026-09-20T09:00:00.000Z")).toBe(1);
+    expect(followupsDone(SENT, "2026-09-15T09:00:00.000Z")).toBe(1);
+    expect(followupsDone(SENT, "2026-09-25T09:00:00.000Z")).toBe(2);
   });
   it("sent-at must be today or up to 60 days ago, never the future", () => {
     const now = new Date("2026-09-25T12:00:00.000Z");
@@ -55,37 +62,44 @@ describe("pitch follow-ups (day 5, then day 12)", () => {
     expect(validSentAt("2026-07-01T12:00:00.000Z", now)).toBeNull();
     expect(validSentAt("not a date", now)).toBeNull();
   });
-  it("mark sent then replied is a legal walk of the funnel; skipping is not", () => {
-    expect(canMove("drafted", "sent")).toBe(true);
-    expect(canMove("sent", "replied")).toBe(true);
-    expect(canMove("sent", "found")).toBe(false);
-    expect(canMove("replied", "won")).toBe(true);
+  it("sent then replied is a legal walk of the pipeline; skipping is not", () => {
+    expect(canMove("pitch", "follow_up")).toBe(true);
+    expect(canMove("follow_up", "negotiating")).toBe(true);
+    expect(canMove("follow_up", "find_contact")).toBe(false);
+    expect(canMove("follow_up", "agreed")).toBe(false);
   });
 });
 
-describe("TikTok One eligibility", () => {
-  it("needs 10k followers, 1k views in 30 days and 3 recent posts", () => {
-    expect(TIKTOK_ONE).toMatchObject({ minFollowers: 10_000, minViews30d: 1_000, minRecentPosts: 3 });
-    const ok = tiktokOneEligibility({ followers: 10_000, views30d: 1_000, recentPosts: 3 });
-    expect(ok.eligible).toBe(true);
-    expect(ok.summary).toMatch(/You qualify/);
+describe("marketplaces (Get listed here)", () => {
+  it("TikTok One asks for what TikTok's own page says (1,000 followers), with its source", () => {
+    expect(TIKTOK_ONE).toMatchObject({ key: "tiktok-one", minFollowers: 1000, platform: "tiktok" });
+    expect(TIKTOK_ONE.sourceUrl).toBe("https://ads.tiktok.com/help/article/how-creators-can-sign-up-for-tiktok-one");
   });
-  it("one short is not eligible and says which", () => {
-    const r = tiktokOneEligibility({ followers: 9_999, views30d: 50_000, recentPosts: 12 });
-    expect(r.eligible).toBe(false);
-    expect(r.checks.find((c) => c.label === "Followers")!.ok).toBe(false);
-    expect(r.summary).toBe("Not yet: followers 9,999 of 10,000.");
+  it("judges a follower bar only from the official number and her own count for that platform", () => {
+    const steps = listingSteps({ tiktok: 999, instagram: 8200 }, []);
+    const tt = steps.find((x) => x.key === "tiktok-one")!;
+    expect(tt.status).toBe("not_yet");
+    expect(tt.why).toBe("Needs 1,000+ followers; you have 999.");
+    expect(steps.find((x) => x.key === "instagram-creator-marketplace")!.status).toBe("ready");
+    // no official bar: never "not yet", never a guessed threshold
+    expect(steps.find((x) => x.key === "ltk")!.status).toBe("ready");
+    expect(listingSteps({}, []).find((x) => x.key === "tiktok-one")!.status).toBe("unknown");
   });
-  it("no stats at all asks her to connect, never claims eligibility", () => {
-    const r = tiktokOneEligibility({ followers: null, views30d: null, recentPosts: null });
-    expect(r.eligible).toBe(false);
-    expect(r.hasData).toBe(false);
-    expect(r.summary).toMatch(/Connect your TikTok stats/);
+  it("joined ones sink to the bottom; every entry is live and links a source", () => {
+    const steps = listingSteps({ tiktok: 5000 }, ["tiktok-one"]);
+    expect(steps.at(-1)!.key).toBe("tiktok-one");
+    expect(steps.at(-1)!.joined).toBe(true);
+    for (const m of MARKETPLACES) {
+      expect(m.live).toBe("yes");
+      expect(m.sourceUrl).toMatch(/^https:\/\//);
+    }
   });
-  it("30-day views: per-post metrics win, else average × recent posts", () => {
-    expect(views30d([400, 700], 5000, 2)).toBe(1100);
-    expect(views30d([], 300, 4)).toBe(1200);
-    expect(views30d([], null, 4)).toBeNull();
+  it("the list matches docs/BRAND-SOURCES.md: same keys, same live status", () => {
+    const doc = readFileSync(path.resolve("docs/BRAND-SOURCES.md"), "utf8");
+    const rows = [...doc.matchAll(/^\| ([a-z0-9-]+) \| [^|]+ \| (yes|no|unconfirmed) \|/gm)].map((m) => [m[1], m[2]]);
+    expect(rows.length).toBeGreaterThanOrEqual(10);
+    const listed = rows.filter(([, live]) => live === "yes").map(([k]) => k).sort();
+    expect(MARKETPLACES.map((m) => m.key).sort()).toEqual(listed);
   });
 });
 
@@ -108,8 +122,8 @@ describe("off-limits: never suggested", () => {
   });
   it("the fake finder's off-limits brand is caught by the demo profile's list", () => {
     const brands = fakeBrands("Table styling");
-    expect(brands.length).toBeGreaterThanOrEqual(6);
-    expect(brands.length).toBeLessThanOrEqual(8);
+    expect(brands.length).toBeGreaterThanOrEqual(8);
+    expect(brands.length).toBeLessThanOrEqual(12);
     const blocked = brands.filter((b) => violatesOffLimits(b, offLimitsTerms("Alcohol, gambling, diet pills")));
     expect(blocked.map((b) => b.name)).toEqual(["Midnight Spirits Co."]);
   });
@@ -158,49 +172,30 @@ describe("brand matching and the finder result shape", () => {
     expect(b.socials).toEqual({ tiktok: "https://tiktok.com/@b" });
     expect(b.source_links).toEqual(["https://a.b/c"]);
     expect(b.fit_score).toBe(0.91);
+    expect(b.kind).toBe("brand");
+    expect(b.budget).toEqual({ level: "unproven", evidence: [] });
+  });
+  it("a budget claim without a real source link is unproven; why lines need links", () => {
+    expect(cleanBudget({ level: "paying", evidence: [{ text: "#ad post", url: "not a link" }] })).toEqual({ level: "unproven", evidence: [] });
+    expect(cleanBudget({ level: "paying", evidence: [{ text: "#ad post", url: "https://www.tiktok.com/@x/video/1" }] }).level).toBe("paying");
+    expect(cleanBudget({ level: "rich", evidence: [{ text: "x", url: "https://a.b/c" }] }).level).toBe("unproven");
+    const b = normaliseBrand({ name: "B", why: [{ text: "Launching", url: "https://b.example/new" }, { text: "no link" }], kind: "agency" })!;
+    expect(b.why).toEqual([{ text: "Launching", url: "https://b.example/new" }]);
+    expect(b.kind).toBe("agency");
+  });
+  it("every fake finder brand except the unsourced one points at a page for each claim", () => {
+    const brands = fakeBrands("x");
+    for (const b of brands) {
+      for (const e of [...b.budget.evidence, ...b.why]) expect(e.url, b.name).toMatch(/^https:\/\//);
+      if (b.budget.level !== "unproven") expect(b.budget.evidence.length, b.name).toBeGreaterThan(0);
+    }
+    expect(brands.filter((b) => !b.source_links.length && !b.why.length && !b.budget.evidence.length).map((b) => b.name)).toEqual(["Nowhere Home Goods"]);
+    expect(new Set(brands.map((b) => b.kind))).toEqual(new Set(["brand", "agency", "local"]));
   });
 });
 
-const INPUT: PitchInput = {
-  creatorName: "Sheila Bruce",
-  voice: "warm",
-  audience: "Women 30-55 who love hosting.",
-  themes: ["Table styling", "Easy entertaining"],
-  dealFit: "home brands",
-  brand: { name: "Golden Hour Tableware", website: "https://goldenhour.example/", why_now: null, fit_reasons: [], product: null, herPick: false },
-  numbers: [
-    { platform: "tiktok", followers: 12400, avg_views: 3100 },
-    { platform: "instagram", followers: 0, avg_views: 0 },
-  ],
-  clipLinks: ["https://x.example/media/a", "https://x.example/media/b"],
-  mediaKitUrl: "https://x.example/kit/sheila",
-  contactKind: "role_email",
-};
-
-describe("pitch drafts", () => {
-  it("the starter draft has every part the plan asks for", () => {
-    const d = starterPitch(INPUT);
-    expect(d.subject).toBe("Creator partnership idea: Golden Hour Tableware × Sheila");
-    expect(d.body).toContain("12.4K followers on TikTok");
-    expect(d.body).not.toContain("0 followers on Instagram");
-    for (const l of INPUT.clipLinks) expect(d.body).toContain(l);
-    expect(d.body).toContain(`Media kit: ${INPUT.mediaKitUrl}`);
-    expect(d.body).toMatch(/paid partnership/);
-    expect(d.dm_text).toContain(INPUT.mediaKitUrl);
-    expect(d.followup_1 && d.followup_2).toBeTruthy();
-  });
-  it("only claims she uses the product when it is a brand she listed", () => {
-    expect(starterPitch(INPUT).body).not.toMatch(/already use/);
-    expect(starterPitch({ ...INPUT, brand: { ...INPUT.brand, herPick: true } }).body).toMatch(/already use/);
-  });
-  it("a model answer missing a part is refused; missing links are put back", () => {
-    expect(parsePitch('{"subject":"x","body":"y"}', INPUT)).toBeNull();
-    expect(parsePitch("not json", INPUT)).toBeNull();
-    const ok = parsePitch('Here: {"subject":"S","body":"Hi there","dm_text":"d","followup_1":"f1","followup_2":"f2"}', INPUT)!;
-    expect(ok.body).toContain(INPUT.mediaKitUrl);
-    for (const l of INPUT.clipLinks) expect(ok.body).toContain(l);
-  });
-  it("numbers read the way people say them", () => {
+describe("numbers in emails", () => {
+  it("read the way people say them", () => {
     expect(compact(950)).toBe("950");
     expect(compact(12400)).toBe("12.4K");
     expect(compact(250000)).toBe("250K");
@@ -223,7 +218,7 @@ describe("Open in Gmail", () => {
 
 describe("help guides", () => {
   const dir = path.resolve("help/guides");
-  const mine = ["update-your-media-kit", "send-a-pitch", "mark-a-reply", "record-your-voice", "connect-hunter"];
+  const mine = ["media-kit", "pitch-a-brand", "reply-to-a-brand-offer", "negotiate-a-rate", "invoice-a-brand", "record-your-voice", "connect-hunter"];
   it.each(mine)("%s has 3–8 real steps, one picture each, a target and today's check date", (slug) => {
     const g = parseGuide(readFileSync(path.join(dir, `${slug}.md`), "utf8"));
     expect(g.steps.length).toBeGreaterThanOrEqual(3);
