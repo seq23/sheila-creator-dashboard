@@ -202,6 +202,7 @@ const LIGHT_WORD: Record<HealthItem["light"], string> = { green: "Working", yell
 
 function HealthSection({ health, onChange }: { health: HealthItem[] | null; onChange: (rows: HealthItem[]) => void }) {
   const toast = useToast();
+  const { refreshCounts } = useApp();
   const [checking, setChecking] = useState(false);
   const rows = foldHealth(health);
   const bad = rows.filter((r) => r.light === "red").length;
@@ -210,6 +211,9 @@ function HealthSection({ health, onChange }: { health: HealthItem[] | null; onCh
     setChecking(true);
     try {
       onChange(await post<HealthItem[]>("/api/settings/health/recheck"));
+      // The sidebar's "All systems OK" reads the same lights; refresh it now, not in 60 s
+      // (live test 25 Sep 2026: Buffer red on this list, "All systems OK" beside it).
+      await refreshCounts();
       toast.ok("Checked everything.");
     } catch (e) {
       toast.bad(e);

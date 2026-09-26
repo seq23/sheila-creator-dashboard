@@ -16,7 +16,7 @@ import { mediaToken, nowIso } from "../lib/ids";
 import { log } from "../lib/log";
 import { planAhead } from "../routes/posts";
 import { readSettings } from "../routes/settings";
-import { getBuffer, type BufferChannel, type BufferClient } from "../services/buffer";
+import { bufferRequests, getBuffer, type BufferChannel, type BufferClient } from "../services/buffer";
 import { emailFrame, sendEmail } from "../services/email";
 import { checkFirecrawl, checkHunter, checkOpenRouter, type KeyCheck } from "../services/keychecks";
 import {
@@ -56,23 +56,6 @@ interface BufferState {
   channels: Partial<Record<Platform, BufferChannel>>;
   remoteQueue: Partial<Record<Platform, number>>;
   checkedNow: boolean;
-}
-
-/** Count Buffer API calls so the run can log them (free plan budget: ~100 a day). */
-function counted(client: BufferClient, counter: { n: number }): BufferClient {
-  const wrap =
-    <A extends unknown[], R>(fn: (...a: A) => Promise<R>) =>
-    (...a: A) => {
-      counter.n++;
-      return fn(...a);
-    };
-  return {
-    checkKey: wrap(() => client.checkKey()),
-    createPost: wrap((i: Parameters<BufferClient["createPost"]>[0]) => client.createPost(i)),
-    getPost: wrap((id: string) => client.getPost(id)),
-    deletePost: wrap((id: string) => client.deletePost(id)),
-    queueCount: wrap((id: string) => client.queueCount(id)),
-  };
 }
 
 async function bufferState(env: Env, client: BufferClient, force: boolean): Promise<BufferState> {
@@ -150,8 +133,10 @@ async function connectionNeedsYouEmail(env: Env, name: string) {
 // ---------------------------------------------------------------- the run
 
 export async function bufferSync(env: Env, opts: { force?: boolean } = {}): Promise<void> {
-  const counter = { n: 0 };
-  const client = counted(await getBuffer(env), counter);
+  // Requests actually sent (checkKey is two: account + channels), not client method calls: the
+  // log undercounted by one per check until the Phase 0 live test (25 Sep 2026).
+  const sentBefore = bufferRequests.n;
+  const client = await getBuffer(env);
   const now = nowIso();
 
   // 1. plan ahead + pull unapproved clips off the calendar
@@ -254,7 +239,7 @@ export async function bufferSync(env: Env, opts: { force?: boolean } = {}): Prom
     retried,
     failed,
     buffer_checked: buf.checkedNow,
-    buffer_requests: counter.n,
+    buffer_requests: bufferRequests.n - sentBefore,
   });
 }
 
@@ -306,6 +291,26 @@ async function writeHealth(env: Env, buf: BufferState, waitingSafely: number): P
   if (flips.length) log.info("health.flips", { count: flips.length });
 }
 
+/** The one cutting light. Written here (hourly, daily, "Check everything now") and by the cut job
+ * the moment a cut finishes or fails, from the same query, so the two can never disagree. Until
+ * 25 Sep 2026 the cut job wrote its own "Cutting" row beside this one: two lights for one thing
+ * (found in the Phase 0 live test). */
+export const CLIP_CUTTING = "Clip cutting";
+
+export async function clipCuttingLight(env: Env, justFinished?: { status: "done" | "failed"; at: string }): Promise<void> {
+  await env.DB.prepare("DELETE FROM health WHERE name = 'Cutting'").run(); // the retired duplicate
+  const row = await env.DB.prepare("SELECT status, finished_at, created_at FROM jobs WHERE type = 'cut' AND status IN ('done','failed') ORDER BY COALESCE(finished_at, created_at) DESC LIMIT 1").first<{ status: string; finished_at: string | null; created_at: string }>();
+  // The job route marks the job done only after the cut is applied, so the cut job passes its own outcome.
+  const last = justFinished ? { status: justFinished.status, finished_at: justFinished.at, created_at: justFinished.at } : row;
+  const running = (await env.DB.prepare("SELECT COUNT(*) AS n FROM jobs WHERE type = 'cut' AND status IN ('queued','dispatched','running')").first<{ n: number }>())?.n ?? 0;
+  const others = Math.max(0, running - (justFinished ? 1 : 0));
+  const when = (last?.finished_at ?? last?.created_at ?? "").slice(0, 10);
+  const busy = others ? ` · ${others} cutting now` : "";
+  if (!last) await setHealth(env.DB, CLIP_CUTTING, "grey", others ? `First cut running${busy}` : "No clips cut yet", null);
+  else if (last.status === "done") await setHealth(env.DB, CLIP_CUTTING, "green", `Last job OK · ${when}${busy}`, null);
+  else await setHealth(env.DB, CLIP_CUTTING, "red", `Last cut failed · ${when}${busy}`, "clips-look-wrong");
+}
+
 /** Clip cutting, Email (Resend) and Job runner (GitHub) lights. Also written by the daily lane. */
 export async function serviceHealthRows(env: Env): Promise<void> {
   const fake = fakeServices(env);
@@ -321,13 +326,7 @@ export async function serviceHealthRows(env: Env): Promise<void> {
   if (!fake && !env.GITHUB_DISPATCH_TOKEN) await setHealth(env.DB, "Job runner (GitHub)", "red", "The job token is missing, so clips cannot be cut", "connect-github");
   else await setHealth(env.DB, "Job runner (GitHub)", "green", fake ? "Test mode · jobs are simulated" : "Ready", null);
 
-  const last = await env.DB.prepare("SELECT status, finished_at, created_at FROM jobs WHERE type = 'cut' AND status IN ('done','failed') ORDER BY COALESCE(finished_at, created_at) DESC LIMIT 1").first<{ status: string; finished_at: string | null; created_at: string }>();
-  const running = (await env.DB.prepare("SELECT COUNT(*) AS n FROM jobs WHERE type = 'cut' AND status IN ('queued','dispatched','running')").first<{ n: number }>())?.n ?? 0;
-  const when = (last?.finished_at ?? last?.created_at ?? "").slice(0, 10);
-  const busy = running ? ` · ${running} cutting now` : "";
-  if (!last) await setHealth(env.DB, "Clip cutting", "grey", running ? `First cut running${busy}` : "No clips cut yet", null);
-  else if (last.status === "done") await setHealth(env.DB, "Clip cutting", "green", `Last job OK · ${when}${busy}`, null);
-  else await setHealth(env.DB, "Clip cutting", "red", `Last cut failed · ${when}${busy}`, "clips-look-wrong");
+  await clipCuttingLight(env);
 }
 
 /**

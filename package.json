@@ -15,6 +15,7 @@
     "validate:envs": "node scripts/validate.mjs envs-match",
     "check": "npm run typecheck && npm run test && npm run validate && npm run build",
     "e2e": "playwright test",
+    "e2e:live": "playwright test -c playwright.live.config.ts",
     "e2e:open": "playwright test -c playwright.open.config.ts",
     "db:migrate:local": "wrangler d1 migrations apply sheila-creator-dashboard-db --local",
     "db:migrate:production": "wrangler d1 migrations apply sheila-creator-dashboard-db --remote",

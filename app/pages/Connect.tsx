@@ -230,10 +230,17 @@ function KeyCard({ def, conn, owner, primary, onChange }: { def: (typeof KEY_SER
               {busy ? "Checking…" : "Check key"}
             </button>
           </div>
-          <div>
+          <div className="row between wrap">
             <Link to={`/help/${def.guide}`} className="link-btn">
               Picture-by-picture guide
             </Link>
+            {/* A stored key that stopped working is still stored: she must be able to remove it
+                (live test 25 Sep 2026: a revoked Buffer key left no way to disconnect it). */}
+            {owner && conn?.status === "error" ? (
+              <button className="btn danger small" onClick={disconnect}>
+                Disconnect
+              </button>
+            ) : null}
           </div>
         </>
       ) : (
