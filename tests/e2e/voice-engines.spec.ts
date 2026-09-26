@@ -70,8 +70,8 @@ test.describe("voice engines: built-in and ElevenLabs premium", () => {
     // Voice before ElevenLabs: the built-in voice, with the way to premium
     await page.goto("/voice");
     const engine = page.locator(".engine-card");
-    await expect(engine.getByText("Built-in voice (free): good quality, takes a few minutes per narration.")).toBeVisible();
-    await expect(engine.getByText("ElevenLabs premium voice: best quality, seconds per narration, uses your ElevenLabs credits.")).toBeVisible();
+    await expect(engine.getByText("Built-in voice (free): good quality, takes a few minutes per voice over.")).toBeVisible();
+    await expect(engine.getByText("ElevenLabs premium voice: best quality, seconds per voice over, uses your ElevenLabs credits.")).toBeVisible();
     await expect(engine.locator(".engine-tag")).toHaveText("In use: Built-in");
     await expect(engine.getByRole("link", { name: "Connect ElevenLabs for the premium voice" })).toBeVisible();
 
