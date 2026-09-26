@@ -66,7 +66,15 @@ assigned in the brief that adds it) · `package.json` deps (union merge only).
 
 ## Deploy
 
-`land <pr>` (from `~/bin`) or `npm run deploy:production`. Never bare `wrangler deploy`.
+`land <pr>` (from `~/bin`). Never bare `wrangler deploy`. Build first, test in batches: the
+merge gate is `check.yml` (typecheck, unit, validators, build, under 5 min); `land` merges on
+green, deploys **staging** from the merge sha, then deploys **production only if the `e2e`
+workflow (e2e, e2e-open, help-screenshots) has a green run on that exact sha** — otherwise it
+prints WAITING. `e2e.yml` runs nightly (08:00 UTC) and on `workflow_dispatch`, never per merge.
+`land --promote sheila-creator-dashboard` ships the newest e2e-green commit newer than production
+(`--run-e2e` dispatches the suite on main's head first and waits). Production's record is the
+GitHub Deployments API (environment `production`). `npm run deploy:production` by hand is the
+break-glass, not the route.
 Production URL: https://sheilastudio.seq-taylor.workers.dev (Worker `sheilastudio`, until her
 domain). Production has no login (`AUTH_MODE` "open"): with open mode anyone who has the URL
 is the owner; that is by her choice; switching back is `AUTH_MODE: "code"` and a deploy
@@ -76,5 +84,5 @@ keep the email code; `npm run e2e` proves code mode, `npm run e2e:open` open mod
 Staging (the owner's real twin, her throwaway accounts): `npm run deploy:staging`, URL
 https://sheila-creator-dashboard-staging.seq-taylor.workers.dev. It is `env.staging` in
 `wrangler.jsonc`; `npm run validate:envs` fails if it drifts from production beyond its name,
-its D1/R2 and the vars OWNER_EMAIL, PUBLIC_BASE_URL, ENV_NAME, FAKE_SERVICES, AUTH_MODE. After `land`,
-run `npm run deploy:staging` from main so both match.
+its D1/R2 and the vars OWNER_EMAIL, PUBLIC_BASE_URL, ENV_NAME, FAKE_SERVICES, AUTH_MODE. `land`
+deploys it on every merge, so staging is always main and production is the last e2e-green main.

@@ -10,7 +10,7 @@
 // number). A picture identical to another step's fails too, unless the step says <!-- shared -->.
 // The committed files are checked again by the validator help-pictures.
 //
-// Runs with the e2e suite (post-merge on main) and on its own: `npm run help:screenshots`
+// Runs with the e2e suite (nightly on main + dispatch; the production gate) and on its own: `npm run help:screenshots`
 // (job-help_screenshots.yml, on every release).
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { createHash } from "node:crypto";

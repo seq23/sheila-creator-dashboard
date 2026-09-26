@@ -405,7 +405,7 @@ Sheila's production is never touched by it.
 | D1 | `sheila-creator-dashboard-db-staging` (`c8e9e2c9-0c30-48c5-9c93-acf66a26979c`) |
 | R2 | `sheila-creator-dashboard-files-staging` |
 | Login | `sequoia@westpeek.ventures` (OWNER_EMAIL). The West Peek Resend key delivers only to its account owner's address, and she reads that mailbox. |
-| Deploy | `npm run deploy:staging` (twin check → build → remote migrations → deploy → healthz must say `env: staging`). After every `land`, run it from `main` so both match. |
+| Deploy | `land <pr>` deploys it from every merge sha (twin check → build → remote migrations → deploy → healthz must say `env: staging`); `npm run deploy:staging` by hand is the break-glass. Production follows only after the nightly `e2e` run is green on that sha (`land --promote sheila-creator-dashboard`). |
 
 ```bash
 npx wrangler d1 execute sheila-creator-dashboard-db-staging --remote --env staging --command "SELECT name, light, note FROM health"
@@ -567,7 +567,7 @@ Review and decisions: `docs/HELP-REVIEW.md`. Guides are `help/guides/<slug>.md` 
   a held video, Stats results, voice overs, deals at every stage) + `seed-help-lights.sql`
   (connections and the health board, re-applied after a guide changes them) + today's posts
   (`helpPostsSql` in `tests/e2e/demo.ts`).
-- CI: `e2e.yml` job `help-screenshots` after every merge; `job-help_screenshots.yml` on each release
+- CI: `e2e.yml` job `help-screenshots` nightly (08:00 UTC) and on dispatch, the gate for every production deploy (`land --promote`); `job-help_screenshots.yml` on each release
   opens a PR with refreshed pictures.
 
 ## When something is red
