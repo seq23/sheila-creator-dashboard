@@ -682,7 +682,7 @@ function Narrations({ v, onChange }: { v: VoiceState; onChange: () => void }) {
         </button>
       </div>
       <div className="list-tools">
-        <SearchBox value={q} onChange={setQ} label="Search your scripts" />
+        <SearchBox value={q} onChange={setQ} label="Search your voice overs" />
       </div>
       {rows.length === 0 ? (
         archived ? (

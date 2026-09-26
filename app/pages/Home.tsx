@@ -74,7 +74,7 @@ export function Home() {
                 sub={
                   data.waiting.clips ? (
                     <strong className="home-go">
-                      {data.waiting.clipsThisWeek ? `${data.waiting.clipsThisWeek} new this week` : "Review now"} <Icon name="arrow" size="sm" />
+                      {data.waiting.clipsThisWeek ? `${data.waiting.clipsThisWeek} new in 7 days` : "Review now"} <Icon name="arrow" size="sm" />
                     </strong>
                   ) : data.waiting.dumpsCutting ? (
                     `${plural(data.waiting.dumpsCutting, "dump")} cutting`
@@ -166,7 +166,7 @@ export function Home() {
                     {data.recentDumps.items.map((d) => {
                       const s = DUMP_STATUS[d.status];
                       return (
-                        <Link key={d.id} to={d.status === "ready" ? "/review" : `/dump/${d.id}`} className="list-row home-row">
+                        <Link key={d.id} to={d.status === "ready" ? "/review" : `/dump/${d.id}`} className="list-row home-row" data-home-key={d.key}>
                           <div className="grow">
                             <div className="title">
                               {fmtDate(d.created_at)} · {DOOR_WORDS[d.door]} · {plural(d.files, "video")}
@@ -198,7 +198,7 @@ export function Home() {
                     {data.followups.items.map((f) => {
                       const overdue = Date.parse(f.dueAt) < Date.now() - 86400_000;
                       return (
-                        <Link key={f.key} to={`/deals?deal=${f.dealId}`} className="list-row home-row">
+                        <Link key={f.key} to={`/deals?deal=${f.dealId}`} className="list-row home-row" data-home-key={f.key}>
                           <div className="grow">
                             <div className="title">
                               {f.brand}: {f.what}

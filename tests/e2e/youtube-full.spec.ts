@@ -93,7 +93,7 @@ test("Dump: the third card, one video, size and free space, then Review: thumbna
 
   await item.getByRole("button", { name: "Approve" }).click();
   await expect(page.locator(".toast").first()).toContainText("Approved");
-  const body = (await (await page.request.get("/api/clips?tab=approved&hidden=1")).json()) as { groups: { dump: { id: string; door: string }; clips: { platforms: string[]; full_video: { privacy: string; thumb_pick: number; tags: string[] } }[] }[] };
+  const body = (await (await page.request.get("/api/clips?tab=approved&hidden=1&limit=100")).json()) as { groups: { dump: { id: string; door: string }; clips: { platforms: string[]; full_video: { privacy: string; thumb_pick: number; tags: string[] } }[] }[] };
   const g = body.groups.find((x) => x.dump.id === dumpId)!;
   expect(g.dump.door).toBe("youtube");
   expect(g.clips[0].platforms).toEqual(["youtube"]);

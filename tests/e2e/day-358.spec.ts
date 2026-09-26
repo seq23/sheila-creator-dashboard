@@ -77,30 +77,35 @@ test("Home fits one phone screen, whatever is on top; every card dismisses with 
   await expect(page.locator(".home-lists .list-row")).toHaveCount(4);
   const dumpsTotal = Number(sql<{ n: number }>("SELECT COUNT(*) AS n FROM dumps WHERE archived_at IS NULL")[0].n);
   await expect(page.getByRole("link", { name: `See all (${dumpsTotal})` })).toBeVisible();
-  const first = page.locator(".home-lists .list-row").first();
-  const title = await first.locator(".title").innerText();
-  await first.getByRole("button", { name: "Hide this dump from Home" }).click();
-  await expect(page.locator(".home-lists .list-row .title", { hasText: title })).toHaveCount(0);
+  const key = await page.locator(".home-lists [data-home-key^='dump:']").first().getAttribute("data-home-key");
+  const row = page.locator(`[data-home-key="${key}"]`);
+  await row.getByRole("button", { name: "Hide this dump from Home" }).click();
+  await expect(row).toHaveCount(0);
   await page.getByRole("button", { name: "Undo" }).last().click();
-  await expect(page.locator(".home-lists .list-row .title", { hasText: title })).toHaveCount(1);
+  await expect(row).toHaveCount(1);
   if (phone) expect(await homeBottom(page)).toBeLessThanOrEqual(HOME_MAX);
 });
 
 test("Dump: 20 at a time of 50, search, archive with Undo, Show archived and Restore", async ({ page }) => {
+  // the year's 50 plus whatever the other specs dumped today: the count on screen is the true one
+  const total = Number(sql<{ n: number }>("SELECT COUNT(*) AS n FROM dumps WHERE archived_at IS NULL")[0].n);
+  const failed = Number(sql<{ n: number }>("SELECT COUNT(*) AS n FROM dumps WHERE archived_at IS NULL AND status = 'failed'")[0].n);
+  expect(total).toBeGreaterThanOrEqual(50);
   await page.goto("/dump");
   const history = page.getByRole("complementary", { name: "Your dumps" });
-  await expect(history.locator("[data-count]")).toHaveText("Showing 20 of 50 dumps");
+  await expect(history.locator("[data-count]")).toHaveText(`Showing 20 of ${total} dumps`);
   await history.getByRole("button", { name: "Show more" }).click();
-  await expect(history.locator("[data-count]")).toHaveText("Showing 40 of 50 dumps");
+  await expect(history.locator("[data-count]")).toHaveText(`Showing 40 of ${total} dumps`);
   await history.getByRole("button", { name: "Needs a look" }).click();
-  await expect(history.locator("[data-dump-row]")).toHaveCount(3);
+  await expect(history.locator("[data-dump-row]")).toHaveCount(Math.min(20, failed));
   await history.getByRole("button", { name: "All" }).click();
-  await expect(history.locator("[data-count]")).toHaveText("Showing 20 of 50 dumps");
-  const id = await history.locator("[data-dump-row]").first().getAttribute("data-dump-row");
+  await expect(history.locator("[data-count]")).toHaveText(`Showing 20 of ${total} dumps`);
+  // a dump still cutting has no archive button (it is not finished); take the first one that has it
+  const id = await history.locator('[data-dump-row]:has(button[aria-label^="Archive the dump from"])').first().getAttribute("data-dump-row");
   const row = history.locator(`[data-dump-row="${id}"]`);
   await row.getByRole("button", { name: /Archive the dump from/ }).click();
   await expect(history.locator(`[data-dump-row="${id}"]`)).toHaveCount(0);
-  await expect(history.locator("[data-count]")).toHaveText("Showing 20 of 49 dumps");
+  await expect(history.locator("[data-count]")).toHaveText(`Showing 20 of ${total - 1} dumps`);
   await page.getByRole("button", { name: "Undo" }).last().click();
   await expect(history.locator(`[data-dump-row="${id}"]`)).toHaveCount(1);
   await row.getByRole("button", { name: /Archive the dump from/ }).click();

@@ -91,7 +91,7 @@ test("Who edits: every editor listed, only connected ones pickable; a dump then 
   await page.request.get("/api/dumps");
   const importJob = await jobFor(page.request, `${dumpId}/import`);
   expect((await page.request.post(`/api/jobs/${importJob}/run-fake`, { data: {} })).ok()).toBe(true);
-  const list = (await (await page.request.get("/api/clips?tab=new&hidden=1")).json()) as { groups: { dump: { id: string }; clips: { edited_with: string; edited_with_name: string }[] }[] };
+  const list = (await (await page.request.get("/api/clips?tab=new&hidden=1&limit=100")).json()) as { groups: { dump: { id: string }; clips: { edited_with: string; edited_with_name: string }[] }[] };
   const clips = list.groups.find((g) => g.dump.id === dumpId)?.clips ?? [];
   expect(clips).toHaveLength(3);
   expect(clips.every((c) => c.edited_with === "opusclip" && c.edited_with_name === "Opus Clip")).toBe(true);
@@ -110,7 +110,7 @@ test("Edit in CapCut: save or share the clip, upload the edit back; a landscape 
   const sent = await page.request.post(`/api/dumps/${dumpId}/dump`);
   const { jobId } = await sent.json();
   expect((await page.request.post(`/api/jobs/${jobId}/run-fake`, { data: { clips: 3 } })).ok()).toBe(true);
-  const list = (await (await page.request.get("/api/clips?tab=new")).json()) as { groups: { dump: { id: string }; clips: { id: string; media_url: string }[] }[] };
+  const list = (await (await page.request.get("/api/clips?tab=new&limit=100")).json()) as { groups: { dump: { id: string }; clips: { id: string; media_url: string }[] }[] };
   const clip = list.groups.find((g) => g.dump.id === dumpId)!.clips[0];
   const download = await page.request.get(`${clip.media_url}${clip.media_url.includes("?") ? "&" : "?"}download=1`);
   expect(download.headers()["content-disposition"]).toContain("attachment");
