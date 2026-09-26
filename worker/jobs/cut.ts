@@ -12,7 +12,8 @@
 import type { JobHandler } from "./registry";
 import type { Env } from "../env";
 import { log } from "../lib/log";
-import { parseJson, recordEvent, setHealth } from "../lib/db";
+import { parseJson, recordEvent } from "../lib/db";
+import { clipCuttingLight } from "../crons/buffer-sync";
 import { mediaToken, newId, nowIso } from "../lib/ids";
 import { unb64 } from "../lib/crypto";
 import { emailFrame, sendEmail } from "../services/email";
@@ -348,7 +349,7 @@ async function applyResult(env: Env, jobId: string, dumpId: string | null, resul
   const visible = clips.filter((c) => !c.hidden).length;
   const engine = (result as CutResult).engine ?? {};
   await recordEvent(env.DB, "dump.cut", dumpId, { clips: clips.length, visible, dropped, door: dump.door, engine });
-  await setHealth(env.DB, "Cutting", "green", `Last cut ${readyAt.slice(0, 10)}: ${clips.length} clips`, null);
+  await clipCuttingLight(env, { status: "done", at: readyAt });
   log.info("cut.apply", { clips: clips.length, visible, dropped });
 
   const s = await readSettings(env);
@@ -364,7 +365,7 @@ async function applyResult(env: Env, jobId: string, dumpId: string | null, resul
 async function onFailure(env: Env, _jobId: string, dumpId: string | null, safeError: string): Promise<void> {
   if (!dumpId) return;
   await env.DB.prepare("UPDATE dumps SET status = 'failed', error_summary = ? WHERE id = ?").bind(plainFailure(safeError), dumpId).run();
-  await setHealth(env.DB, "Cutting", "red", "The last dump could not be cut", "clips-look-wrong");
+  await clipCuttingLight(env, { status: "failed", at: nowIso() });
   log.warn("cut.failed", { len: safeError.length });
 }
 

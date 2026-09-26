@@ -114,10 +114,14 @@ export class FakeBuffer implements BufferClient {
 // scalar names in variables, and the posts(...) connection shape used by queueCount.
 const VIDEO_ASSET = (url: string) => ({ video: { url } });
 
+/** HTTP requests sent to Buffer by this isolate (the free plan's budget counts requests, not method calls). */
+export const bufferRequests = { n: 0 };
+
 class RealBuffer implements BufferClient {
   private orgId: string | null = null;
   constructor(private key: string) {}
   private async gql<T>(query: string, variables: Record<string, unknown> = {}): Promise<T> {
+    bufferRequests.n++;
     const res = await fetch("https://api.buffer.com/", {
       method: "POST",
       headers: { Authorization: `Bearer ${this.key}`, "Content-Type": "application/json" },

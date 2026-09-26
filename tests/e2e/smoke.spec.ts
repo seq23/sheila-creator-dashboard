@@ -96,6 +96,37 @@ test.describe("home and dump", () => {
     await expect(page.getByText("Channels we found in your Buffer")).toBeVisible();
     await expect(page.getByText("Needs reconnect in Buffer")).toBeVisible();
   });
+
+  // Live test 25 Sep 2026: Buffer revoked the stored key, the card showed only the paste box,
+  // and the dead key could not be removed. A stored key that stopped working gets Disconnect.
+  test("connect: a stored key Buffer stopped accepting can be disconnected", async ({ page }) => {
+    await page.request.post("/api/connections/buffer/disconnect");
+    expect((await page.request.post("/api/connections/buffer/key", { data: { key: "good-key-ig-missing" } })).ok()).toBe(true);
+    sql("UPDATE connections SET status = 'error', last_error = 'Buffer says this key is not valid.' WHERE service = 'buffer'");
+    await page.goto("/settings/connections");
+    const card = page.locator(".card", { has: page.getByRole("heading", { name: "Buffer", exact: true }) });
+    await expect(card).toContainText("Buffer says this key is not valid.");
+    await card.getByRole("button", { name: "Disconnect" }).click();
+    await expect(card).toContainText("Disconnected");
+    expect(sql<{ secret_enc: string | null; status: string }>("SELECT secret_enc, status FROM connections WHERE service = 'buffer'")[0]).toEqual({ secret_enc: null, status: "disconnected" });
+    // put back what the suite had: a working (fake) key
+    expect((await page.request.post("/api/connections/buffer/key", { data: { key: "good-key-ig-missing" } })).ok()).toBe(true);
+  });
+
+  // Live test 25 Sep 2026: after "Check everything now" turned Buffer red, the sidebar still said
+  // "All systems OK" until the next 60-second refresh.
+  test("settings: Check everything now updates the sidebar's health line at once", async ({ page }) => {
+    const before = sql<{ name: string; light: string }>("SELECT name, light FROM health");
+    sql("UPDATE health SET light = 'green'");
+    await page.goto("/settings");
+    await expect(page.getByText("All systems OK")).toBeVisible();
+    await page.request.post("/api/connections/buffer/disconnect");
+    await page.getByRole("button", { name: "Check everything now" }).click();
+    await expect(page.getByText("Checked everything.")).toBeVisible();
+    await expect(page.getByText("Something needs you")).toBeVisible({ timeout: 3_000 });
+    expect((await page.request.post("/api/connections/buffer/key", { data: { key: "good-key-ig-missing" } })).ok()).toBe(true);
+    for (const r of before) sql(`UPDATE health SET light = '${r.light}' WHERE name = '${r.name.replace(/'/g, "''")}'`);
+  });
 });
 
 test.describe("public", () => {
