@@ -1,11 +1,9 @@
-# Production promote: on a green nightly `e2e` run of main, with nobody in the loop.
+# Production promote: on a successful manually dispatched `e2e` run of main.
 #
 # BUILD FIRST, TEST IN BATCHES (26 Sep 2026). `land <pr>` merges on the fast check and deploys
-# STAGING; production waited for a person to run `land --promote sheila-creator-dashboard` after
-# the 08:00 UTC `e2e` run went green. That was a wait on the owner. This workflow fires on that
-# run's completion and, ONLY when it succeeded on main, deploys production from exactly the sha it
-# passed on — never main's head, which may have moved since. A red nightly deploys nothing and is
-# fixed first (bisect from the last green sha).
+# STAGING. E2E runs only on dispatch. This workflow fires when a dispatched E2E run completes
+# and, ONLY when it succeeded on main, deploys production from exactly the sha it passed on —
+# never main's head, which may have moved since. A failed run deploys nothing.
 #
 # It runs the repo's own `scripts/deploy-production.sh` (build fresh, remote D1 migrations, deploy
 # with FAKE_SERVICES=0, healthz + login-mode smoke): never a bare `wrangler deploy`. Then it records
