@@ -1,6 +1,6 @@
 // Production moves only from a sha the full e2e suite passed, and nobody has to be in the loop.
 // Pins the shape of .github/workflows/e2e.yml, promote.yml and check.yml (CLAUDE.md "Deploy"):
-//   e2e.yml     runs on schedule + workflow_dispatch only — never per merge (push / pull_request)
+//   e2e.yml     runs on workflow_dispatch only — never on a timer or per merge
 //   promote.yml triggers only on workflow_run of `e2e` (completed, main) + workflow_dispatch; its job
 //               is gated on conclusion == success, checks out the e2e run's head_sha, runs the repo's
 //               own deploy script, records a GitHub Deployment (environment production), never cancels
@@ -54,8 +54,8 @@ export default async function ({ root }) {
   if (e2e == null) problems.push("e2e.yml is missing: nothing proves the app in a browser before production");
   else {
     const t = triggers(e2e) ?? [];
-    rule(!t.some((x) => /^(push|pull_request|pull_request_target|merge_group)$/.test(x)), `e2e.yml runs per merge (${t.join(", ")}): the browser suite is nightly + dispatch, never on push / pull_request (build first, test in batches)`);
-    rule(t.includes("schedule"), "e2e.yml has no schedule: production would only ever move by hand");
+    rule(!t.some((x) => /^(push|pull_request|pull_request_target|merge_group)$/.test(x)), `e2e.yml runs per merge (${t.join(", ")}): the browser suite is dispatch only`);
+    rule(t.length === 1 && t[0] === "workflow_dispatch", `e2e.yml must be dispatch only, found: ${t.join(", ")}`);
     rule(t.includes("workflow_dispatch"), "e2e.yml has no workflow_dispatch: land --promote --run-e2e and promote.yml's by-hand path need it");
     rule(/^name:\s*e2e\s*$/m.test(e2e), "e2e.yml must be named `e2e`: promote.yml's workflow_run and land's E2E_WF route look it up by that name");
   }
@@ -82,7 +82,7 @@ export default async function ({ root }) {
   if (check == null) problems.push("check.yml (the merge gate) is missing");
   else {
     const runs = check.split("\n").filter((l) => /^\s*-?\s*run:/.test(l));
-    rule(!runs.some((l) => /playwright|npm run e2e|help:screenshots/.test(l)), "check.yml (the merge gate) runs the browser suite: that belongs in e2e.yml, nightly");
+    rule(!runs.some((l) => /playwright|npm run e2e|help:screenshots/.test(l)), "check.yml (the merge gate) runs the browser suite: that belongs in e2e.yml on demand");
   }
 
   return { items: rules.length, problems };
