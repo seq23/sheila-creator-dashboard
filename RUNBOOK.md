@@ -413,7 +413,7 @@ is no longer a real twin, and the owner's real keys were dropped from its D1 by 
 | Config | `wrangler.jsonc` `env.staging`: Worker `samplestudio`, `ENV_NAME` "sample", the staging D1 and R2 (unchanged). `npm run validate:envs` pins name, URL, mode and fakes, and fails on any other drift from production except the D1/R2 and OWNER_EMAIL. |
 | D1 | `sheila-creator-dashboard-db-staging` (`c8e9e2c9-0c30-48c5-9c93-acf66a26979c`) |
 | R2 | `sheila-creator-dashboard-files-staging` (the demo media under `clips/`, `full/`, `narrations/`, `music/`, `docs/`, `voice/`) |
-| Deploy | `land <pr>` deploys it from every merge sha (twin check → build → remote migrations → deploy → healthz must say `env: sample`, fake: true → open-mode smoke); `npm run deploy:staging` by hand is the break-glass. Production follows only after the nightly `e2e` run is green on that sha (`promote.yml`). |
+| Deploy | `land <pr>` deploys it from every merge sha (twin check → build → remote migrations → deploy → healthz must say `env: sample`, fake: true → open-mode smoke); `npm run deploy:staging` by hand is the break-glass. Production follows only after a green `e2e` run on that sha (`promote.yml`) — the suite runs on dispatch only: a person, `land --promote sheila-creator-dashboard --run-e2e`, or `land` after a large change. |
 | Demo data | `node scripts/seed-year.mjs --remote-sample --apply` (from the repo root, wrangler logged in): wipes every row the sample holds (visitors' changes, fake-cron results, old connections and sessions), loads the year (`scripts/seed-year.mjs`, day 358: ~50 dumps, ~640 clips in every Look, ~320 posts, 45 deals, 12 briefs, 26 kit versions) with file sizes at 40% so Storage sits green, then uploads the media the rows point at (`scripts/sample-media.mjs`: covers and clips rendered from `public/looks/*.webp`, narrations and the voice sample read by macOS `say`, tones for "my songs", the fixture brand guide). `--media-only` re-uploads just the media; `--clear` removes the year. Then connect the fakes (below). Re-run whenever the demo has drifted. Validator `seed-year-local-only` allow-lists the target: Worker `samplestudio`, a `-staging` D1 and R2, fakes on; production is refused (proven negatively in the validator). |
 
 Connect the fakes after a reset, so Connect and the health board read as a set-up dashboard
@@ -619,7 +619,7 @@ Review and decisions: `docs/HELP-REVIEW.md`. Guides are `help/guides/<slug>.md` 
   a held video, Stats results, voice overs, deals at every stage) + `seed-help-lights.sql`
   (connections and the health board, re-applied after a guide changes them) + today's posts
   (`helpPostsSql` in `tests/e2e/demo.ts`).
-- CI: `e2e.yml` job `help-screenshots` nightly (08:00 UTC) and on dispatch, the gate for every production deploy (`promote.yml` fires on the green run; `land --promote` by hand); `job-help_screenshots.yml` on each release
+- CI: `e2e.yml` job `help-screenshots` on dispatch only (a person, `land --promote --run-e2e`, or `land` after a large change; never a schedule, owner 2 Oct 2026), the gate for every production deploy (`promote.yml` fires on the green run; `land --promote` by hand); `job-help_screenshots.yml` on each release
   opens a PR with refreshed pictures.
 
 ## When something is red

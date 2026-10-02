@@ -9,6 +9,13 @@ import { sql } from "./helpers";
 const TZ = "America/New_York";
 const HOUR = 3600_000;
 
+/** Three posts placed by hand inside the next few hours — one per channel — that Buffer will publish. */
+const SOON = [
+  { post: "e2e_p_tt", clip: "e2e_g0", platform: "tiktok" },
+  { post: "e2e_p_ig", clip: "e2e_g1", platform: "instagram" },
+  { post: "e2e_p_yt", clip: "e2e_g2", platform: "youtube" },
+] as const;
+
 const token = (prefix: string, i: number) => `${prefix}${String(i).padStart(4, "0")}`.padEnd(40, "x");
 const localDate = (iso: string) => new Intl.DateTimeFormat("en-CA", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(iso));
 
@@ -117,14 +124,27 @@ test.describe("calendar and the hourly Buffer sync", () => {
     const pool = (await (await page.request.get("/api/posts/pool")).json()) as { id: string }[];
     expect(pool.map((c) => c.id)).toContain(clip);
 
-    // A clip that fails at the platform, placed by hand inside the next 7 days.
+    // Posts INSIDE the 7-day Buffer window, placed by hand: three that post and one that fails at
+    // the platform. The fill above lands in NEXT week at the launch slots, and whether any of those
+    // are inside the window depends on the weekday: on a Monday before the first launch slot
+    // (TikTok 15:00 ET) none are, the hourly run loads nothing but the failing clip, and "next run
+    // after their time" reads back zero posted — the scheduled run of Monday 28 Sep 2026 08:28 UTC
+    // (tests/unit/buffer-window-monday.test.ts pins the arithmetic). These rows are what the read-back
+    // tests prove, whatever day it is. Rows, not POST /api/posts: the API counts the week's cap, and
+    // late on a Sunday ET "two hours from now" is next week, which the fill has already filled.
     sql(
-      `INSERT INTO clips (id, asset_id, dump_id, start_s, end_s, recipe, hook_text, caption, hashtags, score, r2_key, media_token, status, platforms) VALUES ('e2e_fail', 'e2e_a0', 'e2e_dn', 0, 20, 'montage', 'E2E failing clip', 'c', '', 0.01, 'clips/e2e/f.mp4', '${token("failclip", 1)}', 'approved', '["tiktok"]')`,
+      [
+        `INSERT INTO clips (id, asset_id, dump_id, start_s, end_s, recipe, hook_text, caption, hashtags, score, r2_key, media_token, status, platforms) VALUES ('e2e_fail', 'e2e_a0', 'e2e_dn', 0, 20, 'montage', 'E2E failing clip', 'c', '', 0.01, 'clips/e2e/f.mp4', '${token("failclip", 1)}', 'approved', '["tiktok"]')`,
+        `INSERT INTO posts (id, clip_id, platform, scheduled_at, status) VALUES ('e2e_p_fail', 'e2e_fail', 'tiktok', '${new Date(Date.now() + 2 * HOUR).toISOString()}', 'planned')`,
+        ...SOON.map(
+          (g, i) =>
+            `INSERT INTO clips (id, asset_id, dump_id, start_s, end_s, recipe, hook_text, caption, hashtags, score, r2_key, media_token, status, platforms) VALUES ('${g.clip}', 'e2e_a0', 'e2e_dn', 0, 20, 'montage', 'E2E soon ${i}', 'c', '', 0.02, 'clips/e2e/g${i}.mp4', '${token("okgood", i)}', 'approved', '["${g.platform}"]'); ` +
+            `INSERT INTO posts (id, clip_id, platform, scheduled_at, status) VALUES ('${g.post}', '${g.clip}', '${g.platform}', '${new Date(Date.now() + (3 + i) * HOUR).toISOString()}', 'planned')`,
+        ),
+      ].join("; "),
     );
-    const placed = await page.request.post("/api/posts", { data: { clip_id: "e2e_fail", platform: "tiktok", scheduled_at: new Date(Date.now() + 2 * HOUR).toISOString() } });
-    expect(placed.ok()).toBe(true);
     const twice = await page.request.post("/api/posts", { data: { clip_id: "e2e_fail", platform: "tiktok", scheduled_at: new Date(Date.now() + 3 * HOUR).toISOString() } });
-    expect(twice.status()).toBe(409);
+    expect(twice.status()).toBe(409); // already on the calendar for TikTok
 
     await tick(page.request);
     const active = sql<{ n: number }>(`SELECT COUNT(*) AS n FROM posts WHERE clip_id = '${clip}' AND status != 'unscheduled'`);
@@ -136,6 +156,8 @@ test.describe("calendar and the hourly Buffer sync", () => {
     const rows = sql<{ platform: string; status: string; scheduled_at: string }>("SELECT platform, status, scheduled_at FROM posts WHERE status IN ('planned','in_buffer')");
     const inBuffer = rows.filter((r) => r.status === "in_buffer");
     expect(inBuffer.length).toBeGreaterThan(0);
+    // The hand-placed posts are inside the window on every weekday: all four went to Buffer.
+    expect(sql<{ id: string }>("SELECT id FROM posts WHERE status = 'in_buffer' AND id LIKE 'e2e_p_%' ORDER BY id").map((r) => r.id)).toEqual(["e2e_p_fail", ...SOON.map((g) => g.post)].sort());
     for (const p of ["tiktok", "instagram", "youtube"]) {
       const n = inBuffer.filter((r) => r.platform === p).length;
       expect(n).toBeLessThanOrEqual(10);
@@ -153,8 +175,12 @@ test.describe("calendar and the hourly Buffer sync", () => {
     sql(`UPDATE posts SET scheduled_at = '${earlier}' WHERE status = 'in_buffer'`); // time passes
     await tick(page.request);
     const posted = sql<{ n: number; links: number }>("SELECT COUNT(*) AS n, SUM(url IS NOT NULL AND posted_at IS NOT NULL) AS links FROM posts WHERE status = 'posted'")[0];
-    expect(posted.n).toBeGreaterThan(0);
+    expect(posted.n).toBeGreaterThanOrEqual(SOON.length);
     expect(posted.links).toBe(posted.n);
+    // Each hand-placed post that Buffer published reads back posted, with its link and time.
+    expect(sql<{ id: string; status: string; url: string | null }>("SELECT id, status, url FROM posts WHERE id IN ('e2e_p_tt','e2e_p_ig','e2e_p_yt') ORDER BY id")).toEqual(
+      SOON.map((g) => ({ id: g.post, status: "posted", url: expect.stringMatching(/^https:\/\/example\.invalid\/post\//) })).sort((a, b) => a.id.localeCompare(b.id)),
+    );
     const fail = sql<{ status: string; retries: number }>("SELECT status, retries FROM posts WHERE clip_id = 'e2e_fail'")[0];
     expect(fail).toEqual({ status: "in_buffer", retries: 1 }); // re-created once
   });
