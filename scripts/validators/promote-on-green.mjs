@@ -1,4 +1,14 @@
-// Production moves only from a sha the full e2e suite passed, and nobody has to be in the loop.
+// Production moves only through the production gate, and nobody has to be in the loop.
+//
+// SMALL CHANGES SHIP ON THE FAST CHECK (owner decision 2 Oct 2026, asked and answered). Until then
+// this validator pinned "production only from a sha the full e2e suite passed", and with the suite
+// on demand only a small change sat on staging waiting for a run nothing would start. The pin is
+// now the stricter pair: promote.yml still fires on e2e, still turns a red run away, still deploys
+// the proven sha — AND every path goes through scripts/production-gate.mjs (a green e2e on the
+// sha; or a reason, check.yml green on the sha, and a suite not known red), whose own table runs
+// here as items. What "large" means is defined once, in `land` (seq23/seq-bin): this repo points
+// at it and restates no threshold.
+//
 // Pins the shape of .github/workflows/e2e.yml, promote.yml and check.yml (CLAUDE.md "Deploy"):
 //   e2e.yml     runs on workflow_dispatch only — never on a timer or per merge
 //   promote.yml triggers only on workflow_run of `e2e` (completed, main) + workflow_dispatch; its job
@@ -9,6 +19,7 @@
 // Each rule is one item; a missing file is a failure, not zero items.
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { selfTest as gateSelfTest } from "../production-gate.mjs";
 
 /** Top-level trigger names of a workflow's `on:` block (block form, inline list or scalar). */
 export function triggers(yaml) {
@@ -47,6 +58,9 @@ export default async function ({ root }) {
   const dir = path.join(root, ".github", "workflows");
   const read = (f) => readFile(path.join(dir, f), "utf8").catch(() => null);
   const [e2e, promote, check] = await Promise.all([read("e2e.yml"), read("promote.yml"), read("check.yml")]);
+  const gate = await readFile(path.join(root, "scripts", "production-gate.mjs"), "utf8").catch(() => null);
+  // Comment lines say what the workflow means; only the lines that run can be what it does.
+  const steps = (yaml) => yaml.split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
   const problems = [];
   const rules = [];
   const rule = (ok, why) => { rules.push(ok); if (!ok) problems.push(why); };
@@ -75,7 +89,16 @@ export default async function ({ root }) {
     rule(/"environment":"production"/.test(promote) && /deployments:\s*write/.test(promote), "promote.yml must record a GitHub Deployment (environment production) with deployments: write, or land --promote cannot see what production runs");
     rule(/cancel-in-progress:\s*false/.test(promote), "promote.yml must not cancel a deploy in progress (two d1 migrations apply on one database)");
     rule(/secrets\.CLOUDFLARE_API_TOKEN\s*!=\s*''/.test(promote), "promote.yml must refuse by name when CLOUDFLARE_API_TOKEN is missing (a NAMED STOP, not a wrangler error)");
-    rule(/actions\/workflows\/e2e\.yml\/runs\?head_sha=/.test(promote), "promote.yml's workflow_dispatch must refuse a sha with no green e2e run");
+    // 2 Oct 2026. Was: "promote.yml's workflow_dispatch must refuse a sha with no green e2e run"
+    // (an inline read of e2e.yml's runs). That read now lives in the gate, pinned below beside the
+    // fast-check and known-red reads; here, the workflow must hand every path to it.
+    const run = steps(promote);
+    rule(/node scripts\/production-gate\.mjs/.test(run), "promote.yml does not run scripts/production-gate.mjs: a dispatch could deploy production with nothing checked");
+    rule(!/REFUSED: no successful e2e run/.test(run), "promote.yml carries its own inline e2e check: the rule lives in scripts/production-gate.mjs, once");
+    rule(/\n      sha:/.test(triggerBody(promote, "workflow_dispatch")), "promote.yml's dispatch takes no sha: the commit that was judged could not be named");
+    rule(/\n      reason:/.test(triggerBody(promote, "workflow_dispatch")), "promote.yml's dispatch takes no reason: a small change (land's verdict) could never ship from here, and production would wait on a suite nothing runs");
+    rule(/REASON: \$\{\{ github\.event\.inputs\.reason \}\}/.test(run), "promote.yml does not hand the dispatch reason to the gate (env REASON)");
+    rule(/git merge-base --is-ancestor "\$sha" origin\/main/.test(run), "promote.yml does not require the sha to be on main");
     rule(/healthz/.test(promote), "promote.yml runs no smoke check on production's /healthz");
   }
 
@@ -83,6 +106,22 @@ export default async function ({ root }) {
   else {
     const runs = check.split("\n").filter((l) => /^\s*-?\s*run:/.test(l));
     rule(!runs.some((l) => /playwright|npm run e2e|help:screenshots/.test(l)), "check.yml (the merge gate) runs the browser suite: that belongs in e2e.yml on demand");
+  }
+
+  if (gate == null) problems.push("scripts/production-gate.mjs is missing: nothing decides what may reach production");
+  else {
+    rule(/export function decide\(/.test(gate) && /KNOWN RED/.test(gate), "scripts/production-gate.mjs no longer carries the decision (decide) or the known-red rule");
+    rule(/actions\/workflows\/\$\{E2E_WF\}\/runs\?head_sha=/.test(gate), "scripts/production-gate.mjs does not check for a green e2e run on the sha");
+    rule(/actions\/workflows\/\$\{FAST_WF\}\/runs\?head_sha=/.test(gate) && /GATE_FAST_WF \|\| ["']check\.yml["']/.test(gate), "scripts/production-gate.mjs does not check the fast check (check.yml) on the sha");
+    rule(/seq23\/seq-bin/.test(gate), "scripts/production-gate.mjs no longer points at land (seq23/seq-bin) for what \"large\" means");
+    rule(!/LAND_LARGE_|changedFiles|additions \+ deletions/.test(gate), "scripts/production-gate.mjs restates land's size rule: one definition, in land");
+    // The gate's own table: every case is an item, every broken gate it must catch is an item.
+    const g = gateSelfTest();
+    if (g.cases === 0 || g.mutants === 0) problems.push("scripts/production-gate.mjs self-test examined nothing (Rule 0)");
+    for (let i = 0; i < g.cases - g.wrong.length; i++) rules.push(true);
+    for (const w of g.wrong) rule(false, `scripts/production-gate.mjs decides wrongly: ${w}`);
+    for (let i = 0; i < g.mutants - g.uncaught.length; i++) rules.push(true);
+    for (const u of g.uncaught) rule(false, `scripts/production-gate.mjs self-test would not catch a gate that ${u}`);
   }
 
   return { items: rules.length, problems };
