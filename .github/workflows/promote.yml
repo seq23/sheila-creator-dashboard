@@ -12,8 +12,18 @@
 # runs is skipped here, not deployed twice. `land --promote sheila-creator-dashboard [--run-e2e]`
 # remains the by-hand path.
 #
-# workflow_dispatch takes a sha (default main's head) and is REFUSED unless a green e2e run exists
-# on it — run `gh workflow run e2e.yml --ref main` first (or `land --promote … --run-e2e`).
+# WHAT MAY SHIP (owner decision 2 Oct 2026: a small change ships on the fast check; e2e gates
+# production only after a large change or when asked). The rule lives in
+# `scripts/production-gate.mjs`, which this workflow runs for EVERY path — it restates none of it:
+#   · workflow_run on `e2e` success: the sha that run passed. The path after a LARGE change —
+#     `land` dispatches the suite and its green fires this.
+#   · A SMALL change is deployed by `land <pr>` from the laptop on the fast check (same deploy
+#     script, same smoke, same GitHub Deployment record). workflow_dispatch here is that path
+#     without a laptop: a sha and a `reason` (land's small-change verdict) — the gate then
+#     requires `check.yml` green on exactly that sha and the suite not known red on main.
+#   · workflow_dispatch with a sha and no reason: REFUSED unless a completed `e2e` run on that
+#     exact sha concluded success (`gh workflow run e2e.yml --ref main` first).
+# "Large" is defined once, in the `large` block of `land` (seq23/seq-bin) — not here.
 #
 # Secrets: CLOUDFLARE_API_TOKEN (vault credential `cloudflare-claude-deploy`; Workers + D1 on
 # account 8d147e242033699dd37c6f5a451f48d2) and CLOUDFLARE_ACCOUNT_ID. A missing token is a NAMED
@@ -30,7 +40,11 @@ on:
   workflow_dispatch:
     inputs:
       sha:
-        description: "Commit to ship to production (default: main's head). Must have a green e2e run."
+        description: "Commit to ship to production (default: main's head)."
+        required: false
+        default: ""
+      reason:
+        description: "Why it may ship without a green e2e run on it: land's small-change verdict. Empty = a green e2e run on the sha is required."
         required: false
         default: ""
 
@@ -53,7 +67,7 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
-      actions: read # reads e2e runs for the dispatch check
+      actions: read # the gate reads e2e and check runs
       deployments: write # the production record `land --promote` reads
 
     steps:
@@ -71,24 +85,19 @@ jobs:
         with:
           fetch-depth: 0 # the dispatch path resolves a sha and lists runs on it
 
-      - name: Pick the sha (the one the e2e run proved; a dispatch must name one with a green run)
+      - name: Pick the sha and pass the production gate (every path)
         id: pick
         env:
           GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
           RUN_SHA: ${{ github.event.workflow_run.head_sha }}
           INPUT_SHA: ${{ github.event.inputs.sha }}
+          REASON: ${{ github.event.inputs.reason }}
         run: |
           set -euo pipefail
-          case "${{ github.event_name }}" in
-            workflow_run) sha="$RUN_SHA" ;;
-            workflow_dispatch)
-              sha="$(git rev-parse "${INPUT_SHA:-origin/main}")"
-              green="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/e2e.yml/runs?head_sha=$sha&status=success&per_page=1" --jq '.workflow_runs | length')"
-              if [ "$green" != 1 ]; then
-                echo "::error::REFUSED: no successful e2e run on $sha. Run it first: gh workflow run e2e.yml --ref main (or land --promote sheila-creator-dashboard --run-e2e)"
-                exit 1
-              fi ;;
-          esac
+          if [ "$EVENT" = workflow_run ]; then sha="$RUN_SHA"; else sha="$(git rev-parse "${INPUT_SHA:-origin/main}")"; fi
+          git merge-base --is-ancestor "$sha" origin/main || { echo "::error::$sha is not on main"; exit 1; }
+          SHA="$sha" node scripts/production-gate.mjs | tee -a "$GITHUB_STEP_SUMMARY"
           live="$(gh api "repos/${GITHUB_REPOSITORY}/deployments?environment=production&per_page=1" --jq '.[0].sha // empty')"
           if [ "$live" = "$sha" ]; then
             echo "production already runs $sha (GitHub deployment record); nothing to promote" | tee -a "$GITHUB_STEP_SUMMARY"
@@ -139,9 +148,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           SHA: ${{ steps.pick.outputs.sha }}
-          NOTE: ${{ github.event_name == 'workflow_dispatch' && 'promote.yml workflow_dispatch (green e2e checked)' || 'promote.yml on green e2e' }}
+          GATE: ${{ steps.pick.outputs.note }}
         run: |
           set -euo pipefail
+          # The gate's own sentence is the note (which path let this sha through). The gate emits it
+          # as one line of plain ASCII with no quotes or backslashes, so it is safe inside the JSON
+          # below; cut here to stay inside GitHub's 140-character description.
+          NOTE="promote.yml: ${GATE:0:110}"
           id="$(printf '{"ref":"%s","environment":"production","auto_merge":false,"required_contexts":[],"description":"%s from %s","production_environment":true}' "$SHA" "$NOTE" "${SHA:0:7}" \
                  | gh api -X POST "repos/${GITHUB_REPOSITORY}/deployments" --input - --jq .id)"
           printf '{"state":"success","environment":"production","description":"%s","environment_url":"https://sheilastudio.seq-taylor.workers.dev"}' "$NOTE" \
