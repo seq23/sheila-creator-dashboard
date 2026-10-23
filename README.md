@@ -1,3 +1,5 @@
+> **MOVED, 23 Oct 2026.** This studio now ships from [seq23/creator-studios](https://github.com/seq23/creator-studios) (registry entry `studios/sheila.json`), on the owner's decision "One codebase". Same Worker, D1, R2 and data. Every workflow here is disabled; never deploy from this repo, it would overwrite the live studio with old code.
+
 # Sheila Creator Dashboard
 
 Sheila dumps footage; the dashboard cuts it into vertical clips, she approves them, they post
