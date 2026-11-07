@@ -1,16 +1,11 @@
-// Checklist 7: Calendar + a REAL post through Buffer to the owner's throwaway channels
-// (TikTok @iamcindymercer, Instagram seq23, YouTube "Sequoia Taylor"; she named every channel on
-// that Buffer account a test channel, 25 Sep 2026). Only the synthetic "TEST POST" clip is ever
-// posted (item 5c); another creator's footage is held off the calendar by the watermark check.
-//
-//   7a  approve the TEST clips, Fill the calendar (caps respected), move one, take one off, and
-//       put the TEST clip on all three channels a few minutes after the next hourly run
-//   7b  the hourly lane loads it into Buffer (SCHEDULED) and Buffer publishes it: post.status
-//       "sent" with an externalLink, read back from Buffer's API
-//   7c  the next hourly run reads it back: the dashboard shows it Posted with the link
+// Checklist 7: the Calendar on staging: approve the synthetic "TEST POST" clips (item 5c), Fill
+// the calendar (caps respected, nothing from a held video), move one, take one off. Nothing is
+// posted: the Phase 0 real posts to the owner's test channels finished 7 Nov 2026 and those
+// channels are gone; the hourly lane's Buffer load and read-back are proven by the unit suite
+// on the Buffer fake.
 import { readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
-import { d1, evidence, shot, vaultSecret, waitForRow } from "./helpers";
+import { d1, evidence, shot } from "./helpers";
 
 const TEST_CAPTION = "TEST POST · Phase 0 live test of Sheila Studio. Please ignore.";
 const TZ = "America/New_York";
@@ -20,13 +15,6 @@ function ev(): Record<string, Record<string, unknown>> {
   return JSON.parse(readFileSync("docs/design/live/evidence.json", "utf8"));
 }
 const synthDump = () => String(process.env.LIVE_TEST_DUMP_ID ?? ev()["5c-dump-synthetic"]?.dump_id ?? "");
-
-async function buffer<T>(query: string, variables: Record<string, unknown> = {}): Promise<T> {
-  const res = await fetch("https://api.buffer.com/", { method: "POST", headers: { Authorization: `Bearer ${vaultSecret("buffer-access-token")}`, "Content-Type": "application/json" }, body: JSON.stringify({ query, variables }) });
-  const body = (await res.json()) as { data?: T; errors?: { message: string }[] };
-  if (!res.ok || body.errors?.length) throw new Error(`Buffer: ${res.status} ${body.errors?.[0]?.message ?? ""}`);
-  return body.data as T;
-}
 
 /** "YYYY-MM-DD" and "HH:MM" in the audience time zone. */
 function local(d: Date): { day: string; time: string } {
@@ -61,7 +49,7 @@ async function openPost(page: Page, postId: string) {
 
 test.describe.configure({ mode: "serial" });
 
-test("7a · approve the TEST clip, Fill (caps respected), move one, take one off, set the TEST post minutes out", async ({ page }) => {
+test("7 · approve the TEST clips, Fill (caps respected), move one, take one off", async ({ page }) => {
   test.setTimeout(10 * 60_000);
   const dump = synthDump();
   expect(dump, "run 05-dump with the synthetic TEST clip first (LIVE_DUMP_LABEL=5c-dump-synthetic)").not.toBe("");
@@ -125,77 +113,7 @@ test("7a · approve the TEST clip, Fill (caps respected), move one, take one off
   }
   const offShot = await shot(page, "07-calendar-taken-off");
 
-  // The TEST post: ten minutes after the next hourly run, so that run loads it into Buffer.
-  const nextHour = new Date(Math.ceil(Date.now() / 3600_000) * 3600_000);
-  const at = new Date(nextHour.getTime() + 10 * 60_000);
-  const { day, time } = local(at);
-  // The screen moves a post by day and adds a pool clip at a chosen time; the TEST clip is not in
-  // the pool while its other posts are planned, so the exact minute goes through the same routes
-  // the screen uses (PATCH a planned post, POST a new one), as setup.
-  for (const platform of ["tiktok", "instagram", "youtube"]) {
-    const p = testPosts.find((x) => x.platform === platform && x.status === "planned" && x.id !== tt?.id);
-    const r = p
-      ? await page.request.patch(`/api/posts/${p.id}`, { data: { scheduled_at: at.toISOString() } })
-      : await page.request.post("/api/posts", { data: { clip_id: testClip, platform, scheduled_at: at.toISOString() } });
-    expect(r.ok(), `${platform}: ${await r.text()}`).toBe(true);
-  }
-  void day;
-  void time;
-  const mine = d1<{ id: string; platform: string; scheduled_at: string; status: string }>(`SELECT id, platform, scheduled_at, status FROM posts WHERE clip_id = '${testClip}' AND status IN ('planned','in_buffer')`);
-  expect(mine.map((p) => p.platform).sort()).toEqual(["instagram", "tiktok", "youtube"]);
-  for (const p of mine) expect(p.scheduled_at).toBe(at.toISOString());
-  evidence("7-calendar", { test_clip: testClip, test_posts: mine.map((p) => p.id), post_at_utc: at.toISOString(), filled_posts: planned.length, per_week: Object.fromEntries(perWeek), moved_post: moved, taken_off_post: tt?.id ?? null, fill_screenshot: fillShot, taken_off_screenshot: offShot });
-});
-
-test("7b · the hourly lane loads the TEST post into Buffer and Buffer publishes it", async () => {
-  test.setTimeout(80 * 60_000);
-  const e = ev()["7-calendar"]!;
-  const ids = e.test_posts as string[];
-  // Loaded by the hourly run before `due` (bounded: the run at due-10 min, plus 10 min slack).
-  const rows = await waitForRow<{ id: string; platform: string; status: string; buffer_post_id: string | null; error: string | null }>(
-    `SELECT id, platform, status, buffer_post_id, error FROM posts WHERE id IN ('${ids.join("','")}')`,
-    (r) => r.every((p) => p.status !== "planned"),
-    // the next hourly run that loads it (a post Buffer refused is re-created by the next run)
-    Math.ceil(Date.now() / 3600_000) * 3600_000 - Date.now() + 10 * 60_000,
-    30_000,
-  );
-  const results: Record<string, unknown> = {};
-  for (const p of rows) {
-    if (!p.buffer_post_id) {
-      results[p.platform] = { status: p.status, error: p.error };
-      continue;
-    }
-    // Buffer publishes at `due`; allow 20 minutes for the platform to accept it.
-    const deadline = Date.now() + 30 * 60_000;
-    let last: { status: string; externalLink: string | null; error: unknown } | null = null;
-    while (Date.now() < deadline) {
-      const d = await buffer<{ post: { status: string; externalLink: string | null; error: unknown } | null }>(
-        "query($id: PostId!) { post(input: { id: $id }) { status externalLink error { message } } }",
-        { id: p.buffer_post_id },
-      );
-      last = d.post;
-      if (last && ["sent", "error"].includes(last.status.toLowerCase())) break;
-      await new Promise((r) => setTimeout(r, 60_000));
-    }
-    results[p.platform] = { buffer_post_id: p.buffer_post_id, status: last?.status ?? null, externalLink: last?.externalLink ?? null, error: last?.error ? JSON.stringify(last.error).slice(0, 300) : null };
-  }
-  evidence("7-calendar", { buffer_readback: results });
-  for (const [platform, r] of Object.entries(results) as [string, { status: string | null }][]) expect(r.status?.toLowerCase(), `${platform}: ${JSON.stringify(r)}`).toBe("sent");
-});
-
-test("7c · the next hourly run reads it back: Posted with the link on the Calendar", async ({ page }) => {
-  test.setTimeout(80 * 60_000);
-  const e = ev()["7-calendar"]!;
-  const ids = e.test_posts as string[];
-  const nextRun = Math.ceil(Date.now() / 3600_000) * 3600_000;
-  const rows = await waitForRow<{ platform: string; status: string; url: string | null; error: string | null }>(
-    `SELECT platform, status, url, error FROM posts WHERE id IN ('${ids.join("','")}')`,
-    (r) => r.every((p) => p.status === "posted" || p.status === "failed"),
-    nextRun - Date.now() + 10 * 60_000,
-    30_000,
-  );
-  for (const r of rows) expect(r, JSON.stringify(r)).toMatchObject({ status: "posted", url: expect.stringMatching(/^https:\/\//) });
-  await page.goto("/calendar");
-  await expect(page.locator(".cal-post.posted").first()).toBeVisible();
-  evidence("7-calendar", { dashboard_posted: rows, posted_screenshot: await shot(page, "07-calendar-posted") });
+  const offRows = tt ? d1<{ status: string }>(`SELECT status FROM posts WHERE id = '${tt.id}'`) : [];
+  if (tt) expect(offRows[0]?.status, "taken off the calendar").toBe("unscheduled");
+  evidence("7-calendar", { test_clip: testClip, filled_posts: planned.length, per_week: Object.fromEntries(perWeek), moved_post: moved, taken_off_post: tt?.id ?? null, fill_screenshot: fillShot, taken_off_screenshot: offShot });
 });

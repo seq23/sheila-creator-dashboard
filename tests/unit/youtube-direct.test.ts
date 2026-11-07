@@ -292,7 +292,7 @@ describe("the failure shapes: named, lit, never silent", () => {
   });
 
   it("a sign-in from before force-ssl (upload + readonly) → red, Reconnect YouTube once, never a silent 403", async () => {
-    await saveConnection(env, "youtube", JSON.stringify({ access_token: "a", refresh_token: "r", expires_at: new Date(Date.now() + H).toISOString(), account_id: "UCx" }), "ok", { account: "Sequoia Taylor", scopes: ["https://www.googleapis.com/auth/youtube.upload", "https://www.googleapis.com/auth/youtube.readonly"] });
+    await saveConnection(env, "youtube", JSON.stringify({ access_token: "a", refresh_token: "r", expires_at: new Date(Date.now() + H).toISOString(), account_id: "UCx" }), "ok", { account: "Dana Example", scopes: ["https://www.googleapis.com/auth/youtube.upload", "https://www.googleapis.com/auth/youtube.readonly"] });
     seedVideo("public", 2);
     expect((await youtubeDirectSync(env)).dispatched).toBe(0);
     expect(one<{ status: string; last_error: string }>("SELECT status, last_error FROM connections WHERE service = 'youtube'")).toEqual({ status: "error", last_error: expect.stringMatching(/^Reconnect YouTube once so the dashboard can also move and hide/) });

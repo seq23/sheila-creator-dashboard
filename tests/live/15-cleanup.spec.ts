@@ -1,7 +1,7 @@
 // Checklist 15: put staging back to a sane state through the app's own paths. Connections and
-// settings stay (Buffer throwaway connected, OpenRouter, YouTube stats); the posted TEST posts
-// stay on the throwaway channels. Everything the run planned comes off the calendar (and out of
-// Buffer), the test clips are deleted, the test brand docs and voice overs removed.
+// settings stay (Buffer, OpenRouter, YouTube stats). Everything the run planned comes off the
+// calendar (and out of Buffer), the test clips are deleted, the test brand docs and voice overs
+// removed, and a re-check leaves every connected channel's light green with no email.
 // There is no "delete a dump" in the app: a dump with every clip deleted stays in the Dump list
 // as history, and the daily lane removes its raw video after 7 days.
 import { readFileSync } from "node:fs";
@@ -62,18 +62,22 @@ test("15 · take the run's posts off, delete its clips, docs and voice overs", a
     expect(r.ok(), `${dl.name}: ${await r.text()}`).toBe(true);
   }
 
-  // 6. A post removed on the platform (the owner deleted the Instagram and TikTok TEST posts):
-  //    Buffer still reports it sent, the dashboard never re-reads a posted post, so no red light,
-  //    no "needs you" / posting-problem email and no re-post. Re-check everything to prove it.
+  // 6. Re-check everything: Buffer and the light of every channel the client connected (read
+  //    from Buffer at runtime) stay green, no "needs you" / posting-problem email, nothing left
+  //    planned. No channel connected is a NAMED STOP (BUFFER_NO_CHANNELS), never a pass.
   const since = new Date().toISOString();
   expect((await page.request.post("/api/settings/health/recheck")).ok()).toBe(true);
-  const lights = d1<{ name: string; light: string }>("SELECT name, light FROM health WHERE name IN ('Buffer','TikTok (via Buffer)','Instagram (via Buffer)','YouTube (via Buffer)')");
+  const [buf] = d1<{ meta: string }>("SELECT meta FROM connections WHERE service = 'buffer' AND status = 'ok'");
+  const connected = buf ? (JSON.parse(buf.meta) as { channels: { platform: string }[] }).channels.map((c) => c.platform) : [];
+  expect(connected.length, "NAMED STOP BUFFER_NO_CHANNELS: Buffer has no connected channel; the client connects TikTok, Instagram or YouTube in Buffer").toBeGreaterThan(0);
+  const LIGHT: Record<string, string> = { tiktok: "TikTok (via Buffer)", instagram: "Instagram (via Buffer)", youtube: "YouTube (via Buffer)" };
+  const want = ["Buffer", ...connected.map((p) => LIGHT[p]!)];
+  const lights = d1<{ name: string; light: string }>(`SELECT name, light FROM health WHERE name IN ('${want.join("','")}')`);
+  expect(lights.map((l) => l.name).sort(), "a light for Buffer and each connected channel").toEqual([...want].sort());
   expect(lights.every((l) => l.light === "green"), JSON.stringify(lights)).toBe(true);
-  const posted = d1<{ platform: string; status: string }>("SELECT platform, status FROM posts WHERE url IN ('https://tiktok.com/@iamcindymercer/video/7689660837077847309','https://www.instagram.com/reel/DdvCgMMFRhk/','https://www.youtube.com/shorts/lFDhkdWMj0w')");
-  expect(posted.every((p) => p.status === "posted")).toBe(true);
   expect(d1<{ n: number }>(`SELECT COUNT(*) AS n FROM emails_sent WHERE kind IN ('posting_problem','connection_needs_you') AND sent_at >= '${since}'`)[0]!.n).toBe(0);
   expect(d1<{ n: number }>("SELECT COUNT(*) AS n FROM posts WHERE status IN ('planned','in_buffer')")[0]!.n).toBe(0);
 
   const left = d1<{ service: string; status: string }>("SELECT service, status FROM connections WHERE status = 'ok'");
-  evidence("15-cleanup", { posts_taken_off: active.length, buffer_posts_deleted: pulledFromBuffer.length, clips_deleted: clips.length, docs_removed: docs.length, narrations_deleted: narrations.length, deals_closed: deals.map((d) => d.name), deleted_on_platform_lights: lights, deleted_on_platform_posts: posted, connections_kept: left.map((c) => c.service) });
+  evidence("15-cleanup", { posts_taken_off: active.length, buffer_posts_deleted: pulledFromBuffer.length, clips_deleted: clips.length, docs_removed: docs.length, narrations_deleted: narrations.length, deals_closed: deals.map((d) => d.name), channel_lights: lights, connections_kept: left.map((c) => c.service) });
 });

@@ -15,7 +15,6 @@
     "green_screenshot": "docs/design/live/08-health-green.jpg"
   },
   "2-buffer": {
-    "screenshot": "docs/design/live/02-buffer-channels.jpg",
     "organization_id": "6a1331f15351f4a7ea38e3d5",
     "channels": 3,
     "last_ok_at": "2026-09-26T00:35:28.701Z",
@@ -122,12 +121,6 @@
   },
   "7-calendar": {
     "test_clip": "clp_xdqnofnmzh242tja",
-    "test_posts": [
-      "pst_ofx7bf19q6wj",
-      "pst_wqkkl5e0zqfc",
-      "pst_r5ke8awotmyf"
-    ],
-    "post_at_utc": "2026-09-26T02:10:00.000Z",
     "filled_posts": 15,
     "per_week": {
       "youtube 2026-09-21": 1,
@@ -141,48 +134,7 @@
     "taken_off_post": "pst_9gsnezrd5yin",
     "fill_screenshot": "docs/design/live/07-calendar-filled.jpg",
     "taken_off_screenshot": "docs/design/live/07-calendar-taken-off.jpg",
-    "at": "2026-09-26T04:01:32.665Z",
-    "buffer_readback": {
-      "youtube": {
-        "buffer_post_id": "6ab7357a84e8fc26af1e8026",
-        "status": "sent",
-        "externalLink": "https://www.youtube.com/watch?v=lFDhkdWMj0w",
-        "error": null
-      },
-      "tiktok": {
-        "buffer_post_id": "6ab7276fb097c5b401a97c03",
-        "status": "sent",
-        "externalLink": "https://tiktok.com/@iamcindymercer/video/7689660837077847309",
-        "error": null
-      },
-      "instagram": {
-        "buffer_post_id": "6ab7357cdffba3cec6ec9603",
-        "status": "sent",
-        "externalLink": "https://www.instagram.com/reel/DdvCgMMFRhk/",
-        "error": null
-      }
-    },
-    "dashboard_posted": [
-      {
-        "platform": "youtube",
-        "status": "posted",
-        "url": "https://www.youtube.com/shorts/lFDhkdWMj0w",
-        "error": null
-      },
-      {
-        "platform": "tiktok",
-        "status": "posted",
-        "url": "https://tiktok.com/@iamcindymercer/video/7689660837077847309",
-        "error": null
-      },
-      {
-        "platform": "instagram",
-        "status": "posted",
-        "url": "https://www.instagram.com/reel/DdvCgMMFRhk/",
-        "error": null
-      }
-    ],
-    "posted_screenshot": "docs/design/live/07-calendar-posted.jpg"
+    "at": "2026-09-26T04:01:32.665Z"
   },
   "9-stats": {
     "youtube_job": "job_3oyrlrqpauh6",
@@ -248,8 +200,6 @@
     "public_url_path": "/kit/sheila",
     "qr": true,
     "pdf_pages": 1,
-    "edit_screenshot": "docs/design/live/11-kit-editor.jpg",
-    "public_screenshot": "docs/design/live/11-kit-public.jpg",
     "at": "2026-09-26T05:18:07.256Z"
   },
   "16-looks": {
@@ -379,7 +329,17 @@
       "Tableau on King",
       "Phase0 Test Candles (TEST)"
     ],
-    "deleted_on_platform_lights": [
+    "connections_kept": [
+      "buffer",
+      "openrouter",
+      "elevenlabs",
+      "google",
+      "hunter",
+      "firecrawl",
+      "tiktok"
+    ],
+    "at": "2026-09-26T05:55:52.662Z",
+    "channel_lights": [
       {
         "name": "Buffer",
         "light": "green"
@@ -396,30 +356,6 @@
         "name": "YouTube (via Buffer)",
         "light": "green"
       }
-    ],
-    "deleted_on_platform_posts": [
-      {
-        "platform": "youtube",
-        "status": "posted"
-      },
-      {
-        "platform": "instagram",
-        "status": "posted"
-      },
-      {
-        "platform": "tiktok",
-        "status": "posted"
-      }
-    ],
-    "connections_kept": [
-      "buffer",
-      "openrouter",
-      "elevenlabs",
-      "google",
-      "hunter",
-      "firecrawl",
-      "tiktok"
-    ],
-    "at": "2026-09-26T05:55:52.662Z"
+    ]
   }
 }

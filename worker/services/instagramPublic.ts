@@ -7,7 +7,7 @@
 // Either can be login-walled or refused from Cloudflare's addresses; the caller measures which
 // answered and falls back to the numbers she types on Stats. Never a blank panel.
 //
-// MEASURED on staging 25 Sep 2026 (the Worker, handle seq23): the profile JSON answers 401 and
+// MEASURED on staging 25 Sep 2026 (the Worker, a test handle): the profile JSON answers 401 and
 // the profile page answers 302 → accounts/login, so from Cloudflare the active path is the
 // form ("manual"). The public read stays: it is one request a day and switches itself on if
 // Instagram ever answers.

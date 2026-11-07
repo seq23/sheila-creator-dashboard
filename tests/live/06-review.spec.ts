@@ -1,7 +1,7 @@
 // Checklist 6: Review on the clips the live cut made (item 5's dump). Approve some, reject one
 // with a reason, edit a caption, swap the hook, untick a platform, and a paid partnership adds
-// #ad exactly once however many times it is saved. The captions say TEST: these clips are
-// posted for real to the owner's throwaway channels in item 7.
+// #ad exactly once however many times it is saved. The captions say TEST: these clips go on the
+// Calendar in item 7 (never posted).
 import { readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 import { d1, evidence, shot } from "./helpers";

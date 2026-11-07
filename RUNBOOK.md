@@ -477,10 +477,10 @@ checklist to repeat there.
 
 | # | Step in the staging app | Proven by |
 | --- | --- | --- |
-| 1 | Log in with `sequoia@westpeek.ventures` and the emailed code (or `node scripts/staging-login-code.mjs --request`) | `emails_sent` row `login_code` with a `provider_id`; health `Email (Resend)` green "Ready to send" |
-| 2 | Connect → Buffer: paste the throwaway Buffer account's key; add TikTok, Instagram, YouTube channels in Buffer | health `Buffer` green and one green `<Platform> (via Buffer)` light per channel |
+| 1 | Log in with the owner email and the emailed code (or `node scripts/staging-login-code.mjs --request`) | `emails_sent` row `login_code` with a `provider_id`; health `Email (Resend)` green "Ready to send" |
+| 2 | Connect → Buffer: paste the Buffer key; add TikTok, Instagram, YouTube channels in Buffer | health `Buffer` green and one green `<Platform> (via Buffer)` light per channel |
 | 3 | Dump a neutral test clip from the phone | `jobs` row `type='cut'` `status='done'`; health `Clip cutting` green; clips appear in Review |
-| 4 | Approve one clip, put it on the Calendar for the next hour: a real Buffer post | `posts.status='posted'` with a `url`; the post is on the throwaway accounts (then delete it there) |
+| 4 | Approve one clip, put it on the Calendar for the next hour: a real Buffer post | `posts.status='posted'` with a `url`; the post is on the connected channel |
 | 5 | Client Brain: upload a real scanned PDF | `jobs` row `type='extract'` `status='done'`; the draft profile shows the PDF's text (OCR) |
 | 6 | Stats → Update numbers (no sign-in); type the Instagram numbers in "Your Instagram numbers". Optional extra: the Google / Instagram sign-ins | `settings.youtube_public.state='ok'`, `account_stats` youtube `source='api'`; instagram `source='manual'`; health `YouTube stats` / `Instagram stats` green |
 | 7 | Stats → upload the TikTok Studio export as downloaded (the zip) | `platform_videos` rows `platform='tiktok'` `source='import'` with post times; health `TikTok stats` green |
@@ -504,7 +504,7 @@ show a warning until the app is approved; nothing is gated behind them. Code:
 | Platform | Active path | Why |
 | --- | --- | --- |
 | YouTube | Public numbers with `YOUTUBE_API_KEY` (Data API v3: channels, playlistItems, videos; 3 to 5 quota units a run) | Public data needs no sign-in. Channel = Buffer's YouTube `serviceId` (the UC… id), or what she types on Stats ("Your YouTube channel"). Staging read `UC7O1lQikHSc77s7gNnj9htQ` (Sequoia Taylor): 1 subscriber, 0 views, 0 videos. |
-| Instagram | **The form** ("Your Instagram numbers" on Stats: followers + average reach or views, 3-step guide, "Remind me monthly") | From the Worker, the keyless profile JSON answers 401 and the profile page 302 → login (handle seq23). The public read still runs at most once a day and switches itself on if Instagram ever answers. |
+| Instagram | **The form** ("Your Instagram numbers" on Stats: followers + average reach or views, 3-step guide, "Remind me monthly") | From the Worker, the keyless profile JSON answers 401 and the profile page 302 → login (a test handle). The public read still runs at most once a day and switches itself on if Instagram ever answers. |
 | TikTok | The TikTok Studio export upload | Unchanged; the zip TikTok hands her is read (below). |
 
 The active path is stored in D1 settings (`youtube_public.state`, `instagram_public.path` =
