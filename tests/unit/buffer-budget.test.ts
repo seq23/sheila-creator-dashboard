@@ -3,7 +3,7 @@
 // (4 key/channel checks, each: account + channels + one queue read per channel), so it
 // leaves room for anything else on the account. This runs the real hourly lane 24 times
 // against the real client over a stubbed network and counts the HTTP requests that leave.
-// Found in the Phase 0 live test (25 Sep 2026): the throwaway account stood at 2,607 / 3,000.
+// Found in the Phase 0 live test (25 Sep 2026): the test account stood at 2,607 / 3,000.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { bufferSync } from "@worker/crons/buffer-sync";
 import { saveConnection } from "@worker/lib/connections";

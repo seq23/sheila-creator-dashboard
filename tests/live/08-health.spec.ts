@@ -1,6 +1,6 @@
 // Checklist 8: Health + emails on staging, for real.
 //
-// The break is a REAL revoked Buffer key: the owner regenerated the throwaway account's key on
+// The break is a REAL revoked Buffer key: the owner regenerated the Buffer key on
 // 25 Sep 2026, which revoked the one staging held. (The app's own Disconnect button is her
 // choice, so it is "off", never "bad", and rightly sends no email; a key Buffer refuses is the
 // failure that must email her.) Run `LIVE_HEALTH=break` while the stored key is dead, then

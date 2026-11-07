@@ -10,7 +10,7 @@ test("11 · edit → publish a version → public kit with QR → PDF", async ({
   await expect(page.locator(".kit-bar")).toBeVisible();
   await page.getByLabel("Name", { exact: true }).fill("Sheila Bruce (TEST kit)");
   await page.getByLabel("One line under your name").fill("Hosting and tablescapes that feel expensive, for less");
-  await page.getByLabel("TikTok handle").fill("iamcindymercer");
+  await page.getByLabel("TikTok handle").fill("examplecreator");
   await page.getByLabel("About you (a few sentences)").fill("TEST kit for the Phase 0 live run. Warm, practical hosting ideas for women who love to gather.");
   await page.getByLabel("About you (a few sentences)").blur();
   await expect(page.locator(".kit-bar")).toContainText(/Draft saved/, { timeout: 20_000 });

@@ -18,12 +18,11 @@ direct upload path exists.
 
 ## Facts we proved (do not re-derive)
 
-- **Uploads from this app are NOT locked to private.** Test on 26 Sep 2026, throwaway channel
-  "Sequoia Taylor": video `3bHoCHeBTgw` uploaded private with `publishAt` a week out read back
+- **Uploads from this app are NOT locked to private.** Test on 26 Sep 2026, a test channel
+  (since removed): a video uploaded private with `publishAt` a week out read back
   as `private` **with the publishAt kept**, `uploadStatus: uploaded`, no rejection reason. A
   second upload set to plain private stayed private. The "unaudited API project ⇒ private lock"
-  belief was wrong for this app; the owner's other channel (how-we-know, account
-  cryptoclearr@gmail.com) uploads through the same `videos.insert` API with 40+ videos
+  belief was wrong for this app; the owner's other channel (how-we-know) uploads through the same `videos.insert` API with 40+ videos
   scheduled and publishing, and has never been audited.
 - **Scopes in use:** `youtube.upload` (upload), `youtube.force-ssl` (move a scheduled video's
   publish time; set it private when taken off the Calendar), `youtube.readonly` (read back), and
