@@ -2,7 +2,7 @@
    Hallmark · pre-emit critique: P4 H5 E4 S5 R4 V4 · contrast: pass (46–50) · tokens: pass (58) · mobile: pass (36, 59, 61–69)
 
    Sheila Studio design tokens — the ONLY file in app/ allowed to hold raw colours, font names and
-   raw font sizes (scripts/validators/design-tokens.mjs enforces it; see docs/design/DESIGN.md).
+   raw font sizes (see docs/design/DESIGN.md).
    Source: the A Sheila Bruce Affair site (seq23/sheila-bruce, src/styles/global.css):
    cream / ivory ground, espresso ink, gold accent, rose script, Playfair Display headings,
    Montserrat body, Allura for the one script flourish. The wireframes' layouts stay; their

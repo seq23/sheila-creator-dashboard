@@ -207,9 +207,7 @@ service. Every clip is rendered in a **Look**, a named preset of the built-in ed
   card, grid gutters and cells from sampled pixels, and that every two Looks differ by difference
   hash (floor 0.02 of the bits in some frame). `--looks-only` runs just that; `--write-thumbs`
   refreshes the previews in `public/looks/` (needs an ffmpeg with libass and libwebp, e.g.
-  Homebrew `ffmpeg-full`). Validator `looks` (`npm run validate:looks`): every Look has a
-  description, a WebP preview, the mirror entry, unit coverage, and each grid a picture in the
-  `grid-looks` guide.
+  Homebrew `ffmpeg-full`). Every Look should have a description, a WebP preview, the mirror entry and unit coverage.
 
 ## Editors: CapCut hand-back and connected editors
 

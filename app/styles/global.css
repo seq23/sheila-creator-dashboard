@@ -1,7 +1,7 @@
 /* Hallmark · genre: editorial (warm) · macrostructure: Workbench · design-system: docs/design/DESIGN.md · designed-as-app
    The shared layer: shell, page furniture, cards, buttons, forms, small pieces. Every value comes
-   from tokens.css; scripts/validators/design-tokens.mjs refuses raw colours, font names, raw font
-   sizes and off-scale spacing anywhere in app/ except tokens.css. */
+   from tokens.css; keep raw colours, font names, raw font
+   sizes and off-scale spacing in tokens.css only. */
 @import "./tokens.css";
 
 *,

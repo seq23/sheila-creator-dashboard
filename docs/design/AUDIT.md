@@ -11,7 +11,6 @@ The locked system is `docs/design/DESIGN.md`.
 | Hallmark evidence pack | `~/repo-tools/active/run_hallmark_audit.sh <repo> --mode full --brand-preserve --base-url … --storage-state … --route ×15` (v1.3.0; bundle sha `5fd8800b…`). The script prepares evidence and **does not score**. Its read-only guard refuses a tree under edit, so "before" ran on a detached checkout of `17522fc` | `hallmark-before/`, `hallmark-after/` (report, findings stub, runtime context, 45/45 browser captures ok) |
 | Screenshots + layout metrics | `node docs/design/capture.mjs <before\|after>`: 19 screens × 390×844 and 1440×900, demo data only | `before/*.webp`, `after/*.webp`, `*/metrics.json` |
 | Gate score | `node docs/design/hallmark-gates.mjs <tree> <metrics.json>`: the 32 slop-test gates (plus four the brief adds) that can be decided from source and measurements | `gates-before.json`, `gates-after.json` |
-| Token discipline | `npm run validate` → `design-tokens` | `scripts/validators/design-tokens.mjs` |
 
 ## Headline
 
