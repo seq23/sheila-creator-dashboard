@@ -28,6 +28,7 @@ export const REGISTER = {
   "screens-registered": "every page file must be routed in App.tsx or it is unreachable",
   "seed-year-local-only": "the year of demo data must never reach staging or production and must be removable row by row",
   "steer-honored": "a chip or a note the cut job never reads is an instruction silently dropped (owner, 26 Sep 2026: on-demand control); every control must be read, mapped, honored and tested",
+  "stats-no-login": "the owner's rule (25 Sep 2026): Stats never needs a Google or Meta sign-in; TikTok's zip export was refused as Excel, and a sign-in-only path left the panel blank",
   "tidy-warns-first": "clearing storage must never delete her footage or anything unposted without a warning first, and tidy only archives (owner, 26 Sep 2026: day 358, storage)",
   "voice-engines": "a narration row without its engine, or an ElevenLabs call that drops a 401 / 402 / 429, shows her the wrong voice tag or a failure with no fallback",
   "web-research-optional": "the brand finder and the Research Brief must work with no web-research key (Firecrawl is an optional speed-up, owner 26 Sep 2026); a job or route that needs it goes silent without it",
